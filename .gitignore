@@ -1,0 +1,30 @@
+# --- Agent / tooling local state ---------------------------------------
+# .claude/skills is intentionally tracked: those are the Spec Kit commands
+# and are meant to be shared with anyone working in this repo.
+# Everything below can hold credentials, auth tokens, or per-machine state.
+.claude/settings.local.json
+.claude/.credentials.json
+.claude/todos/
+.claude/shell-snapshots/
+.claude/statsig/
+.claude/projects/
+
+# --- Environment / secrets ---------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- OS noise -----------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Editor -------------------------------------------------------------
+.vs/
+.idea/
+*.swp
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
