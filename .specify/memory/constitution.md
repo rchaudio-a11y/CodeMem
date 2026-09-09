@@ -116,13 +116,13 @@ registry_active_before, notes_orphaned, rename_candidates, unaccounted_observed 
 unaccounted_registry. The two residuals are computed independently of the logic they audit —
 unaccounted_observed = symbols_observed − (symbols_matched + symbols_new); unaccounted_registry =
 registry_active_before − (symbols_matched + symbols_retired) — and both are written even when
-zero. A run in which either residual is non-zero is a failed run and is not published (Article V).
-A run whose counts do not reconcile is reported as a failed run, not a partial one. Import and load
-surfaces report what was processed, not only what failed. Until a notes table exists,
-notes_orphaned is written as 0; it is a column, not a lookup.
+zero. A run in which either residual is non-zero is reported as a failed run, not a partial one,
+and is not published (Article V). Import and load surfaces report what was processed, not only
+what failed. Until a notes table exists, notes_orphaned is written as 0; it is a column, not a
+lookup.
 
-Rationale: An independently computed residual is what turns a silent partial write into a visible
-failure.
+Rationale: Two independently computed residuals, one per partition, are what turn a silent partial
+write into a visible failure.
 
 ### IX. One File, Many Solutions, One Writer
 
