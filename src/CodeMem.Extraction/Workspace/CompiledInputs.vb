@@ -1,8 +1,10 @@
 ' File: CompiledInputs.vb
 ' Project: CodeMem.Extraction
-' Description: THE enumeration of compiled inputs: documents outside obj/, project files, the solution file (FR-005, Article XII, research R3).
+' Description: THE enumeration of compiled inputs: documents outside obj/, project files, the solution file, the four well-known build files walked upward (FR-005, FR-107, Article XII, research R3, R28).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-09
+'
+' 2026-09-10 (fixpack 002, F4 cheap half): BuildFiles added and folded into Enumerate (research R28).
 
 Imports System.IO
 Imports Microsoft.CodeAnalysis
@@ -12,9 +14,11 @@ Imports Microsoft.CodeAnalysis
 ''' </summary>
 Public Module CompiledInputs
 
+    Private ReadOnly BuildFileNames As String() = New String() {"Directory.Build.props", "Directory.Build.targets", "Directory.Packages.props", "global.json"}
+
     ''' <summary>
-    ''' Enumerates every compiled source document not under a project's obj/ directory, every project file and the solution file,
-    ''' deduplicated by full path and sorted ordinally by relative path.
+    ''' Enumerates every compiled source document not under a project's obj/ directory, every project file, the solution file and the
+    ''' build files of <see cref="BuildFiles"/> (fixpack 002, FR-107), deduplicated by full path and sorted ordinally by relative path.
     ''' </summary>
     ''' <param name="solution">The loaded solution.</param>
     ''' <param name="basePath">The base directory for relative paths.</param>
@@ -49,7 +53,38 @@ Public Module CompiledInputs
                     .Text = Normalize(File.ReadAllText(solutionFull))})
             End If
         End If
+        For Each buildFile As String In BuildFiles(basePath)
+            Dim buildFull As String = Path.GetFullPath(buildFile)
+            If seen.Add(buildFull) Then
+                result.Add(New CompiledInput With {
+                    .FullPath = buildFull,
+                    .RelativePath = SolutionPaths.Relative(basePath, buildFull),
+                    .Text = Normalize(File.ReadAllText(buildFull))})   ' an unreadable build file throws: exit 1, never a silently shorter digest
+            End If
+        Next
         result.Sort(Function(a As CompiledInput, b As CompiledInput) SolutionPaths.Compare(a.RelativePath, b.RelativePath))
+        Return result
+    End Function
+
+    ''' <summary>
+    ''' The four well-known build files found in the base directory and in each ancestor up to the root of its path (FR-107; research R28):
+    ''' Directory.Build.props, Directory.Build.targets, Directory.Packages.props and global.json. The selection rule (FR-108) is exactly
+    ''' this: one of those four names, existing at one of those levels; files they import in turn are not inputs (F4 full, out of scope).
+    ''' The walk stops when <see cref="DirectoryInfo.Parent"/> is Nothing (drive root or the top of a UNC path). File lookup follows the
+    ''' file system's own case rules.
+    ''' </summary>
+    ''' <param name="basePath">The solution's base directory.</param>
+    ''' <returns>Full paths, nearest level first, in the fixed name order at each level.</returns>
+    Public Function BuildFiles(basePath As String) As List(Of String)
+        Dim result As List(Of String) = New List(Of String)()
+        Dim dir As DirectoryInfo = New DirectoryInfo(basePath)
+        While dir IsNot Nothing
+            For Each name As String In BuildFileNames
+                Dim candidate As String = Path.Combine(dir.FullName, name)
+                If File.Exists(candidate) Then result.Add(candidate)
+            Next
+            dir = dir.Parent
+        End While
         Return result
     End Function
 

@@ -3,6 +3,8 @@
 ' Description: An extract_runs row as read by the test queries.
 ' Author: RCH Automation LLC
 ' Created: 2026-09-09
+'
+' 2026-09-10 (fixpack 002): SdkVersion added (nullable; schema version 2).
 
 ''' <summary>
 ''' One <c>extract_runs</c> row for assertions.
@@ -38,6 +40,9 @@ Public Class RunRow
 
     ''' <summary>Schema version.</summary>
     Public Property SchemaVersion As Integer
+
+    ''' <summary>sdk_version, or Nothing when NULL (rows written at schema version 1).</summary>
+    Public Property SdkVersion As String
 
     ''' <summary>Started timestamp.</summary>
     Public Property StartedUtc As String

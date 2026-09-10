@@ -1,10 +1,12 @@
 ' File: MapDatabase.vb
 ' Project: CodeMem.Core
-' Description: Opens or creates the map file and owns the one write transaction that doubles as the extractor lock (research R6).
+' Description: Opens the map file through a typed connection string and owns the one write transaction that doubles as the extractor lock (research R6, R23, R24).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-09
+'
+' 2026-09-10 (fixpack 002): OpenOrCreate became Open (no schema work; SqliteConnectionStringBuilder, F5) plus InspectSchema (F6, FR-105).
+' Creation and the 1 -> 2 upgrade now happen in ExtractionRun inside BEGIN IMMEDIATE, so a race to create one path is serialized.
 
-Imports System.IO
 Imports Microsoft.Data.Sqlite
 
 ''' <summary>
@@ -21,32 +23,47 @@ Public Class MapDatabase
     End Sub
 
     ''' <summary>
-    ''' Opens the map at a path, creating the file, its schema and its identity row when absent; refuses a schema-version mismatch.
+    ''' Opens the file at a path (created 0 bytes when absent) with the path as a typed connection-string value, so a path holding ';' or '='
+    ''' opens exactly that file (FR-104). Sets PRAGMA foreign_keys = ON and PRAGMA journal_mode = DELETE (connection settings, not
+    ''' transactional). Does no schema work: call <see cref="BeginImmediate"/> then <see cref="InspectSchema"/>.
     ''' </summary>
     ''' <param name="path">The map file path; its directory must exist.</param>
     ''' <returns>The open database.</returns>
-    Public Shared Function OpenOrCreate(path As String) As MapDatabase
-        Dim fresh As Boolean = Not File.Exists(path)
-        Dim connection As SqliteConnection = New SqliteConnection("Data Source=" & path & ";Pooling=False")
+    Public Shared Function Open(path As String) As MapDatabase
+        Dim builder As SqliteConnectionStringBuilder = New SqliteConnectionStringBuilder With {.DataSource = path, .Pooling = False}
+        Dim connection As SqliteConnection = New SqliteConnection(builder.ConnectionString)
         connection.Open()
         Try
             Using pragma As SqliteCommand = connection.CreateCommand()
                 pragma.CommandText = "PRAGMA foreign_keys = ON"
                 pragma.ExecuteNonQuery()
             End Using
-            If fresh Then
-                SchemaRepository.CreateSchema(connection)
-                MapIdentityRepository.Insert(connection, Guid.NewGuid().ToString(), SchemaVersion.Current, Timestamps.NowUtc())
-            End If
-            Dim found As Integer = SchemaRepository.ReadSchemaVersion(connection)
-            If found <> SchemaVersion.Current Then
-                Throw New SchemaVersionMismatchException(found, SchemaVersion.Current)
-            End If
+            Using pragma As SqliteCommand = connection.CreateCommand()
+                pragma.CommandText = "PRAGMA journal_mode = DELETE"
+                pragma.ExecuteNonQuery()
+            End Using
         Catch
             connection.Dispose()
             Throw
         End Try
         Return New MapDatabase(connection)
+    End Function
+
+    ''' <summary>
+    ''' Classifies the file under the write lock (data-model.md "Map states at open"): no user table -> Fresh; no map_identity table or
+    ''' no row -> Foreign; schema_version 1 -> Version1; SchemaVersion.Current -> Current; anything else -> Newer. One method, one door
+    ''' (Article XII). A file that is not SQLite fails on the first query with SQLITE_NOTADB.
+    ''' </summary>
+    ''' <param name="version">Receives the stored schema version, or 0 when the file is Fresh or Foreign.</param>
+    ''' <returns>The state.</returns>
+    Public Function InspectSchema(ByRef version As Integer) As SchemaState
+        version = 0
+        If SchemaRepository.CountUserTables(Me) = 0 Then Return SchemaState.Fresh
+        If Not SchemaRepository.HasMapIdentityRow(Me) Then Return SchemaState.Foreign
+        version = SchemaRepository.ReadSchemaVersion(Me)
+        If version = 1 Then Return SchemaState.Version1
+        If version = SchemaVersion.Current Then Return SchemaState.Current
+        Return SchemaState.Newer
     End Function
 
     ''' <summary>

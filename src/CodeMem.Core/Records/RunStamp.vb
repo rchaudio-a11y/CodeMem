@@ -3,6 +3,8 @@
 ' Description: The provenance fields of an extract_runs row (constitution Article V).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-09
+'
+' 2026-09-10 (fixpack 002): SdkVersion added (schema version 2).
 
 ''' <summary>
 ''' The stamp every run carries: what was compiled, from which commit, by which extractor and schema.
@@ -32,6 +34,9 @@ Public Class RunStamp
 
     ''' <summary>Schema version written.</summary>
     Public Property SchemaVersion As Integer
+
+    ''' <summary>The resolved .NET SDK version for the solution directory (research R21), e.g. 10.0.401; never Nothing on a version-2 run (FR-109).</summary>
+    Public Property SdkVersion As String
 
     ''' <summary>ISO-8601 UTC start of the run.</summary>
     Public Property StartedUtc As String

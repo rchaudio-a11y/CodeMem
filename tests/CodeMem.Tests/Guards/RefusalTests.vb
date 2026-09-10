@@ -6,6 +6,9 @@
 '
 ' RED:   2026-09-09 not red: the exit-1 mappings landed with Slice A; recorded as the production-route proof of each refusal.
 ' GREEN: 2026-09-09 first run, 4 of 4.
+'
+' 2026-09-10 (fixpack 002, FR-114): the schema-mismatch fact stamps version 3 through SetSchemaVersion (99 also refuses; 3 documents "greater
+' than 2" now that Current is 2 and version 1 is upgraded rather than refused). Still exit 1, still one run row.
 
 Imports CodeMem.Extraction
 Imports Xunit
@@ -27,14 +30,14 @@ Public Class RefusalTests
     End Sub
 
     ''' <summary>
-    ''' (a) a map stamped with schema version 99 is refused with exit 1 and no new run row.
+    ''' (a) a map stamped with schema version 3 (greater than Current = 2) is refused with exit 1 and no new run row.
     ''' </summary>
     <Fact>
     Public Sub SchemaVersionMismatchIsRefused()
         Using map As TempMap = New TempMap()
             Dim options As ExtractionOptions = New ExtractionOptions With {.SolutionPath = _fixture.SolutionPath, .DbPath = map.Path}
             Assert.Equal(ExitCode.Success, ExtractionRun.Execute(options, Nothing))
-            MapQueries.SetSchemaVersion(map.Path, 99)
+            MapQueries.SetSchemaVersion(map.Path, 3)
             Assert.Equal(ExitCode.Failure, ExtractionRun.Execute(options, Nothing))
             Assert.Single(MapQueries.ReadRuns(map.Path))
         End Using

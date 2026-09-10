@@ -275,11 +275,16 @@ report; unset it and confirm the runner reports Skipped.
 - **FR-004**: The extractor MUST obtain a compilation for every project in the solution and, if any
   diagnostic of severity Error exists in any project, MUST print those diagnostics, exit with code 2, and
   write nothing — including no `extract_runs` row (Article V, I1).
-- **FR-005**: The extractor MUST enumerate the *compiled inputs* of a run exactly once — every compiled
-  source document, every project file of the solution, and the solution file — and MUST compute the
-  source digest as SHA-256 over each input's solution-relative path and text, ordered by path, with
-  line endings normalized (see Assumptions). The digest is the primary provenance of a run and MUST be
-  recorded on every run. The same enumeration feeds FR-006; there is one list, not two (Article XII).
+- **FR-005** (reworded 2026-09-10 by fixpack 002, FR-108): The extractor MUST enumerate the *compiled
+  inputs* of a run exactly once — every compiled source document, every project file of the solution,
+  the solution file, and (fixpack 002 FR-107) the four well-known build files found in the solution
+  directory and each of its ancestors — and MUST compute the source digest as SHA-256 over each input's
+  solution-relative path and text, ordered by path, with line endings normalized (see Assumptions).
+  The digest is **a digest over the selected compiled inputs**: provenance of the files the extractor
+  chose, not a fingerprint of the evaluated compilation (imported props/targets, analyzers and resolved
+  references are not inputs; see fixpack 002 Out of Scope). It MUST be recorded on every run. The
+  selection rule is this list plus `specs/002-stage-a-fixpack/spec.md` FR-107/FR-108. The same
+  enumeration feeds FR-006; there is one list, not two (Article XII).
 - **FR-006**: When the solution lies inside a git working tree, the extractor MUST record the HEAD commit
   sha and a dirty-tree flag obtained in-process (never by launching an external git process); otherwise
   both MUST be null. The flag MUST be true exactly when any compiled input (the FR-005 enumeration) is

@@ -3,6 +3,9 @@
 ' Description: The only SQL in the test project: named read (and one write) methods over a map file.
 ' Author: RCH Automation LLC
 ' Created: 2026-09-09
+'
+' 2026-09-10 (fixpack 002): Open uses SqliteConnectionStringBuilder (a ';' path, F05); ReadRuns selects sdk_version; ReadSchemaObjects,
+' CountUserTables and CreateForeignDatabase added (research R22, R23). CreateForeignDatabase is the only place a foreign table is made.
 
 Imports Microsoft.Data.Sqlite
 
@@ -22,7 +25,8 @@ Public Module MapQueries
     End Function
 
     Private Function Open(db As String) As SqliteConnection
-        Dim connection As SqliteConnection = New SqliteConnection("Data Source=" & db & ";Pooling=False")
+        Dim builder As SqliteConnectionStringBuilder = New SqliteConnectionStringBuilder With {.DataSource = db, .Pooling = False}
+        Dim connection As SqliteConnection = New SqliteConnection(builder.ConnectionString)
         connection.Open()
         Return connection
     End Function
@@ -170,7 +174,7 @@ Public Module MapQueries
         Using connection As SqliteConnection = Open(db)
             Using command As SqliteCommand = connection.CreateCommand()
                 command.CommandText = "SELECT id, solution_id, outcome, source_digest, commit_sha, is_dirty, build_configuration, target_framework, extractor_version, schema_version, started_utc, finished_utc, " &
-                    "symbols_observed, symbols_matched, symbols_reactivated, symbols_new, symbols_retired, registry_active_before, notes_orphaned, rename_candidates, unaccounted_observed, unaccounted_registry FROM extract_runs ORDER BY id"
+                    "symbols_observed, symbols_matched, symbols_reactivated, symbols_new, symbols_retired, registry_active_before, notes_orphaned, rename_candidates, unaccounted_observed, unaccounted_registry, sdk_version FROM extract_runs ORDER BY id"
                 Using reader As SqliteDataReader = command.ExecuteReader()
                     While reader.Read()
                         Dim dirty As Boolean? = Nothing
@@ -197,7 +201,8 @@ Public Module MapQueries
                             .NotesOrphaned = reader.GetInt32(18),
                             .RenameCandidates = reader.GetInt32(19),
                             .UnaccountedObserved = reader.GetInt32(20),
-                            .UnaccountedRegistry = reader.GetInt32(21)})
+                            .UnaccountedRegistry = reader.GetInt32(21),
+                            .SdkVersion = NullableString(reader, 22)})
                     End While
                 End Using
             End Using
@@ -301,6 +306,54 @@ Public Module MapQueries
             Using command As SqliteCommand = connection.CreateCommand()
                 command.CommandText = "UPDATE map_identity SET schema_version = @n WHERE id = 1"
                 command.Parameters.AddWithValue("@n", n)
+                command.ExecuteNonQuery()
+            End Using
+        End Using
+    End Sub
+
+    ''' <summary>
+    ''' Every schema object as <c>type|name|tbl_name|sql</c> (NULL sql as <c>&lt;null&gt;</c>), ordered by (type, name); rootpage is
+    ''' excluded because allocation order differs (research R22). Two maps with equal lists have one shape.
+    ''' </summary>
+    ''' <param name="db">Map path.</param>
+    ''' <returns>The schema object lines.</returns>
+    Public Function ReadSchemaObjects(db As String) As List(Of String)
+        Dim lines As List(Of String) = New List(Of String)()
+        Using connection As SqliteConnection = Open(db)
+            Using command As SqliteCommand = connection.CreateCommand()
+                command.CommandText = "SELECT type, name, tbl_name, sql FROM sqlite_master ORDER BY type, name"
+                Using reader As SqliteDataReader = command.ExecuteReader()
+                    While reader.Read()
+                        lines.Add(Join(reader, 4))
+                    End While
+                End Using
+            End Using
+        End Using
+        Return lines
+    End Function
+
+    ''' <summary>
+    ''' The number of user tables (sqlite_master type = 'table', name not sqlite_%): the fresh-map detection count (research R23).
+    ''' </summary>
+    ''' <param name="db">Map path.</param>
+    ''' <returns>The count; 0 for an empty or absent file.</returns>
+    Public Function CountUserTables(db As String) As Long
+        Using connection As SqliteConnection = Open(db)
+            Using command As SqliteCommand = connection.CreateCommand()
+                command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
+                Return CLng(command.ExecuteScalar())
+            End Using
+        End Using
+    End Function
+
+    ''' <summary>
+    ''' Makes a fresh file a SQLite database that is not a map: one table <c>t (x)</c> and nothing else (FR-105 refusal fixture).
+    ''' </summary>
+    ''' <param name="db">The path; the file must not yet be a map.</param>
+    Public Sub CreateForeignDatabase(db As String)
+        Using connection As SqliteConnection = Open(db)
+            Using command As SqliteCommand = connection.CreateCommand()
+                command.CommandText = "CREATE TABLE t (x)"
                 command.ExecuteNonQuery()
             End Using
         End Using

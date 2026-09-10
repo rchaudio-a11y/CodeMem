@@ -1,11 +1,27 @@
--- CodeMem map schema, version 1.
--- Contract: this DDL is what CodeMem.Core creates in a fresh codemem.sqlite (FR-002).
--- Naming per constitution: snake_case, tables plural, pk id, fk <entity>_id, index ix_<table>_<cols>.
--- Article XII: the schema owns structural invariants (NOT NULL, FK, UNIQUE, CHECK); code does not restate them.
--- Article VI: nothing here cascades a delete into code_symbols.
+-- CodeMem map schema, version 2.
+-- Contract: a fresh codemem.sqlite is created by running the VERSION 1 section, inserting the identity row
+-- at schema_version 1, then running the MIGRATION 1 -> 2 section; a version-1 map is upgraded by running
+-- the MIGRATION 1 -> 2 section alone. Both paths execute the same statements, so sqlite_master
+-- (type, name, tbl_name, sql) is identical on every map (spec 002, Clarifications Q2; research R22).
+-- Naming per constitution: snake_case, tables plural, pk id, fk <entity>_id, index ix_<table>_<cols>,
+-- trigger tr_<table>_<purpose>.
+-- Article XII: the schema owns structural invariants; code lets them fire and surfaces the error.
+-- Article XIV: the migration adds; nothing here drops, rebuilds or deletes.
+-- The two PRAGMAs are connection settings executed at open, before BEGIN IMMEDIATE; they are documentation here.
 
 PRAGMA foreign_keys = ON;
 PRAGMA journal_mode = DELETE;
+
+-- ======================================================================================================
+-- VERSION 1 (byte-identical to the CREATE statements the Stage A extractor executed)
+-- ======================================================================================================
+-- SQLite stores each CREATE statement's text, inline comments included, in sqlite_master.sql. Every existing
+-- version-1 map holds Stage A's text, so the statements below (and SchemaRepository.CreateVersion1) must not
+-- change even in a comment, or a fresh map and an upgraded map would no longer have one shape (R22; found at
+-- implementation, 2026-09-10). Remarks this feature adds sit BETWEEN statements, where SQLite does not store them:
+--   extract_runs.source_digest: a digest over the SELECTED compiled inputs (FR-108), not a fingerprint of the
+--   evaluated compilation.
+--   code_symbols.kind: refreshed on an (A) match and an (A') reactivation (FR-101, FR-103).
 
 CREATE TABLE map_identity (
     id              INTEGER PRIMARY KEY CHECK (id = 1),
@@ -24,9 +40,6 @@ CREATE TABLE solutions (
     first_run_id    INTEGER NULL REFERENCES extract_runs(id)   -- set by the first completed publication
 );
 
--- source_digest: always present; a digest over the SELECTED compiled inputs (FR-005 as reworded by fixpack 002 FR-108),
--- not a fingerprint of the evaluated compilation. The inline comment below is part of the stored CREATE text on every
--- existing map and is therefore frozen as written.
 CREATE TABLE extract_runs (
     id                      INTEGER PRIMARY KEY AUTOINCREMENT,
     solution_id             INTEGER NOT NULL REFERENCES solutions(id),
@@ -135,3 +148,30 @@ CREATE TABLE rename_candidates (
 );
 CREATE INDEX ix_rename_candidates_new_symbol_id ON rename_candidates(new_symbol_id);
 CREATE INDEX ix_rename_candidates_retired_symbol_id ON rename_candidates(retired_symbol_id);
+
+-- (a fresh map inserts its identity row here, at schema_version 1, then continues below)
+
+-- ======================================================================================================
+-- MIGRATION 1 -> 2 (inside the extractor's BEGIN IMMEDIATE; applied to fresh maps and to version-1 maps)
+-- ======================================================================================================
+
+-- The .NET SDK version the host resolver selected for the solution directory (research R21).
+-- NULL exactly on rows written at schema_version 1, before the column existed (Article X).
+ALTER TABLE extract_runs ADD COLUMN sdk_version TEXT NULL;
+
+-- The obligation on new rows is owned by the schema, keyed on the row's own schema_version (Article XII).
+CREATE TRIGGER tr_extract_runs_sdk_version_insert
+BEFORE INSERT ON extract_runs
+WHEN NEW.schema_version >= 2 AND NEW.sdk_version IS NULL
+BEGIN
+    SELECT RAISE(ABORT, 'sdk_version is required for schema_version >= 2');
+END;
+
+CREATE TRIGGER tr_extract_runs_sdk_version_update
+BEFORE UPDATE OF sdk_version, schema_version ON extract_runs
+WHEN NEW.schema_version >= 2 AND NEW.sdk_version IS NULL
+BEGIN
+    SELECT RAISE(ABORT, 'sdk_version is required for schema_version >= 2');
+END;
+
+UPDATE map_identity SET schema_version = 2 WHERE id = 1;

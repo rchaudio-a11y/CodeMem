@@ -90,7 +90,8 @@ The database distinguishes durable symbol registry rows from replaceable observa
 ### F1 - High: Compilation-scoped symbol IDs are treated as solution-wide IDs
 
 **Status:** Confirmed by implementation inspection  
-**Affected area:** Symbol identity, edge resolution, schema
+**Affected area:** Symbol identity, edge resolution, schema  
+**Known limit (2026-09-10):** out of scope for fixpack 002 (`specs/002-stage-a-fixpack/spec.md`, Out of Scope); stays open.
 
 `ISymbol.GetDocumentationCommentId()` identifies a symbol within a compilation, not uniquely across every project in a solution. CodeMem stages every project's IDs into one solution-wide set in [ExtractionRun.vb](src/CodeMem.Extraction/Run/ExtractionRun.vb#L122-L152). Namespace duplicates are deliberately merged first; the uniform guard in [Reconciler.vb](src/CodeMem.Core/Reconciliation/Reconciler.vb#L19-L30) rejects any duplicates that remain. The schema then enforces one active `(solution_id, doc_comment_id)` row in [SchemaRepository.vb](src/CodeMem.Core/Schema/SchemaRepository.vb#L67-L94).
 
@@ -130,7 +131,8 @@ Both arrive through `Microsoft.CodeAnalysis.Workspaces.MSBuild` 4.14.0, declared
 ### F4 - High: The run digest does not identify the effective compilation
 
 **Status:** Confirmed design limitation  
-**Affected area:** Provenance and determinism
+**Affected area:** Provenance and determinism  
+**Known limit (2026-09-10):** fixpack 002 delivered the cheap half only (the four well-known build files walked upward, FR-107, and the `sdk_version` stamp, FR-109) and reworded FR-005 (FR-108); the full evaluated manifest (imported props/targets, analyzers, reference identities) is out of scope there and stays open.
 
 [CompiledInputs.vb](src/CodeMem.Extraction/Workspace/CompiledInputs.vb#L19-L60) hashes Roslyn source documents, project files, and the opened solution file. [SourceDigest.vb](src/CodeMem.Extraction/Workspace/SourceDigest.vb#L15-L31) faithfully hashes that list, but the list omits inputs that can change compiler facts:
 
@@ -176,7 +178,8 @@ A process interruption during schema creation can leave a partial file that is n
 ### F7 - Medium: A solution-level target-framework stamp can be wrong or incomplete
 
 **Status:** Confirmed by implementation inspection  
-**Affected area:** Run provenance
+**Affected area:** Run provenance  
+**Known limit (2026-09-10):** out of scope for fixpack 002 (`specs/002-stage-a-fixpack/spec.md`, Out of Scope); stays open.
 
 [SolutionLoader.vb](src/CodeMem.Extraction/Workspace/SolutionLoader.vb#L91-L111) reads raw project XML and chooses the first literal `TargetFramework` or first `TargetFrameworks` value. It does not evaluate conditions, property expansion, or imported values. [ExtractionRun.vb](src/CodeMem.Extraction/Run/ExtractionRun.vb#L109-L123) then stamps only the first compiled project's framework when `--framework` is absent.
 
@@ -218,7 +221,8 @@ The tests remain valuable tripwires and their positive controls avoid vacuous su
 ### F11 - Low: Real-solution and scale evidence is currently absent
 
 **Status:** Observed in this analysis run  
-**Affected area:** Operational confidence
+**Affected area:** Operational confidence  
+**Known limit (2026-09-10):** out of scope for fixpack 002 (`specs/002-stage-a-fixpack/spec.md`, Out of Scope); stays open. (The 002 quickstart records one real-solution upgrade of a GameRoom map copy: 2172 symbols, 6 s, exit 0; that is a validation of the upgrade, not the profiling this item asks for.)
 
 The only acceptance runner was skipped because `CODEMEM_ACCEPT_SOLUTION` was unset. The implementation stages all symbols and edges in memory, traverses syntax trees separately for multiple edge rules, loads retired rows before filtering them in memory, and performs row-at-a-time inserts. These choices are reasonable for Stage A but have no current evidence on a large or heterogeneous solution.
 

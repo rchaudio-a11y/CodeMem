@@ -3,6 +3,8 @@
 ' Description: Inserts the extract_runs stamp with all ten counts, completed or failed (Articles V, VIII).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-09
+'
+' 2026-09-10 (fixpack 002): binds sdk_version (NULL when the stamp has none). The trigger, not this code, refuses a v2 row without it (Article XII).
 
 Imports Microsoft.Data.Sqlite
 
@@ -36,9 +38,9 @@ Public Module ExtractRunsRepository
     Private Function Insert(db As MapDatabase, outcome As String, stamp As RunStamp, counts As RunCounts) As Long
         Using command As SqliteCommand = db.CreateCommand()
             command.CommandText = "INSERT INTO extract_runs (solution_id, outcome, source_digest, commit_sha, is_dirty, build_configuration, target_framework, extractor_version, schema_version, started_utc, finished_utc, " &
-                "symbols_observed, symbols_matched, symbols_reactivated, symbols_new, symbols_retired, registry_active_before, notes_orphaned, rename_candidates, unaccounted_observed, unaccounted_registry) " &
+                "symbols_observed, symbols_matched, symbols_reactivated, symbols_new, symbols_retired, registry_active_before, notes_orphaned, rename_candidates, unaccounted_observed, unaccounted_registry, sdk_version) " &
                 "VALUES (@solution_id, @outcome, @source_digest, @commit_sha, @is_dirty, @build_configuration, @target_framework, @extractor_version, @schema_version, @started_utc, @finished_utc, " &
-                "@symbols_observed, @symbols_matched, @symbols_reactivated, @symbols_new, @symbols_retired, @registry_active_before, @notes_orphaned, @rename_candidates, @unaccounted_observed, @unaccounted_registry); " &
+                "@symbols_observed, @symbols_matched, @symbols_reactivated, @symbols_new, @symbols_retired, @registry_active_before, @notes_orphaned, @rename_candidates, @unaccounted_observed, @unaccounted_registry, @sdk_version); " &
                 "SELECT last_insert_rowid()"
             command.Parameters.AddWithValue("@solution_id", stamp.SolutionId)
             command.Parameters.AddWithValue("@outcome", outcome)
@@ -61,6 +63,7 @@ Public Module ExtractRunsRepository
             command.Parameters.AddWithValue("@rename_candidates", counts.RenameCandidates)
             command.Parameters.AddWithValue("@unaccounted_observed", counts.UnaccountedObserved)
             command.Parameters.AddWithValue("@unaccounted_registry", counts.UnaccountedRegistry)
+            command.Parameters.AddWithValue("@sdk_version", If(stamp.SdkVersion Is Nothing, CObj(DBNull.Value), CObj(stamp.SdkVersion)))
             Return CLng(command.ExecuteScalar())
         End Using
     End Function

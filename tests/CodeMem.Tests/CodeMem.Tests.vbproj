@@ -17,6 +17,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The version-1 map fixture (research R30): copied beside the tests so V1MapFixture can copy it to a temp path. -->
+    <None Update="Fixtures/Maps/sample-v1.sqlite" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\CodeMem.Core\CodeMem.Core.vbproj" />
     <ProjectReference Include="..\..\src\CodeMem.Extraction\CodeMem.Extraction.vbproj" />
     <ProjectReference Include="..\..\src\CodeMem.Extractor\CodeMem.Extractor.vbproj" />

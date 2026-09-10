@@ -3,6 +3,9 @@
 ' Description: A temporary, restored copy of the fixture solution for tests that mutate source (FR-036).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-09
+'
+' 2026-09-10 (fixpack 002): the copy lives at <temp>/codemem-tests/fixture-<guid>/Sample/ and ParentDirectory exposes fixture-<guid>, so a test
+' can place a build file "above the solution" without touching any other copy (F4, research R28). Dispose deletes fixture-<guid>.
 
 Imports System.IO
 
@@ -12,8 +15,11 @@ Imports System.IO
 Public Class FixtureCopy
     Implements IDisposable
 
-    ''' <summary>Absolute path of the copied directory.</summary>
+    ''' <summary>Absolute path of the copied solution directory (<c>fixture-&lt;guid&gt;/Sample</c>).</summary>
     Public ReadOnly Property Directory As String
+
+    ''' <summary>Absolute path of the directory above the copy (<c>fixture-&lt;guid&gt;</c>), owned by this copy alone.</summary>
+    Public ReadOnly Property ParentDirectory As String
 
     ''' <summary>Absolute path of the copied <c>Sample.sln</c>.</summary>
     Public ReadOnly Property SolutionPath As String
@@ -22,7 +28,8 @@ Public Class FixtureCopy
     ''' Copies and restores the fixture.
     ''' </summary>
     Public Sub New()
-        Directory = Path.Combine(Path.GetTempPath(), "codemem-tests", "fixture-" & Guid.NewGuid().ToString("N"))
+        ParentDirectory = Path.Combine(Path.GetTempPath(), "codemem-tests", "fixture-" & Guid.NewGuid().ToString("N"))
+        Directory = Path.Combine(ParentDirectory, "Sample")
         CopyTree(RepoPaths.FixtureDirectory(), Directory)
         SolutionPath = Path.Combine(Directory, "Sample.sln")
         DotnetCli.Run("restore """ & SolutionPath & """", Directory)
@@ -52,7 +59,7 @@ Public Class FixtureCopy
     ''' </summary>
     Public Sub Dispose() Implements IDisposable.Dispose
         Try
-            If IO.Directory.Exists(Directory) Then IO.Directory.Delete(Directory, True)
+            If IO.Directory.Exists(ParentDirectory) Then IO.Directory.Delete(ParentDirectory, True)
         Catch ex As IOException
             ' best effort
         Catch ex As UnauthorizedAccessException

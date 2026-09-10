@@ -18,6 +18,10 @@
     <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic.Workspaces" Version="4.14.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="4.14.0" />
     <PackageReference Include="LibGit2Sharp" Version="0.32.0" />
+    <!-- Fixpack 002 (research R25): transitive pins. Microsoft.Build.Tasks.Core 17.8.43 clears GHSA-h4j7-5rxr-p4wc and
+         GHSA-w3q9-fxm7-j8fq (17.8.29 clears the first but surfaces the second); System.Formats.Asn1 8.0.1 clears GHSA-447r-wph3-92pm. -->
+    <PackageReference Include="Microsoft.Build.Tasks.Core" Version="17.8.43" />
+    <PackageReference Include="System.Formats.Asn1" Version="8.0.1" />
   </ItemGroup>
 
 </Project>

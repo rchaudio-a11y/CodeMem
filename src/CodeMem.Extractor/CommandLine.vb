@@ -3,6 +3,8 @@
 ' Description: Parses the command line of contracts/cli.md into ExtractionOptions.
 ' Author: RCH Automation LLC
 ' Created: 2026-09-09
+'
+' 2026-09-10 (fixpack 002): usage documents CODEMEM_TEST_NONCE and the both-required rule (FR-117).
 
 Imports CodeMem.Extraction
 
@@ -35,7 +37,9 @@ Public Class CommandLine
                 "exit codes: 0 completed; 1 usage, load, schema or database failure; 2 compile errors; 3 lock held; 4 residual mismatch" & Environment.NewLine &
                 Environment.NewLine &
                 "test-only environment variables:" & Environment.NewLine &
-                "  CODEMEM_TEST_ABORT_AT=AfterStaging|DuringPublish   abort the process at that point (invariant I9); inert otherwise" & Environment.NewLine
+                "  CODEMEM_TEST_ABORT_AT=<phase>:<nonce>   phase: DuringInitialize, DuringUpgrade, AfterStaging or DuringPublish (invariants I9, F6, upgrade)" & Environment.NewLine &
+                "  CODEMEM_TEST_NONCE=<nonce>              the per-run nonce a test mints" & Environment.NewLine &
+                "  both are required and the nonces must be equal; either alone, or unequal nonces, is inert and the run completes normally" & Environment.NewLine
         End Get
     End Property
 

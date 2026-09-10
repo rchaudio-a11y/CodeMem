@@ -6,6 +6,8 @@
 '
 ' RED:   2026-09-09 NotImplementedException from ExtractionRun.Execute (reported to the Architect).
 ' GREEN: 2026-09-09 after Slice A (T036-T051): stamp, identity and solution row written, exit 0 in ~2 s.
+'
+' 2026-09-10 (fixpack 002, S02): map_identity.schema_version and the run row now read 2, and the run carries sdk_version (FR-111, FR-109).
 
 Imports System.Diagnostics
 Imports System.Text.RegularExpressions
@@ -42,7 +44,7 @@ Public Class US1_FirstRunTests
 
             Assert.Equal(1L, MapQueries.CountRows(map.Path, "map_identity", 0))
             Assert.Equal(36, MapQueries.ReadMapGuid(map.Path).Length)
-            Assert.Equal(1, MapQueries.ReadSchemaVersion(map.Path))
+            Assert.Equal(2, MapQueries.ReadSchemaVersion(map.Path))
 
             Dim solutions As List(Of SolutionRow) = MapQueries.ReadSolutions(map.Path)
             Assert.Single(solutions)
@@ -60,7 +62,8 @@ Public Class US1_FirstRunTests
             Assert.Equal("Debug", run.BuildConfiguration)
             Assert.False(String.IsNullOrEmpty(run.TargetFramework))
             Assert.Equal("0.1.0", run.ExtractorVersion)
-            Assert.Equal(1, run.SchemaVersion)
+            Assert.Equal(2, run.SchemaVersion)
+            Assert.False(String.IsNullOrEmpty(run.SdkVersion), "sdk_version must be stamped on a version-2 run")
             Assert.Matches("^\d{4}-\d{2}-\d{2}T", run.StartedUtc)
             Assert.Matches("^\d{4}-\d{2}-\d{2}T", run.FinishedUtc)
             Assert.True(run.SymbolsObserved >= 0 AndAlso run.SymbolsMatched >= 0 AndAlso run.SymbolsReactivated >= 0 AndAlso run.SymbolsNew >= 0 AndAlso run.SymbolsRetired >= 0 AndAlso run.RegistryActiveBefore >= 0 AndAlso run.NotesOrphaned >= 0 AndAlso run.RenameCandidates >= 0, "ten counts present")

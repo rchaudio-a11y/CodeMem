@@ -3,6 +3,8 @@
 ' Description: The one-row map_identity table: written once at creation, read thereafter (Article IX, I14).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-09
+'
+' 2026-09-10 (fixpack 002): Insert takes the MapDatabase; creation runs under the write lock (research R23).
 
 Imports Microsoft.Data.Sqlite
 
@@ -12,14 +14,14 @@ Imports Microsoft.Data.Sqlite
 Public Module MapIdentityRepository
 
     ''' <summary>
-    ''' Inserts the single identity row. Only ever called by <see cref="MapDatabase.OpenOrCreate"/> on a fresh file.
+    ''' Inserts the single identity row. Only ever called by ExtractionRun on a Fresh map, inside its BEGIN IMMEDIATE, at schema version 1 before the migration (fixpack 002).
     ''' </summary>
-    ''' <param name="connection">An open connection to the fresh file.</param>
+    ''' <param name="db">The open fresh map.</param>
     ''' <param name="guid">The minted GUID.</param>
     ''' <param name="schemaVersion">The schema version created.</param>
     ''' <param name="createdUtc">Creation timestamp.</param>
-    Public Sub Insert(connection As SqliteConnection, guid As String, schemaVersion As Integer, createdUtc As String)
-        Using command As SqliteCommand = connection.CreateCommand()
+    Public Sub Insert(db As MapDatabase, guid As String, schemaVersion As Integer, createdUtc As String)
+        Using command As SqliteCommand = db.CreateCommand()
             command.CommandText = "INSERT INTO map_identity (id, map_guid, schema_version, created_utc) VALUES (1, @map_guid, @schema_version, @created_utc)"
             command.Parameters.AddWithValue("@map_guid", guid)
             command.Parameters.AddWithValue("@schema_version", schemaVersion)

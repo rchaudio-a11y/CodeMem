@@ -1,10 +1,15 @@
 ' File: ExtractionRun.vb
 ' Project: CodeMem.Extraction
-' Description: The orchestrator: the production route every run and every test enters through (plan.md Run Order).
+' Description: The orchestrator: the production route every run and every test enters through (plan.md Run Order, revised by fixpack 002).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-09
+'
+' 2026-09-10 (fixpack 002): preflight, open, lock, InspectSchema, fresh-map creation and the 1 -> 2 upgrade all sit inside one error
+' boundary (F6, F9, FR-106, FR-112, FR-115); MapLockHeldException -> 3, everything else -> 1 with one stderr line; the abort seam needs
+' the nonce (F8); the stamp carries sdk_version (FR-109); refreshes and reactivations pass the observed kind (F2).
 
 Imports System.IO
+Imports System.Text.RegularExpressions
 Imports CodeMem.Core
 Imports Microsoft.CodeAnalysis
 Imports Microsoft.Data.Sqlite
@@ -14,81 +19,70 @@ Imports Microsoft.Data.Sqlite
 ''' </summary>
 Public Class ExtractionRun
 
+    Private Shared ReadOnly LineBreaks As Regex = New Regex("\r\n|\r|\n", RegexOptions.Compiled)
+
     ''' <summary>
-    ''' Runs one extraction: open the map, take the lock, compile, stage, reconcile, validate, publish.
+    ''' Runs one extraction: normalise paths, open the map, take the lock, create or upgrade the schema, compile, stage, reconcile,
+    ''' validate, publish. Every failure from the first statement onward maps to an exit code (FR-115).
     ''' </summary>
     ''' <param name="options">What to extract and where.</param>
     ''' <param name="seams">Test-only seams, or Nothing (what Main passes).</param>
     ''' <returns>The exit code per contracts/cli.md.</returns>
     Public Shared Function Execute(options As ExtractionOptions, seams As RunSeams) As ExitCode
         Dim startedUtc As String = Timestamps.NowUtc()
-        Dim solutionPath As String = Path.GetFullPath(options.SolutionPath)
-        Dim dbPath As String = Path.GetFullPath(options.DbPath)
-        Dim key As String = If(String.IsNullOrEmpty(options.SolutionKey), Path.GetFileNameWithoutExtension(solutionPath), options.SolutionKey)
-
-        If Not File.Exists(solutionPath) Then
-            Console.Error.WriteLine("solution not found: " & solutionPath)
-            Return ExitCode.Failure
-        End If
-        If Not Directory.Exists(Path.GetDirectoryName(dbPath)) Then
-            Console.Error.WriteLine("db directory does not exist: " & Path.GetDirectoryName(dbPath))
-            Return ExitCode.Failure
-        End If
-
-        ' Step 2: open or create; refuse a schema mismatch.
-        Dim db As MapDatabase
         Try
-            db = MapDatabase.OpenOrCreate(dbPath)
-        Catch ex As SchemaVersionMismatchException
-            Console.Error.WriteLine(ex.Message)
-            Return ExitCode.Failure
-        Catch ex As SqliteException When ex.SqliteErrorCode = 8 OrElse ex.SqliteErrorCode = 14
-            Console.Error.WriteLine("lock unobtainable: " & ex.Message)
-            Return ExitCode.LockHeld
-        Catch ex As SqliteException
-            Console.Error.WriteLine("database error: " & ex.Message)
-            Return ExitCode.Failure
-        End Try
+            ' Step 1: preflight, inside the boundary (F9).
+            Dim solutionPath As String = Path.GetFullPath(options.SolutionPath)
+            Dim dbPath As String = Path.GetFullPath(options.DbPath)
+            Dim key As String = If(String.IsNullOrEmpty(options.SolutionKey), Path.GetFileNameWithoutExtension(solutionPath), options.SolutionKey)
+            If Not File.Exists(solutionPath) Then Return Refuse(ExitCode.Failure, "solution not found: " & solutionPath)
+            If Directory.Exists(dbPath) Then Return Refuse(ExitCode.Failure, "db path is a directory: " & dbPath)
+            If Not Directory.Exists(Path.GetDirectoryName(dbPath)) Then Return Refuse(ExitCode.Failure, "db directory does not exist: " & Path.GetDirectoryName(dbPath))
 
-        Using db
-            ' Step 3: the lock is the write transaction.
-            Try
+            ' Step 2: open (typed connection string, no schema work).
+            Using db As MapDatabase = MapDatabase.Open(dbPath)
+                ' Step 3: the lock is the write transaction.
                 db.BeginImmediate()
-            Catch ex As MapLockHeldException
-                Console.Error.WriteLine(ex.Message)
-                Return ExitCode.LockHeld
-            End Try
-            Try
-                Return Run(db, options, seams, solutionPath, key, startedUtc)
-            Catch ex As WorkspaceLoadException
-                db.Rollback()
-                Console.Error.WriteLine(ex.Message)
-                Return ExitCode.Failure
-            Catch ex As DuplicateDocCommentIdException
-                db.Rollback()
-                Console.Error.WriteLine(ex.Message)
-                Return ExitCode.Failure
-            Catch ex As SqliteException
-                db.Rollback()
-                Console.Error.WriteLine("database error: " & ex.Message)
-                Return ExitCode.Failure
-            Catch ex As Exception
-                db.Rollback()
-                Console.Error.WriteLine("failure: " & ex.ToString())
-                Return ExitCode.Failure
-            End Try
-        End Using
+                Dim abortAt As RunPhase = ReadAbortPhase()
+
+                ' Step 4: one door decides fresh / version 1 / current / foreign / newer (FR-105, FR-112, FR-114).
+                Dim found As Integer
+                Select Case db.InspectSchema(found)
+                    Case SchemaState.Fresh
+                        SchemaRepository.CreateVersion1(db)
+                        MapIdentityRepository.Insert(db, Guid.NewGuid().ToString(), 1, Timestamps.NowUtc())
+                        AbortIf(abortAt, RunPhase.DuringInitialize)
+                        SchemaRepository.UpgradeToVersion2(db)
+                        AbortIf(abortAt, RunPhase.DuringUpgrade)
+                        SchemaRepository.SetSchemaVersion(db, SchemaVersion.Current)
+                    Case SchemaState.Version1
+                        SchemaRepository.UpgradeToVersion2(db)
+                        AbortIf(abortAt, RunPhase.DuringUpgrade)
+                        SchemaRepository.SetSchemaVersion(db, SchemaVersion.Current)
+                    Case SchemaState.Current
+                        ' nothing to do
+                    Case SchemaState.Foreign
+                        Throw New NotAMapException(dbPath)
+                    Case Else
+                        Throw New SchemaVersionMismatchException(found, SchemaVersion.Current)
+                End Select
+
+                Return Run(db, options, seams, solutionPath, key, startedUtc, abortAt)
+            End Using
+        Catch ex As MapLockHeldException
+            Return Refuse(ExitCode.LockHeld, ex.Message)
+        Catch ex As Exception
+            Return Refuse(ExitCode.Failure, OneLine(ex))
+        End Try
     End Function
 
-    Private Shared Function Run(db As MapDatabase, options As ExtractionOptions, seams As RunSeams, solutionPath As String, key As String, startedUtc As String) As ExitCode
-        Dim abortAt As RunPhase = ReadAbortPhase()
-
-        ' Step 4: identity setup, not a run fact (Article V v1.2.1).
+    Private Shared Function Run(db As MapDatabase, options As ExtractionOptions, seams As RunSeams, solutionPath As String, key As String, startedUtc As String, abortAt As RunPhase) As ExitCode
+        ' Step 5: identity setup, not a run fact (Article V v1.2.1).
         Dim solution As SolutionRecord = SolutionsRepository.EnsureByKey(db, key, key, solutionPath, Timestamps.NowUtc())
         Dim basePath As String = SolutionPaths.BaseDirectory(solutionPath)
 
         Using loader As SolutionLoader = SolutionLoader.Open(solutionPath, options.Configuration, options.Framework)
-            ' Step 5: the green gate.
+            ' Step 6: the green gate.
             Dim compiled As List(Of CompiledProject) = loader.CompileAll(basePath)
             Dim errorCount As Integer = 0
             For Each project As CompiledProject In compiled
@@ -103,7 +97,7 @@ Public Class ExtractionRun
                 Return ExitCode.BuildErrors
             End If
 
-            ' Step 6: one enumeration feeds digest and provenance.
+            ' Step 7: one enumeration feeds digest and provenance; the SDK stamp is read in-process (FR-109).
             Dim inputs As List(Of CompiledInput) = CompiledInputs.Enumerate(loader.Solution, basePath)
             Dim digest As String = SourceDigest.Compute(inputs)
             Dim git As GitFacts = GitProvenance.Read(basePath, inputs)
@@ -117,9 +111,10 @@ Public Class ExtractionRun
                 .TargetFramework = targetFramework,
                 .ExtractorVersion = ExtractorVersion(),
                 .SchemaVersion = SchemaVersion.Current,
+                .SdkVersion = SdkVersion.Resolve(basePath),
                 .StartedUtc = startedUtc}
 
-            ' Step 7: stage symbols (one walk per compilation), merge namespaces, add project rows, then run the eight edge rules.
+            ' Step 8: stage symbols (one walk per compilation), merge namespaces, add project rows, then run the eight edge rules.
             Dim staged As List(Of ObservedSymbol) = New List(Of ObservedSymbol)()
             Dim perProject As Dictionary(Of CompiledProject, List(Of ObservedSymbol)) = New Dictionary(Of CompiledProject, List(Of ObservedSymbol))()
             Dim treesOf As Dictionary(Of CompiledProject, HashSet(Of SyntaxTree)) = New Dictionary(Of CompiledProject, HashSet(Of SyntaxTree))()
@@ -152,7 +147,7 @@ Public Class ExtractionRun
             edges = Canonical(edges)
             If seams IsNot Nothing AndAlso seams.MutateStaged IsNot Nothing Then seams.MutateStaged.Invoke(staged)
 
-            ' Step 8: reconcile against this solution's registry only.
+            ' Step 9: reconcile against this solution's registry only.
             Dim snapshot As List(Of RegistryRow) = CodeSymbolsRepository.ReadActive(db, solution.Id)
             Dim unmatched As HashSet(Of String) = New HashSet(Of String)(rowDocIds, StringComparer.Ordinal)
             For Each row As RegistryRow In snapshot
@@ -161,11 +156,11 @@ Public Class ExtractionRun
             Dim retired As List(Of RegistryRow) = CodeSymbolsRepository.ReadRetiredByDocIds(db, solution.Id, unmatched)
             Dim result As ReconciliationResult = Reconciler.Reconcile(staged, snapshot, retired)
 
-            ' Step 9: test-only seams (I8 count corruption; I9 process abort after staging).
+            ' Step 10: test-only seams (I8 count corruption; I9 process abort after staging).
             If seams IsNot Nothing AndAlso seams.CorruptStagedCounts IsNot Nothing Then seams.CorruptStagedCounts.Invoke(result.Counts)
             AbortIf(abortAt, RunPhase.AfterStaging)
 
-            ' Step 10: the residuals are computed by code that never sees the reconciler (FR-025); non-zero fails the run (FR-026).
+            ' Step 11: the residuals are computed by code that never sees the reconciler (FR-025); non-zero fails the run (FR-026).
             Dim counts As RunCounts = CountAuditor.Audit(result.Counts)
             If counts.UnaccountedObserved <> 0 OrElse counts.UnaccountedRegistry <> 0 Then
                 stamp.FinishedUtc = Timestamps.NowUtc()
@@ -175,7 +170,7 @@ Public Class ExtractionRun
                 Return ExitCode.ResidualMismatch
             End If
 
-            ' Step 11: publish inside the open transaction. The run row is the first fact-table write.
+            ' Step 12: publish inside the open transaction. The run row is the first fact-table write.
             stamp.FinishedUtc = Timestamps.NowUtc()
             Dim runId As Long = ExtractRunsRepository.InsertCompleted(db, stamp, counts)
             Dim ids As Dictionary(Of String, Long) = New Dictionary(Of String, Long)(result.ExistingIds, StringComparer.Ordinal)
@@ -189,10 +184,10 @@ Public Class ExtractionRun
                 ids(symbol.DocCommentId) = CodeSymbolsRepository.InsertNew(db, solution.Id, symbol, Resolve(ids, symbol.ContainerDocCommentId), Resolve(ids, symbol.ProjectDocCommentId), runId)
             Next
             For Each symbol As ObservedSymbol In result.Refreshes
-                CodeSymbolsRepository.RefreshMatched(db, ids(symbol.DocCommentId), symbol.Name, Resolve(ids, symbol.ContainerDocCommentId), Resolve(ids, symbol.ProjectDocCommentId), symbol.Primary, symbol.BodyHash, runId)
+                CodeSymbolsRepository.RefreshMatched(db, ids(symbol.DocCommentId), symbol.Kind, symbol.Name, Resolve(ids, symbol.ContainerDocCommentId), Resolve(ids, symbol.ProjectDocCommentId), symbol.Primary, symbol.BodyHash, runId)
             Next
             For Each symbol As ObservedSymbol In result.Reactivations
-                CodeSymbolsRepository.Reactivate(db, ids(symbol.DocCommentId), symbol.Name, Resolve(ids, symbol.ContainerDocCommentId), Resolve(ids, symbol.ProjectDocCommentId), symbol.Primary, symbol.BodyHash, runId)
+                CodeSymbolsRepository.Reactivate(db, ids(symbol.DocCommentId), symbol.Kind, symbol.Name, Resolve(ids, symbol.ContainerDocCommentId), Resolve(ids, symbol.ProjectDocCommentId), symbol.Primary, symbol.BodyHash, runId)
             Next
             For Each row As RegistryRow In result.Retirements
                 CodeSymbolsRepository.Retire(db, row.Id)
@@ -219,7 +214,7 @@ Public Class ExtractionRun
             SolutionsRepository.RefreshLabels(db, solution.Id, git.RepoRoot, solutionPath)
             SolutionsRepository.SetFirstRunIfNull(db, solution.Id, runId)
 
-            ' Step 12.
+            ' Step 13.
             db.Commit()
             Console.Out.WriteLine(SummaryLine.Format(key, runId, counts, digest, git.CommitSha))
             Return ExitCode.Success
@@ -256,19 +251,56 @@ Public Class ExtractionRun
     End Function
 
     ''' <summary>
-    ''' Reads the test-only abort seam once: CODEMEM_TEST_ABORT_AT = AfterStaging or DuringPublish; anything else is inert (research R11).
+    ''' Reads the test-only abort seam once (research R26, FR-116). <c>CODEMEM_TEST_ABORT_AT</c> must read <c>&lt;phase&gt;:&lt;nonce&gt;</c>
+    ''' where the phase is a known <see cref="RunPhase"/> other than None, and <c>CODEMEM_TEST_NONCE</c> must be set, non-empty and
+    ''' ordinal-equal to <c>&lt;nonce&gt;</c>. Either variable alone, a phase without a nonce, an unknown phase or unequal nonces is inert.
     ''' </summary>
     ''' <returns>The phase to abort at, or None.</returns>
     Public Shared Function ReadAbortPhase() As RunPhase
         Dim value As String = Environment.GetEnvironmentVariable("CODEMEM_TEST_ABORT_AT")
-        If String.Equals(value, "AfterStaging", StringComparison.Ordinal) Then Return RunPhase.AfterStaging
-        If String.Equals(value, "DuringPublish", StringComparison.Ordinal) Then Return RunPhase.DuringPublish
-        Return RunPhase.None
+        Dim nonce As String = Environment.GetEnvironmentVariable("CODEMEM_TEST_NONCE")
+        If String.IsNullOrEmpty(value) OrElse String.IsNullOrEmpty(nonce) Then Return RunPhase.None
+        Dim separator As Integer = value.IndexOf(":"c)
+        If separator < 0 Then Return RunPhase.None
+        Dim expected As String = value.Substring(separator + 1)
+        If expected.Length = 0 OrElse Not String.Equals(expected, nonce, StringComparison.Ordinal) Then Return RunPhase.None
+        Select Case value.Substring(0, separator)
+            Case "DuringInitialize" : Return RunPhase.DuringInitialize
+            Case "DuringUpgrade" : Return RunPhase.DuringUpgrade
+            Case "AfterStaging" : Return RunPhase.AfterStaging
+            Case "DuringPublish" : Return RunPhase.DuringPublish
+            Case Else : Return RunPhase.None
+        End Select
     End Function
 
     Private Shared Sub AbortIf(configured As RunPhase, here As RunPhase)
         If configured = here Then Environment.FailFast("CODEMEM_TEST_ABORT_AT=" & here.ToString())
     End Sub
+
+    Private Shared Function Refuse(code As ExitCode, message As String) As ExitCode
+        Console.Error.WriteLine(message)
+        Return code
+    End Function
+
+    ''' <summary>
+    ''' The one stderr line of an exit-1 refusal (FR-115): the exception's message with line breaks folded to " | "; a SqliteException is
+    ''' prefixed "database error: "; an exception outside the run's own vocabulary is prefixed with its type name so the cause stays visible.
+    ''' </summary>
+    ''' <param name="ex">The failure.</param>
+    ''' <returns>One line, no stack frames.</returns>
+    Public Shared Function OneLine(ex As Exception) As String
+        Dim text As String
+        If TypeOf ex Is SqliteException Then
+            text = "database error: " & ex.Message
+        ElseIf TypeOf ex Is WorkspaceLoadException OrElse TypeOf ex Is DuplicateDocCommentIdException OrElse TypeOf ex Is SchemaVersionMismatchException OrElse
+               TypeOf ex Is NotAMapException OrElse TypeOf ex Is SdkResolutionException OrElse TypeOf ex Is ArgumentException OrElse
+               TypeOf ex Is IOException OrElse TypeOf ex Is UnauthorizedAccessException Then
+            text = ex.Message
+        Else
+            text = ex.GetType().Name & ": " & ex.Message
+        End If
+        Return LineBreaks.Replace(text, " | ")
+    End Function
 
     Private Shared Function Resolve(ids As Dictionary(Of String, Long), docId As String) As Long?
         If docId Is Nothing Then Return Nothing

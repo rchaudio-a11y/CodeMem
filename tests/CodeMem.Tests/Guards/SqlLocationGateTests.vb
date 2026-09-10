@@ -8,6 +8,10 @@
 ' and the two SQL-scanning guards, this file and Guards/TripwireTests.vb, whose literals name the SQL they search for.
 ' GREEN: 2026-09-09 first run.
 ' FIRE:  2026-09-09 added a "SELECT 1" literal to ExtractionRun.vb -> red (ExtractionRun.vb named); reverted -> green.
+'
+' 2026-09-10 (fixpack 002, F10 / FR-121): the keyword regex matches with RegexOptions.IgnoreCase over whitespace-normalised literals
+' (research R29); the New SqliteConnection count is unchanged. The 2026-09-09 fire was canonical spelling; the re-fire below is lowercase.
+' FIRE:  2026-09-10 (T044) added a "select 1" literal (lowercase) to ExtractionRun.vb -> red (ExtractionRun.vb: "select 1" named); reverted -> green.
 
 Imports System.IO
 Imports System.Text.RegularExpressions
@@ -19,7 +23,7 @@ Imports Xunit
 Public Class SqlLocationGateTests
 
     Private Shared ReadOnly StringLiteral As Regex = New Regex("""(?:[^""]|"""")*""", RegexOptions.Compiled)
-    Private Shared ReadOnly SqlKeyword As Regex = New Regex("\b(SELECT|INSERT|UPDATE|DELETE|CREATE TABLE|PRAGMA)\b", RegexOptions.Compiled)
+    Private Shared ReadOnly SqlKeyword As Regex = New Regex("\b(SELECT|INSERT|UPDATE|DELETE|CREATE TABLE|PRAGMA)\b", RegexOptions.Compiled Or RegexOptions.IgnoreCase)
 
     ''' <summary>
     ''' No SQL keyword in a string literal outside the allowed files.
@@ -72,7 +76,8 @@ Public Class SqlLocationGateTests
 
     Private Shared Sub Scan(file As String, offenders As List(Of String))
         For Each match As Match In StringLiteral.Matches(IO.File.ReadAllText(file))
-            If SqlKeyword.IsMatch(match.Value) Then offenders.Add(Path.GetFileName(file) & ": " & match.Value)
+            Dim literal As String = TripwireTests.Normalise(match.Value)
+            If SqlKeyword.IsMatch(literal) Then offenders.Add(Path.GetFileName(file) & ": " & literal)
         Next
     End Sub
 

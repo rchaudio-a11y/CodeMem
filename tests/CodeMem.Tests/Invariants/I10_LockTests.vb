@@ -7,6 +7,10 @@
 ' RED:   2026-09-09 both halves hung: DefaultTimeout = 0 waits forever in Microsoft.Data.Sqlite (research R6 verified false) - reported to the Architect.
 ' GREEN: 2026-09-09 after BEGIN IMMEDIATE moved to the native handle with busy timeout 0 (T090); in-process refusal ~1 ms, executable exit 3 in ~0.3 s.
 ' FIRE:  2026-09-09 sqlite3_busy_timeout(handle, 5000) -> both halves red (refusals took 5.6 s); reverted -> green.
+'
+' 2026-09-10 (fixpack 002, F6): the holder opens with MapDatabase.Open + BeginImmediate (no schema work in Open, FR-106); the file may be a
+' 0-byte file at that point and the second opener must still be refused: in-process MapLockHeldException, executable exit 3.
+' "Nothing written" is now "the file has no user table" (research R23): the refused process never created the schema.
 
 Imports System.Diagnostics
 Imports CodeMem.Core
@@ -34,10 +38,10 @@ Public Class I10_LockTests
     <Fact>
     Public Sub HeldLockIsRefusedInProcessUnderOneSecond()
         Using map As TempMap = New TempMap()
-            Using holder As MapDatabase = MapDatabase.OpenOrCreate(map.Path)
+            Using holder As MapDatabase = MapDatabase.Open(map.Path)
                 holder.BeginImmediate()
                 Dim watch As Stopwatch = Stopwatch.StartNew()
-                Using second As MapDatabase = MapDatabase.OpenOrCreate(map.Path)
+                Using second As MapDatabase = MapDatabase.Open(map.Path)
                     Assert.Throws(Of MapLockHeldException)(Sub() second.BeginImmediate())
                 End Using
                 watch.Stop()
@@ -53,7 +57,7 @@ Public Class I10_LockTests
     <Fact>
     Public Sub HeldLockMakesTheExecutableExitThree()
         Using map As TempMap = New TempMap()
-            Using holder As MapDatabase = MapDatabase.OpenOrCreate(map.Path)
+            Using holder As MapDatabase = MapDatabase.Open(map.Path)
                 holder.BeginImmediate()
                 Dim run As ExtractorProcess = ExtractorProcess.Run("--solution " & ExtractorProcess.Quote(_fixture.SolutionPath) & " --db " & ExtractorProcess.Quote(map.Path), Nothing, TimeSpan.FromSeconds(30))
                 Assert.Equal(3, run.ExitCode)
@@ -62,7 +66,7 @@ Public Class I10_LockTests
                 Assert.Contains("lock", run.StandardError)
                 holder.Rollback()
             End Using
-            Assert.Empty(MapQueries.ReadRuns(map.Path))
+            Assert.Equal(0L, MapQueries.CountUserTables(map.Path))
         End Using
     End Sub
 

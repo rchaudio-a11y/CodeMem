@@ -304,6 +304,8 @@ run — is stable (ids are excluded from I2 anyway, but stable order keeps diffs
 |------|------|----------|------------------------|
 | `AcceptanceRunner` | Skip-armed runner (FR-039) | `CODEMEM_ACCEPT_SOLUTION=<path>` | Reported as **Skipped** via `SkippableFact`; never passes or fails silently |
 
+**Superseded 2026-09-10 by fixpack 002**: the current register, including the `CODEMEM_TEST_ABORT_AT` + `CODEMEM_TEST_NONCE` abort seam (both required, FR-116) and the in-process `RunSeams`, is the table "Abort seam nonce (F8) — Carve-Out Register" in [../002-stage-a-fixpack/plan.md](../002-stage-a-fixpack/plan.md).
+
 `AcceptanceRunner` outputs recorded 2026-09-09 (T110). Unarmed, in the full `dotnet test` run:
 
 ```text

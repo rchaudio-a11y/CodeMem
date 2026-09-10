@@ -3,6 +3,8 @@
 ' Description: The identity registry: read active rows, insert new rows. No DELETE, DROP or recreate here, ever (Article VI, I13).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-09
+'
+' 2026-09-10 (fixpack 002, F2): RefreshMatched and Reactivate set kind = @kind (FR-101, FR-103); identity columns untouched.
 
 Imports Microsoft.Data.Sqlite
 
@@ -72,39 +74,41 @@ Public Module CodeSymbolsRepository
     End Function
 
     ''' <summary>
-    ''' Refreshes a matched row's labels and observation columns (A): name, container, project, location, hash, last_seen_run_id.
+    ''' Refreshes a matched row's labels and observation columns (A): kind, name, container, project, location, hash, last_seen_run_id (FR-101).
     ''' </summary>
     ''' <param name="db">The open map.</param>
     ''' <param name="id">The row.</param>
+    ''' <param name="kind">The compiler's kind this run.</param>
     ''' <param name="name">Surface name.</param>
     ''' <param name="containerId">Resolved container id or Nothing.</param>
     ''' <param name="projectSymbolId">Resolved project id or Nothing.</param>
     ''' <param name="location">Primary declaration.</param>
     ''' <param name="bodyHash">Body hash.</param>
     ''' <param name="runId">This run.</param>
-    Public Sub RefreshMatched(db As MapDatabase, id As Long, name As String, containerId As Long?, projectSymbolId As Long?, location As SourceLocation, bodyHash As String, runId As Long)
+    Public Sub RefreshMatched(db As MapDatabase, id As Long, kind As SymbolKind, name As String, containerId As Long?, projectSymbolId As Long?, location As SourceLocation, bodyHash As String, runId As Long)
         Using command As SqliteCommand = db.CreateCommand()
-            command.CommandText = "UPDATE code_symbols SET name = @name, container_id = @container_id, project_symbol_id = @project_symbol_id, path = @path, start_offset = @start_offset, length = @length, start_line = @start_line, start_column = @start_column, body_hash = @body_hash, last_seen_run_id = @run_id WHERE id = @id"
-            AddRefresh(command, id, name, containerId, projectSymbolId, location, bodyHash, runId)
+            command.CommandText = "UPDATE code_symbols SET kind = @kind, name = @name, container_id = @container_id, project_symbol_id = @project_symbol_id, path = @path, start_offset = @start_offset, length = @length, start_line = @start_line, start_column = @start_column, body_hash = @body_hash, last_seen_run_id = @run_id WHERE id = @id"
+            AddRefresh(command, id, kind, name, containerId, projectSymbolId, location, bodyHash, runId)
             command.ExecuteNonQuery()
         End Using
     End Sub
 
     ''' <summary>
-    ''' Reactivates a retired row (A'): the same refresh as a match plus is_active = 1; first_seen_run_id is untouched.
+    ''' Reactivates a retired row (A'): the same refresh as a match (kind included, FR-103) plus is_active = 1; first_seen_run_id is untouched.
     ''' </summary>
     ''' <param name="db">The open map.</param>
     ''' <param name="id">The retired row.</param>
+    ''' <param name="kind">The compiler's kind this run.</param>
     ''' <param name="name">Surface name.</param>
     ''' <param name="containerId">Resolved container id or Nothing.</param>
     ''' <param name="projectSymbolId">Resolved project id or Nothing.</param>
     ''' <param name="location">Primary declaration.</param>
     ''' <param name="bodyHash">Body hash.</param>
     ''' <param name="runId">This run.</param>
-    Public Sub Reactivate(db As MapDatabase, id As Long, name As String, containerId As Long?, projectSymbolId As Long?, location As SourceLocation, bodyHash As String, runId As Long)
+    Public Sub Reactivate(db As MapDatabase, id As Long, kind As SymbolKind, name As String, containerId As Long?, projectSymbolId As Long?, location As SourceLocation, bodyHash As String, runId As Long)
         Using command As SqliteCommand = db.CreateCommand()
-            command.CommandText = "UPDATE code_symbols SET is_active = 1, name = @name, container_id = @container_id, project_symbol_id = @project_symbol_id, path = @path, start_offset = @start_offset, length = @length, start_line = @start_line, start_column = @start_column, body_hash = @body_hash, last_seen_run_id = @run_id WHERE id = @id"
-            AddRefresh(command, id, name, containerId, projectSymbolId, location, bodyHash, runId)
+            command.CommandText = "UPDATE code_symbols SET is_active = 1, kind = @kind, name = @name, container_id = @container_id, project_symbol_id = @project_symbol_id, path = @path, start_offset = @start_offset, length = @length, start_line = @start_line, start_column = @start_column, body_hash = @body_hash, last_seen_run_id = @run_id WHERE id = @id"
+            AddRefresh(command, id, kind, name, containerId, projectSymbolId, location, bodyHash, runId)
             command.ExecuteNonQuery()
         End Using
     End Sub
@@ -122,8 +126,9 @@ Public Module CodeSymbolsRepository
         End Using
     End Sub
 
-    Private Sub AddRefresh(command As SqliteCommand, id As Long, name As String, containerId As Long?, projectSymbolId As Long?, location As SourceLocation, bodyHash As String, runId As Long)
+    Private Sub AddRefresh(command As SqliteCommand, id As Long, kind As SymbolKind, name As String, containerId As Long?, projectSymbolId As Long?, location As SourceLocation, bodyHash As String, runId As Long)
         command.Parameters.AddWithValue("@id", id)
+        command.Parameters.AddWithValue("@kind", SymbolKindNames.ToText(kind))
         command.Parameters.AddWithValue("@name", name)
         command.Parameters.AddWithValue("@container_id", NullableValue(containerId))
         command.Parameters.AddWithValue("@project_symbol_id", NullableValue(projectSymbolId))

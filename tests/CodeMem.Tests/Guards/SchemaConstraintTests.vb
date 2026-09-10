@@ -7,6 +7,10 @@
 ' These tests are their own fire demonstration: each insert is the injected defect and the constraint is the guard.
 ' RED:   n/a - each insert is the injected defect; the CHECK text 'kind IN ('namespace', 'project')' was confirmed present in SQLite's message.
 ' GREEN: 2026-09-09 first run, 2 of 2 (direct inserts and the seam-driven production route).
+'
+' 2026-09-10 (fixpack 002, S02 / spec Q2 rider): the raw extract_runs insert keeps schema_version 1 (still legal after the upgrade); the
+' tr_extract_runs_sdk_version_insert trigger fire is added - a raw v2 run row without sdk_version is refused, on a fresh map and on an
+' upgraded copy of the Stage A map alike (SC-106). What fires is the trigger, not the repository. Results recorded in the Fixpack headers (T026).
 
 Imports System.IO
 Imports CodeMem.Core
@@ -71,8 +75,42 @@ Public Class SchemaConstraintTests
 
                 ' A retired row may share an identity with the active row: the partial unique index covers active rows only.
                 Execute(connection, SymbolInsert(solutionId, aClass.DocCommentId, "class", aProject.Id, 0, runId))
+
+                ' Schema version 2: a raw v2 run row without sdk_version is refused by the trigger; the same row at version 1 is accepted.
+                ExpectTrigger(connection, RunInsert(solutionId, 2, Nothing))
+                Execute(connection, RunInsert(solutionId, 1, Nothing))
+                Execute(connection, RunInsert(solutionId, 2, "10.0.0"))
             End Using
         End Using
+    End Sub
+
+    ''' <summary>
+    ''' The same trigger fire on an upgraded copy of the Stage A version-1 map (one shape, spec Q2 rider; SC-106).
+    ''' </summary>
+    <Fact>
+    Public Sub SdkVersionTriggerFiresOnAnUpgradedMapToo()
+        Using map As TempMap = New TempMap()
+            V1MapFixture.CopyToTemp(map)
+            Assert.Equal(ExitCode.Success, ExtractionRun.Execute(New ExtractionOptions With {.SolutionPath = _fixture.SolutionPath, .DbPath = map.Path}, Nothing))
+            Dim solutionId As Long = MapQueries.ReadSolutions(map.Path)(0).Id
+            Using connection As SqliteConnection = New SqliteConnection("Data Source=" & map.Path & ";Pooling=False")
+                connection.Open()
+                Execute(connection, "PRAGMA foreign_keys = ON")
+                ExpectTrigger(connection, RunInsert(solutionId, 2, Nothing))
+                Execute(connection, RunInsert(solutionId, 1, Nothing))
+            End Using
+        End Using
+    End Sub
+
+    Private Shared Function RunInsert(solutionId As Long, schemaVersion As Integer, sdkVersion As String) As String
+        Dim sdkValue As String = If(sdkVersion Is Nothing, "NULL", "'" & sdkVersion & "'")
+        Return "INSERT INTO extract_runs (solution_id, outcome, source_digest, commit_sha, is_dirty, build_configuration, target_framework, extractor_version, schema_version, started_utc, finished_utc, symbols_observed, symbols_matched, symbols_reactivated, symbols_new, symbols_retired, registry_active_before, notes_orphaned, rename_candidates, unaccounted_observed, unaccounted_registry, sdk_version) " &
+            "VALUES (" & solutionId & ", 'completed', 'd', NULL, NULL, 'Debug', 'net8.0', '0.1.0', " & schemaVersion & ", 'now', 'now', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, " & sdkValue & ")"
+    End Function
+
+    Private Shared Sub ExpectTrigger(connection As SqliteConnection, sql As String)
+        Dim ex As SqliteException = Assert.Throws(Of SqliteException)(Sub() Execute(connection, sql))
+        Assert.Contains("sdk_version is required for schema_version >= 2", ex.Message)
     End Sub
 
     ''' <summary>
@@ -97,7 +135,7 @@ Public Class SchemaConstraintTests
                 Console.SetError(original)
             End Try
             Assert.Equal(ExitCode.Failure, code)
-            Assert.Empty(MapQueries.ReadRuns(map.Path))
+            Assert.Equal(0L, MapQueries.CountUserTables(map.Path))   ' the fresh-map creation rolled back with the run (research R23)
             Assert.Contains("kind IN ('namespace', 'project')", captured.ToString())
         End Using
     End Sub

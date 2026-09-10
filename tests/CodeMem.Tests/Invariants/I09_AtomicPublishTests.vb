@@ -8,6 +8,9 @@
 ' GREEN: 2026-09-09 after (A) matching (T096): AfterStaging and DuringPublish both leave every table equal; the unsynced journal case is asserted as documented above.
 ' FIRE:  2026-09-09 moved the DuringPublish abort to after Commit -> red (extract_runs changed after abort); reverted -> green.
 '
+' 2026-09-10 (fixpack 002, F8): the seam now needs CODEMEM_TEST_ABORT_AT=<phase>:<nonce> plus an equal CODEMEM_TEST_NONCE (FR-116); this test
+' mints a GUID per phase and passes both. Green unchanged after the change (T014).
+'
 ' Order matters: RowsForSolution opens the database first, which performs SQLite's hot-journal rollback; the journal
 ' check comes after that read. A journal check before the read would be a false Red.
 '
@@ -41,7 +44,8 @@ Public Class I09_AtomicPublishTests
                 copy.Replace("Sample.Lib/Widgets.vb", "Sub Describe(", "Sub Explain(")
 
                 For Each phase As String In New String() {"AfterStaging", "DuringPublish"}
-                    Dim environment As Dictionary(Of String, String) = New Dictionary(Of String, String) From {{"CODEMEM_TEST_ABORT_AT", phase}}
+                    Dim nonce As String = Guid.NewGuid().ToString("N")
+                    Dim environment As Dictionary(Of String, String) = New Dictionary(Of String, String) From {{"CODEMEM_TEST_ABORT_AT", phase & ":" & nonce}, {"CODEMEM_TEST_NONCE", nonce}}
                     Dim run As ExtractorProcess = ExtractorProcess.Run("--solution " & ExtractorProcess.Quote(copy.SolutionPath) & " --db " & ExtractorProcess.Quote(map.Path), environment)
                     Assert.NotEqual(0, run.ExitCode)
 

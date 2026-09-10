@@ -14,8 +14,8 @@ CodeMem.Extractor --help
 
 Arguments are case-insensitive names with `--`; values follow as the next argument. Unknown or missing
 required arguments → usage text on stderr, exit 1. `--help` prints usage on stdout and exits 0; the
-usage text lists `CODEMEM_TEST_ABORT_AT` under a "test-only" heading so no unwired surface is
-presented as real.
+usage text lists `CODEMEM_TEST_ABORT_AT` and (since fixpack 002) `CODEMEM_TEST_NONCE` under a "test-only"
+heading so no unwired surface is presented as real.
 
 ## Exit codes (FR-034)
 
@@ -50,7 +50,8 @@ then a final line `errors=<n>`.
 | Variable | Read by | Effect |
 |----------|---------|--------|
 | `CODEMEM_ACCEPT_SOLUTION` | `CodeMem.Tests` acceptance runner | When set, the runner extracts that solution into a temp map and prints: the summary line; `handles_written=<n> handles_in_source=<n>` (the latter from an independent syntax walk of `HandlesClauseItem` + `AddHandlerStatement` nodes); `partial_types=<n>`; both residuals; `elapsed_ms=<n>`. When unset the runner is reported as **Skipped**. Reported, never gated. |
-| `CODEMEM_TEST_ABORT_AT` | `CodeMem.Extraction.ExtractionRun` | `AfterStaging` or `DuringPublish`: the process calls `Environment.FailFast` at that point (I9). Any other value → ignored. Test-only. |
+| `CODEMEM_TEST_ABORT_AT` | `CodeMem.Extraction.ExtractionRun` | **Amended by fixpack 002 (FR-116)**: `<phase>:<nonce>`, honoured only when `CODEMEM_TEST_NONCE` is set and equals `<nonce>`; then the process calls `Environment.FailFast` at that phase (I9). Otherwise inert. Phases and the rule: [../../002-stage-a-fixpack/contracts/cli.md](../../002-stage-a-fixpack/contracts/cli.md). Test-only. |
+| `CODEMEM_TEST_NONCE` | `CodeMem.Extraction.ExtractionRun` | Added by fixpack 002: the per-run nonce a test mints (a GUID). Alone it does nothing. Test-only. |
 
 ## Preconditions the extractor assumes (documented, not detected)
 
