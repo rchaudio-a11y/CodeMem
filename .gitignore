@@ -28,3 +28,9 @@ desktop.ini
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
+
+# --- .NET build output --------------------------------------------------
+bin/
+obj/
+*.user
+TestResults/

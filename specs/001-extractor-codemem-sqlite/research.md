@@ -122,6 +122,13 @@ when the MCP server exists; nothing in the schema depends on journal mode.
 **Must be verified by test, not assumed**: that `DefaultTimeout = 0` yields immediate `SQLITE_BUSY`
 under Microsoft.Data.Sqlite (I10 is that test).
 
+**Verified 2026-09-09 (I10, implementation)**: it does not. A `DefaultTimeout`/`CommandTimeout` of 0 makes
+Microsoft.Data.Sqlite retry a busy statement forever (both halves of I10 hung), and the smallest positive
+value is one whole second, which would break SC-008's in-process bound. Resolution: `MapDatabase.BeginImmediate`
+issues the single `BEGIN IMMEDIATE` on the driver's own native handle (`SqliteConnection.Handle`, SQLitePCLRaw)
+with `sqlite3_busy_timeout` set to 0, so `SQLITE_BUSY` returns at once; every other statement still goes
+through Microsoft.Data.Sqlite. I10 (a) measures the refusal in-process, (b) through the executable.
+
 ## R7. Data access (Decided)
 
 `Microsoft.Data.Sqlite` **8.0.31** — same major as the runtime; bundles `e_sqlite3` through

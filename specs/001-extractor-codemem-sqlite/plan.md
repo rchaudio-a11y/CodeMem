@@ -303,6 +303,24 @@ run — is stable (ids are excluded from I2 anyway, but stable order keeps diffs
 | Item | Kind | Armed by | Behaviour when unarmed |
 |------|------|----------|------------------------|
 | `AcceptanceRunner` | Skip-armed runner (FR-039) | `CODEMEM_ACCEPT_SOLUTION=<path>` | Reported as **Skipped** via `SkippableFact`; never passes or fails silently |
+
+`AcceptanceRunner` outputs recorded 2026-09-09 (T110). Unarmed, in the full `dotnet test` run:
+
+```text
+  Skipped CodeMem.Tests.AcceptanceRunner.ReportOnTheNamedSolution [75 ms]
+Passed!  - Failed:     0, Passed:    37, Skipped:     1, Total:    38, Duration: 54 s
+```
+
+Armed with `CODEMEM_ACCEPT_SOLUTION=tests/CodeMem.Tests/Fixtures/Sample/Sample.sln`:
+
+```text
+solution=Sample run_id=1 observed=38 matched=0 reactivated=0 new=38 retired=0 registry_before=0 notes_orphaned=0 candidates=0 unaccounted_observed=0 unaccounted_registry=0 digest=ffbf6e1e... sha=8b39c8da...
+handles_written=5 handles_in_source=5
+partial_types=1
+unaccounted_observed=0 unaccounted_registry=0
+elapsed_ms=2151
+  Passed CodeMem.Tests.AcceptanceRunner.ReportOnTheNamedSolution [3 s]
+```
 | `CODEMEM_TEST_ABORT_AT` | Test-only process-abort seam (I9) | environment variable `AfterStaging` / `DuringPublish` | Inert; labelled test-only in `--help` |
 | `RunSeams.CorruptStagedCounts` | Test-only in-process seam (I8) | passing a `RunSeams` to `Execute` | `Main` passes `Nothing`; no effect |
 
@@ -314,6 +332,38 @@ identifiers, now excluded — R4). One stands:
 
 1. **`depends_on` span fallback** (R13) is the one place an edge can carry offset 0 / line 1 when the
    reference is injected by a props file. Outside the fixture; I12 cannot see it. Stands as recorded.
+
+## Implementation record (2026-09-09, /speckit-implement)
+
+Deviations from the file list and task text above, each deliberate and each covered by a test:
+
+- **`SummaryLine.vb` lives in `CodeMem.Extraction/Run/`**, not the executable: the exit-4 path prints the line
+  (prefixed `outcome=failed`) from inside `ExtractionRun`, so `Program.vb` stays pure wiring.
+- **A symbol row's span is its identifier token**, located inside the first part in (path, offset) order.
+  FR-010 (primary = first part) and FR-018/I12 (span text = name) are reconciled that way; `ObservedPart`
+  carries `IdentifierLocation` and `HashInput` (the latter so a merged namespace's body hash is recomputed).
+- **The lock statement bypasses Microsoft.Data.Sqlite's retry loop**: a `DefaultTimeout` of 0 means "wait
+  forever" (I10 hung both halves), so `MapDatabase.BeginImmediate` issues `BEGIN IMMEDIATE` on the driver's own
+  native handle with `sqlite3_busy_timeout(0)`. Recorded under research R6.
+- **I9's journal assertion** accepts a zero-header (never synced) journal after the read, and requires it gone
+  after the next successful run; SQLite ignores such a journal instead of deleting it (documented in the test).
+- **The fixture's `Overloads.vb` declares `OverloadSet`** (`Overloads` is a VB keyword); `Sample.App` gets
+  `System.Drawing`/`System.Windows.Forms` as project-level `<Import>` items (the SDK adds none for VB).
+- Small record types beyond the list: `CompiledInput`, `CompiledProject`, `GitFacts`, `Timestamps` (one
+  ISO-8601 format), and the test-side row records (`SymbolRow`, `PartRow`, `EdgeRow`, `RunRow`, `CandidateRow`,
+  `SolutionRow`, `RepoPaths`, `DotnetCli`).
+- The SQL-location gate also excludes the two SQL-scanning guards themselves (`TripwireTests`,
+  `SqlLocationGateTests`), whose literals name the SQL they search for.
+- I4's prescribed fire injection (part node = compilation unit) cannot turn I4 red; the recorded fire computes
+  the body hash from the last part only.
+
+Review pass (T116) against the v1.2.1 Review Gates: Option settings gated by `ProjectFileGateTests`; SQL outside
+repositories gated by `SqlLocationGateTests`; every guard carries a `' FIRE:` line (16 recorded) and a
+production-route test; no rule validated at two doors (the schema's CHECK/UNIQUE/FK fire and surface through
+`SchemaConstraintTests`); every Article V stamp field and every Article VIII count is written by
+`ExtractRunsRepository` and asserted by `US1_FirstRunTests`, `I08_ResidualTests` and `I05_IdentityMatchTests`;
+tripwire `TripwireTests` counts positive writes first; header and XML docs gated by `FileHeaderGateTests`;
+abstractions are `EdgeRule` (8 implementations) and `RunSeams` (justified above). Commit left to the Architect.
 
 ## Phase 0 / Phase 1 outputs
 
