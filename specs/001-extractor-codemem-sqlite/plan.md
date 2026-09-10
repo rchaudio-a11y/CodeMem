@@ -4,7 +4,7 @@
 
 **Input**: Feature specification from `/specs/001-extractor-codemem-sqlite/spec.md`
 
-**Governing document**: `.specify/memory/constitution.md` v1.2.0. Article IV requires every relationship
+**Governing document**: `.specify/memory/constitution.md` v1.2.1. Article IV requires every relationship
 verb's extraction rule to be written in the plan; they are, under *Extraction Rules* below.
 
 ## Summary
@@ -63,7 +63,7 @@ only. Article IX — opens no database other than the map. Article IV — no heu
 | II. Test-First | PASS | Every invariant is a Red-first test; each guard's fire demonstration is a task; vacuous-Red rule applied to I13 (count positive writes before asserting absence). |
 | III. Integration-First | PASS | Real `MSBuildWorkspace`, real SQLite file, committed fixture solution. Unit tests only for `CountAuditor` and `TokenTextHasher`, which never substitute for fixture tests. |
 | IV. Compiler Fact Only | PASS | Eight verbs, each with a deterministic rule below. Determinism defined over the logical fact set (I2 on two fresh maps). Compiled-inputs enumeration is a path rule, not a heuristic. |
-| V. Green Only, Stamped | PASS | Exit 2 writes nothing on any Error diagnostic. `extract_runs` inserted first inside the publication transaction. Digest always present; sha/flag nullable. `BEGIN IMMEDIATE` = lock; second extractor exits 3 immediately. |
+| V. Green Only, Stamped | PASS | Exit 2 writes nothing on any Error diagnostic. `extract_runs` is the first **fact-table** write inside the publication transaction (v1.2.1 wording); `map_identity` and `solutions` are identity setup. Digest always present; sha/flag nullable. `BEGIN IMMEDIATE` = lock; second extractor exits 3 immediately. |
 | VI. Reconcile, Never Truncate | PASS | (A) on `solution_id` + `doc_comment_id` against active rows; (A′) reactivation of the most recently retired row carrying an identity no active row holds — id kept, `first_seen_run` unchanged, counted as `symbols_reactivated` (I15); (B) kind + container + `body_hash` against rows retired this run, new symbols only; (C) offset proximity + rank as evidence only, never a threshold. Partial unique index enforces one active row per identity. No DELETE/DROP/recreate/cascade reaches `code_symbols`; I13 tripwire asserts it. |
 | VII. Evidence on Every Row | PASS | Every symbol, part, and edge row has path + offset/length + line/column (NOT NULL). Project rows locate at the project file. |
 | VIII. Counts That Reconcile | PASS | Ten counts including `symbols_reactivated`; `CountAuditor` computes both residuals from the counts alone in a separate class (observed side includes reactivated; registry side does not); non-zero → exit 4, failed row committed, published tables untouched. |
@@ -110,7 +110,9 @@ src/
 │   ├── Records/
 │   │   ├── SourceLocation.vb            # Structure: Path, StartOffset, Length, StartLine, StartColumn
 │   │   ├── SymbolKind.vb                # Enum
+│   │   ├── SymbolKindNames.vb           # Module: enum → schema text
 │   │   ├── EdgeVerb.vb                  # Enum
+│   │   ├── EdgeVerbNames.vb             # Module: enum → schema text
 │   │   ├── ObservedSymbol.vb            # staged symbol (doc id, kind, name, container doc id, location, hash)
 │   │   ├── ObservedPart.vb
 │   │   ├── ObservedEdge.vb
@@ -121,6 +123,8 @@ src/
 │   │   └── SolutionRecord.vb
 │   ├── Repositories/
 │   │   ├── MapDatabase.vb               # Open/Create, BeginImmediate (the lock), Commit/Rollback
+│   │   ├── SchemaVersionMismatchException.vb
+│   │   ├── MapLockHeldException.vb
 │   │   ├── MapIdentityRepository.vb
 │   │   ├── SolutionsRepository.vb       # EnsureByKey, RefreshLabels, SetFirstRun
 │   │   ├── ExtractRunsRepository.vb     # InsertCompleted, InsertFailed
@@ -129,7 +133,8 @@ src/
 │   │   ├── CodeEdgesRepository.vb       # ReplaceForSolution
 │   │   └── RenameCandidatesRepository.vb
 │   ├── Reconciliation/
-│   │   ├── Reconciler.vb                # (A)/(B)/(C) over staged symbols + registry snapshot → ReconciliationResult
+│   │   ├── Reconciler.vb                # (A)/(A′)/(B)/(C) over staged symbols + registry snapshot → ReconciliationResult
+│   │   ├── DuplicateDocCommentIdException.vb
 │   │   ├── ReconciliationResult.vb
 │   │   ├── ProximityRanker.vb           # (C) evidence and rank
 │   │   └── CountAuditor.vb              # residuals from counts alone (FR-025); its own file, own logic
@@ -138,7 +143,8 @@ src/
 ├── CodeMem.Extraction/                  # Roslyn-facing library (NEW — see Complexity Tracking)
 │   ├── CodeMem.Extraction.vbproj
 │   ├── Workspace/
-│   │   ├── SolutionLoader.vb            # MSBuildWorkspace open, compilations, Error diagnostics
+│   │   ├── SolutionLoader.vb            # MSBuildWorkspace open (Configuration/TargetFramework properties), compilations, Error diagnostics
+│   │   ├── WorkspaceLoadException.vb
 │   │   ├── CompiledInputs.vb            # THE enumeration: documents (minus obj/), project files, solution file
 │   │   ├── SourceDigest.vb              # R5
 │   │   └── SolutionPaths.vb             # solution-relative, forward-slash paths
@@ -216,8 +222,10 @@ Executed by `ExtractionRun.Execute(options, seams)`:
 7. Extract into staging, one `SymbolWalker` pass per compilation: `ObservedSymbol`/`ObservedPart`
    lists; the eight `EdgeRule`s → `ObservedEdge` list. Namespaces observed by more than one
    compilation are merged by doc-comment id into one `ObservedSymbol` whose parts accumulate (spec
-   FR-007); no other kind is merged. After the merge, refuse on any duplicate doc-comment id within
-   the solution → exit 1 (spec edge case).
+   FR-007); no other kind is merged. Seam: `seams?.MutateStaged(staged)` after the merge — the
+   production-route proof that a schema-constraint failure propagates as exit 1 with the constraint's
+   name (Articles XII, XIII). Then refuse on any duplicate doc-comment id within the solution → exit
+   1 (spec edge case).
 8. `CodeSymbolsRepository.ReadActive(solutionId)` → registry snapshot, plus
    `ReadRetiredByDocIds(solutionId, unmatched doc ids)` for (A′); `Reconciler.Reconcile(staged,
    snapshot, retired)` → `ReconciliationResult` (matched updates, reactivations, new inserts,
@@ -277,7 +285,7 @@ run — is stable (ids are excluded from I2 anyway, but stable order keeps diffs
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
 | 4th project `CodeMem.Extraction` (Article I "adding a project requires written justification") | Article I also says executables only wire. Roslyn walking is ~15 classes of real logic that cannot live in the executable. | Putting it in `CodeMem.Core` makes Core depend on Roslyn (~50 MB of assemblies) and drags the compiler into every future consumer, including the read-only MCP server the constitution names. Putting it in `CodeMem.Extractor` puts logic in the executable, violating Article I directly. |
-| `RunSeams` interface/class with one production call site (Rule of Three) | I8 and I9 require a test seam reachable through the production entry point (Article XIII). | A `#If DEBUG` block is a second door and unreachable from a Release-built production route. An environment variable alone works for the abort seam (and is used), but count corruption needs an in-process hook to mutate a staged object. |
+| `RunSeams` class with one production call site (Rule of Three) — two hooks: `CorruptStagedCounts` (I8) and `MutateStaged` (schema-constraint propagation) | I8, I9 and the Article XII/XIII proof that a constraint failure surfaces as exit 1 with the constraint's name all require a seam reachable through the production entry point. | A `#If DEBUG` block is a second door and unreachable from a Release-built production route. An environment variable alone works for the abort seam (and is used), but count corruption and staged-symbol mutation need in-process hooks to alter staged objects. |
 | `EdgeRule` interface | Eight implementations — three-call-site rule satisfied (8 > 3). Listed only because it is an interface. | n/a |
 
 ## Carry-Forwards (decisions the spec hands to this plan, now fixed)

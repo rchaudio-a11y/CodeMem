@@ -69,8 +69,8 @@ it would change the source digest on every commit even when no source changed.
 
 **Decision**: the compiled-inputs enumeration (FR-005) is `Project.Documents` **excluding documents
 whose path lies under the project's intermediate output directory** (`obj/`), plus each `.vbproj`, plus
-the solution file. The exclusion is a deterministic path rule keyed on the project's
-`IntermediateOutputPath`, not a heuristic. Generated documents declare no symbols, so nothing else
+the solution file. The exclusion is a deterministic path rule keyed on the fixed path
+`<project directory>/obj/` (a custom `IntermediateOutputPath` is unsupported), not a heuristic. Generated documents declare no symbols, so nothing else
 changes.
 
 ## R4. Hash algorithm and token serialization (Decided)
@@ -167,9 +167,11 @@ Two seams, both reachable through the production entry point (Article XIII):
 
 ## R12. Extractor version and schema version (Decided)
 
-`extractor_version` = `AssemblyName.Version` of the Extractor assembly (from `<Version>` in the
-project file), formatted `Major.Minor.Build`. Not `InformationalVersion`, which SourceLink suffixes
-with the commit sha and would vary per commit for one binary. `schema_version` = a constant in Core
+`extractor_version` = `GetType(ExtractionRun).Assembly.GetName().Version` — the **Extraction**
+assembly (from `<Version>` in its project file), formatted `Major.Minor.Build`. Not the entry
+assembly: in-process tests run under the xUnit test host, so `GetEntryAssembly()` would report the
+wrong version there and the right one only from the executable. Not `InformationalVersion`, which
+SourceLink suffixes with the commit sha and would vary per commit for one binary. `schema_version` = a constant in Core
 (`SchemaVersion.Current = 1`), written to `map_identity` at creation and to every run; mismatch on
 open → exit 1.
 

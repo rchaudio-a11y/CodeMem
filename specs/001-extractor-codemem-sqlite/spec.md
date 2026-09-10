@@ -8,11 +8,11 @@
 
 **Input**: User description: "CodeMem stage A — the extractor and codemem.sqlite. Build a console tool that
 loads a VB.NET solution through the compiler, verifies it compiles with zero errors, and writes what the
-compiler knows into one SQLite file, codemem.sqlite, under the constitution (v1.2.0). Consumers of the
+compiler knows into one SQLite file, codemem.sqlite, under the constitution (v1.2.1). Consumers of the
 file are out of scope; this feature ends when the file is correct." (Full description, including the
 verb rules, run order, fixture contents and invariants I1–I15, is reproduced in the sections below.)
 
-**Governing document**: `.specify/memory/constitution.md` v1.2.0. Where this specification and the
+**Governing document**: `.specify/memory/constitution.md` v1.2.1. Where this specification and the
 constitution appear to differ, the constitution wins and the difference is a defect in this document.
 
 ## Clarifications
@@ -152,7 +152,7 @@ by id.
 **Acceptance Scenarios**:
 
 1. **Given** a map after one run, **When** the unchanged fixture is extracted again, **Then** every
-   symbol keeps its id, `first_seen_run` is unchanged, `last_seen_run` advances, and the counts show
+   symbol keeps its id, `first_seen_run_id` is unchanged, `last_seen_run_id` advances, and the counts show
    every symbol matched with zero new and zero retired (I5).
 2. **Given** a map after one run, **When** a method in the fixture is renamed and the fixture is
    extracted again, **Then** the old row has `is_active = 0` with its id intact, a new row is minted,
@@ -171,7 +171,7 @@ by id.
    unchanged (I14).
 6. **Given** a map after run 1 containing method X, **When** X is renamed to Y and the fixture is
    extracted (run 2), then Y is renamed back to X and the fixture is extracted (run 3), **Then** after
-   run 3 X's original row is active again with its original id and its `first_seen_run` unchanged,
+   run 3 X's original row is active again with its original id and its `first_seen_run_id` unchanged,
    Y's row is retired, `symbols_reactivated = 1`, no new row is minted, and no rename candidate is
    written in run 3 (I15).
 
@@ -285,7 +285,10 @@ report; unset it and confirm the runner reports Skipped.
   both MUST be null. The flag MUST be true exactly when any compiled input (the FR-005 enumeration) is
   modified relative to HEAD, staged, or untracked; changes to any other file MUST NOT set it. The flag
   is informational: the digest covers every compiled input regardless of git's opinion, so the flag can
-  be honest without having to be complete.
+  be honest without having to be complete. The flag's true/false semantics are untested by
+  construction: producing a modified compiled input inside a git working tree would dirty the
+  repository under test, so only non-null-when-a-repository-exists is asserted — the same class as the
+  duplicate-doc-comment-id guard.
 
 **Symbols**
 
@@ -298,11 +301,11 @@ report; unset it and confirm the runner reports Skipped.
   block in every project, and its primary declaration is the first part in (path, span) order.
 - **FR-008**: The extractor MUST NOT write any implicitly declared symbol (Clarification Q4).
 - **FR-009**: Each symbol row MUST carry: `solution_id`, `doc_comment_id` (the compiler's
-  documentation-comment id), `kind`, `name`, `container_id` (the declaring symbol's row, null when the
+  documentation-comment id), `kind`, `name` (the VB surface name; `New` for constructors), `container_id` (the declaring symbol's row, null when the
   container has no row), `project_symbol_id` (the row of kind `project` for the compilation that
   declared the symbol; null exactly for rows of kind `namespace` and `project`, which span or are a
   project), primary declaration path and span (Clarification Q1: offset, length, start line, start
-  column), `body_hash`, `is_active`, `first_seen_run`, `last_seen_run`.
+  column), `body_hash`, `is_active`, `first_seen_run_id`, `last_seen_run_id`.
 - **FR-010**: The primary declaration of a symbol with several declaring references MUST be the first in
   (path, span) order, so that it is the same on every run.
 - **FR-011**: A `WithEvents` declaration MUST be written as exactly one symbol — the source-declared
@@ -316,8 +319,8 @@ report; unset it and confirm the runner reports Skipped.
   symbol's own identifier token excluded (Clarification Q2). For a declaration statement with several
   declarators (`Dim a, b As Integer`), every declarator's identifier token is excluded from every
   sibling's hash, not only the symbol's own: renaming `b` MUST NOT change `a`'s identity.
-- **FR-014**: `body_hash` MUST be the hash over the symbol's parts' hashed text concatenated in
-  (path, span) order, so that an edit to any one part — including a designer partial — changes it, and
+- **FR-014**: `body_hash` MUST be the hash over the symbol's parts' hash inputs (the token text each
+  `part_hash` was computed over) concatenated in (path, span) order, so that an edit to any one part — including a designer partial — changes it, and
   an edit to one part leaves the other parts' `part_hash` values unchanged (I4).
 
 **Edges**
@@ -345,20 +348,25 @@ report; unset it and confirm the runner reports Skipped.
     `via_symbol_id` = the `WithEvents` member when the item names one; and from an `AddHandler` statement
     whose delegate target is a method reference, target method → the event the expression binds to,
     `via_symbol_id` null. Both are edges of the same verb (Q5).
-- **FR-018**: Every edge row MUST carry a non-null path and span, and that span MUST lie on a line
-  containing the referenced identifier (I12, Article VII).
+- **FR-018**: Every symbol row (project rows excepted — their span is the project file itself) and
+  every edge row MUST carry a non-null path and span whose text is exactly the surface name of what
+  the row evidences: a symbol's own `name` (`New` for constructors); for `part_of`, the **source**
+  symbol's name; for `calls`, `uses`, `implements`, `extends`, `imports` and `handles`, the target's
+  surface name (the VB keyword for a special type such as `Integer`, the type name for a constructor,
+  generic arity and parameter lists stripped); for `depends_on`, the referenced project's file name
+  (I12, Article VII).
 
 **Reconciliation**
 
 - **FR-019**: The extractor MUST reconcile observed symbols against the registry rows of the solution
   being extracted only — every step below is scoped by `solution_id` — in the Article VI precedence:
   (A) identity match on `solution_id` + `doc_comment_id` against an active row keeps the id and
-  refreshes name, container, project, location, hash and `last_seen_run`; (A′) reactivation: an
+  refreshes name, container, project, location, hash and `last_seen_run_id`; (A′) reactivation: an
   observed symbol with no (A) match whose identity equals a retired row, where no active row carries
   that identity, reactivates that row — `is_active = 1`, id kept, the same columns refreshed,
-  `first_seen_run` unchanged; where several retired rows carry the identity, the most recently
+  `first_seen_run_id` unchanged; where several retired rows carry the identity, the most recently
   retired is reactivated; any observed symbol without an (A) or (A′) match is minted a new id with
-  `first_seen_run` = this run; any active row of this solution not observed is marked `is_active = 0`
+  `first_seen_run_id` = this run; any active row of this solution not observed is marked `is_active = 0`
   and stays. Rows of other solutions are neither read for matching nor retired (FR-031).
 - **FR-020**: For each new symbol, the extractor MUST evaluate Article VI (B): if a row retired in this
   run has the same kind, the same container and an equal `body_hash`, a `rename_candidates` row MUST be
@@ -396,7 +404,7 @@ report; unset it and confirm the runner reports Skipped.
 - **FR-028**: The extractor MUST extract and reconcile into a staging area that is not visible to readers,
   validate (FR-024–FR-026), and only then publish.
 - **FR-029**: Publication MUST occur in one transaction that, in order: inserts the `extract_runs` row;
-  applies registry updates (refresh matched, insert new, retire unobserved); replaces `code_parts` and
+  applies registry updates (refresh matched, reactivate, insert new, retire unobserved); replaces `code_parts` and
   `code_edges` for this `solution_id` only; inserts `rename_candidates`. A reader MUST observe either the
   previous completed run or the new one, never an intermediate state (I9).
 - **FR-030**: Any failure before or during publication — extraction error, count mismatch, cancellation,
@@ -418,8 +426,9 @@ report; unset it and confirm the runner reports Skipped.
 
 - **FR-033**: On success the extractor MUST print exactly one line containing: solution, run id, the nine
   counts, the source digest, and the commit sha or `null`; and MUST exit 0.
-- **FR-034**: Exit codes MUST be: 0 success; 2 compilation errors; 3 lock held or unobtainable; 4
-  residual mismatch; 1 for any other failure (usage error, unreadable solution, schema-version mismatch,
+- **FR-034**: Exit codes MUST be: 0 success; 2 compilation errors; 3 lock held or unobtainable (an
+  existing but unwritable or read-only location); 4 residual mismatch; 1 for any other failure (usage
+  error, a `--db` path whose directory does not exist, unreadable solution, schema-version mismatch,
   database error). No failure MAY exit 0.
 
 **Fixture and tests**
@@ -432,7 +441,7 @@ report; unset it and confirm the runner reports Skipped.
   `Imports` statement; and two projects joined by a project reference. Both projects MUST share a root
   namespace so that the per-solution namespace merge (FR-007) is exercised by I2 and I5.
 - **FR-036**: The fixture MUST be loaded once per test collection and shared read-only; tests that mutate
-  source (I1, I4, I6, I7, I15) MUST operate on a copy.
+  source (I1, I4, I6, I7, I9, I15, and any other test that edits source) MUST operate on a copy.
 - **FR-037**: Each invariant I1–I15 MUST be one test, written Red first per Article II, run against real
   SQLite and the real compiled fixture per Article III, with no mock of the compiler or the database.
 - **FR-038**: The I13 tripwire MUST first assert a positive count of INSERT/UPDATE statements in the Core
@@ -454,7 +463,7 @@ Column sets follow constitution Articles V–IX; the DDL is proposed in the plan
   downstream consumers (MemOS) join on, stable for the life of the row; `key` (unique: file name
   without extension, or the `--solution-key` override); `name`; and two labels refreshed on every run
   and never part of the key: `repo_root` and the last-seen solution path. A solution is allowed to
-  move. Created run.
+  move. Created timestamp; first completed run id (null until the first completed publication).
 - **extract_runs**: One row per attempted run that reached validation. The stamp: solution, source
   digest (always), commit sha and dirty flag (nullable), build configuration, target framework, extractor
   version, schema version, timestamp; the ten counts; an outcome (completed / failed).
@@ -484,15 +493,16 @@ length, start line (1-based), start column (1-based).
   on every attempt (0 differing rows outside surrogate ids, run ids, timestamps and map identity).
 - **SC-003**: 100% of `Handles` items and method-referencing `AddHandler` statements in the fixture yield
   exactly one `handles` edge; 0 handler methods have zero incoming edges.
-- **SC-004**: 100% of edge rows and symbol rows can be opened to a line that contains the referenced
-  identifier; 0 rows lack a path or span.
+- **SC-004**: 100% of edge rows and non-project symbol rows carry a span whose text equals the surface
+  name of what the row evidences (FR-018); 0 rows lack a path or span.
 - **SC-005**: Across a rename of one fixture method, exactly 1 rename candidate is written, exactly 1 row
   is retired, exactly 1 row is minted, and 0 other rows change identity or active state.
 - **SC-006**: Both residuals are 0 on every clean run; a corrupted count is detected 100% of the time with
   exit 4 and 0 published rows changed.
 - **SC-007**: An interrupted run — at any injected abort point — leaves 0 published rows changed.
-- **SC-008**: A second extractor against a locked map exits with code 3 in under 1 second without waiting
-  on the first.
+- **SC-008**: A second lock attempt against a held map is refused in under 1 second without waiting on
+  the first (measured in-process); the second extractor process exits with code 3 within 2 seconds
+  including runtime start-up.
 - **SC-009**: Extracting a second solution leaves 100% of the first solution's rows byte-identical, and 0
   ids are shared between solutions.
 - **SC-010**: Extracting the fixture solution into a fresh map completes in under 60 seconds on a
@@ -518,7 +528,7 @@ length, start line (1-based), start column (1-based).
   solution files are compiled inputs, a change to a build option (e.g. Option Strict) changes the
   digest even when no source document changed — which is correct, since it changes the compilation.
 - **I2 compares two fresh maps, not two runs into one map.** A second run into the same map necessarily
-  differs in `last_seen_run` and in the counts (all matched rather than all new); those are I5's
+  differs in `last_seen_run_id` and in the counts (all matched rather than all new); those are I5's
   concern. Article IV's determinism claim is read as: same input into empty state, same fact set.
 - **A project file rename is a project rename.** Because a project's identity is its file name
   (Clarifications), renaming `Foo.vbproj` to `Bar.vbproj` retires the `Project:Foo` row and mints
@@ -538,6 +548,11 @@ length, start line (1-based), start column (1-based).
 - **Failed runs are recorded; refused runs are not.** A run that fails validation (exit 4) writes a
   failed `extract_runs` row so the failure is visible. A run refused before extraction — compile errors
   (exit 2), lock held (exit 3), usage or schema errors (exit 1) — writes nothing at all.
+- **A refused run may leave a freshly created map file.** The map is opened — and, when absent,
+  created with its schema and identity — before compilation, so the lock is taken before any long
+  work and a second extractor is refused within SC-008's budget. A run refused after that point
+  (compile errors, schema mismatch) leaves an empty-schema file at a new `--db` path; it never writes
+  a run or fact row.
 - **Exit code 1 for everything not otherwise specified.** The feature names 0, 2, 3 and 4; any other
   failure exits 1. No failure exits 0.
 - **Schema version mismatch is a refusal, not a migration.** A map created by a different schema version

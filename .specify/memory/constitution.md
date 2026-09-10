@@ -55,7 +55,7 @@ same source.
 
 The extractor runs only against a solution that has just compiled successfully; on any build
 failure it exits without writing and the previous snapshot stands. Every run writes one
-extract_runs row before touching any other table, carrying at minimum: solution, a normalized
+extract_runs row before touching any other fact table, carrying at minimum: solution, a normalized
 source digest computed over every compiled source file (always present); the commit sha and a
 dirty-tree flag (nullable, recorded when a repository is present), build configuration, target
 framework, extractor version, schema version, timestamp. Consumers derive currency from the stamp;
@@ -286,4 +286,14 @@ wrong row.
 
 Migration path: none — no code exists.
 
-**Version**: 1.2.0 | **Ratified**: 2026-09-10 | **Last Amended**: 2026-09-10
+**2026-09-10 — v1.2.1 (PATCH).** Article V: "before touching any other table" → "before touching any
+other fact table". Article IX defines fact tables as the rows carrying solution_id; map_identity and
+solutions are identity setup, not run facts. Wording only; no obligation changes.
+
+Rationale: the literal wording was unsatisfiable under the schema's foreign keys — extract_runs
+references solutions, and the schema-version check reads map_identity — so no publication order
+could honour it. The intent, that no fact row precedes the stamp, is unchanged.
+
+Migration path: none.
+
+**Version**: 1.2.1 | **Ratified**: 2026-09-10 | **Last Amended**: 2026-09-10
