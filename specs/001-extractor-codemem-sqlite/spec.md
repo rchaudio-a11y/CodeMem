@@ -8,11 +8,11 @@
 
 **Input**: User description: "CodeMem stage A — the extractor and codemem.sqlite. Build a console tool that
 loads a VB.NET solution through the compiler, verifies it compiles with zero errors, and writes what the
-compiler knows into one SQLite file, codemem.sqlite, under the constitution (v1.1.0). Consumers of the
+compiler knows into one SQLite file, codemem.sqlite, under the constitution (v1.2.0). Consumers of the
 file are out of scope; this feature ends when the file is correct." (Full description, including the
-verb rules, run order, fixture contents and invariants I1–I14, is reproduced in the sections below.)
+verb rules, run order, fixture contents and invariants I1–I15, is reproduced in the sections below.)
 
-**Governing document**: `.specify/memory/constitution.md` v1.1.0. Where this specification and the
+**Governing document**: `.specify/memory/constitution.md` v1.2.0. Where this specification and the
 constitution appear to differ, the constitution wins and the difference is a defect in this document.
 
 ## Clarifications
@@ -101,7 +101,7 @@ needed for the file to be useful.
    span, and that span lies on a line containing the referenced identifier (I12).
 4. **Given** two fresh map files, **When** the same fixture is extracted into each, **Then** the two
    logical fact sets are identical — symbols keyed by documentation-comment id with their kind, name,
-   container, path, spans and hash; parts; edges; and the nine counts — differing only in surrogate ids,
+   container, path, spans and hash; parts; edges; and the ten counts — differing only in surrogate ids,
    run ids, timestamps and `map_identity` (I2).
 5. **Given** the fixture, **When** the run completes, **Then** both residuals are zero (I8, first half).
 
@@ -169,6 +169,11 @@ by id.
    applied to the registry (I7).
 5. **Given** a map after one run, **When** the extractor runs again, **Then** the `map_identity` GUID is
    unchanged (I14).
+6. **Given** a map after run 1 containing method X, **When** X is renamed to Y and the fixture is
+   extracted (run 2), then Y is renamed back to X and the fixture is extracted (run 3), **Then** after
+   run 3 X's original row is active again with its original id and its `first_seen_run` unchanged,
+   Y's row is retired, `symbols_reactivated = 1`, no new row is minted, and no rename candidate is
+   written in run 3 (I15).
 
 ---
 
@@ -236,7 +241,7 @@ report; unset it and confirm the runner reports Skipped.
   error for duplicate definitions; if it ever occurs in an error-free compilation, e.g. via conditional
   compilation): the run refuses before reconciliation — exit code 1, both locations printed, nothing
   written — rather than guessing which row is which. This is not a residual mismatch and does not use
-  exit code 4.
+  exit code 4. Namespaces are merged before this check and never trigger it.
 - A solution whose git working tree is absent, or whose repository cannot be read: commit sha and dirty
   flag are null; the source digest is still present.
 - The map file exists but was created by a newer or older schema version: the run refuses and exits
@@ -288,12 +293,16 @@ report; unset it and confirm the runner reports Skipped.
   of these kinds: namespace, class, module, structure, interface, enum, enum member, delegate, method,
   constructor, property, field, event; plus one row of kind `project` per project in the solution,
   whose `doc_comment_id` is the synthetic id `Project:<project file name without extension>`, located
-  at the project file (offset 0, length 0, line 1, column 1), with a null container.
+  at the project file (offset 0, length 0, line 1, column 1), with a null container. A namespace is
+  one row per solution regardless of how many projects declare it; its parts are every `Namespace`
+  block in every project, and its primary declaration is the first part in (path, span) order.
 - **FR-008**: The extractor MUST NOT write any implicitly declared symbol (Clarification Q4).
 - **FR-009**: Each symbol row MUST carry: `solution_id`, `doc_comment_id` (the compiler's
   documentation-comment id), `kind`, `name`, `container_id` (the declaring symbol's row, null when the
-  container has no row), primary declaration path and span (Clarification Q1: offset, length, start line,
-  start column), `body_hash`, `is_active`, `first_seen_run`, `last_seen_run`.
+  container has no row), `project_symbol_id` (the row of kind `project` for the compilation that
+  declared the symbol; null exactly for rows of kind `namespace` and `project`, which span or are a
+  project), primary declaration path and span (Clarification Q1: offset, length, start line, start
+  column), `body_hash`, `is_active`, `first_seen_run`, `last_seen_run`.
 - **FR-010**: The primary declaration of a symbol with several declaring references MUST be the first in
   (path, span) order, so that it is the same on every run.
 - **FR-011**: A `WithEvents` declaration MUST be written as exactly one symbol — the source-declared
@@ -304,7 +313,9 @@ report; unset it and confirm the runner reports Skipped.
 - **FR-012**: The extractor MUST write one `code_parts` row per declaring syntax reference of each written
   symbol, carrying `symbol_id`, path, span (as in FR-009) and `part_hash`.
 - **FR-013**: `part_hash` MUST be computed over the part's token text only — all trivia excluded, and the
-  symbol's own identifier token excluded (Clarification Q2).
+  symbol's own identifier token excluded (Clarification Q2). For a declaration statement with several
+  declarators (`Dim a, b As Integer`), every declarator's identifier token is excluded from every
+  sibling's hash, not only the symbol's own: renaming `b` MUST NOT change `a`'s identity.
 - **FR-014**: `body_hash` MUST be the hash over the symbol's parts' hashed text concatenated in
   (path, span) order, so that an edit to any one part — including a designer partial — changes it, and
   an edit to one part leaves the other parts' `part_hash` values unchanged (I4).
@@ -342,10 +353,13 @@ report; unset it and confirm the runner reports Skipped.
 - **FR-019**: The extractor MUST reconcile observed symbols against the registry rows of the solution
   being extracted only — every step below is scoped by `solution_id` — in the Article VI precedence:
   (A) identity match on `solution_id` + `doc_comment_id` against an active row keeps the id and
-  refreshes name, container, location, hash and `last_seen_run`; any observed symbol without an (A)
-  match is minted a new id with `first_seen_run` = this run; any active row of this solution not
-  observed is marked `is_active = 0` and stays. Rows of other solutions are neither read for matching
-  nor retired (FR-031).
+  refreshes name, container, project, location, hash and `last_seen_run`; (A′) reactivation: an
+  observed symbol with no (A) match whose identity equals a retired row, where no active row carries
+  that identity, reactivates that row — `is_active = 1`, id kept, the same columns refreshed,
+  `first_seen_run` unchanged; where several retired rows carry the identity, the most recently
+  retired is reactivated; any observed symbol without an (A) or (A′) match is minted a new id with
+  `first_seen_run` = this run; any active row of this solution not observed is marked `is_active = 0`
+  and stays. Rows of other solutions are neither read for matching nor retired (FR-031).
 - **FR-020**: For each new symbol, the extractor MUST evaluate Article VI (B): if a row retired in this
   run has the same kind, the same container and an equal `body_hash`, a `rename_candidates` row MUST be
   written naming the retired id, the new id and the evidence. The registry MUST NOT be altered by a
@@ -360,14 +374,17 @@ report; unset it and confirm the runner reports Skipped.
 
 **Counts and validation**
 
-- **FR-024**: Every `extract_runs` row MUST record the nine counts of Article VIII: `symbols_observed`,
-  `symbols_matched`, `symbols_new`, `symbols_retired`, `registry_active_before`, `notes_orphaned` (written
-  as 0 until a notes table exists), `rename_candidates`, `unaccounted_observed` and
-  `unaccounted_registry`. Every count is scoped to the solution being extracted; in particular
+- **FR-024**: Every `extract_runs` row MUST record the ten counts of Article VIII: `symbols_observed`,
+  `symbols_matched`, `symbols_reactivated`, `symbols_new`, `symbols_retired`, `registry_active_before`,
+  `notes_orphaned` (written as 0 until a notes table exists), `rename_candidates`,
+  `unaccounted_observed` and `unaccounted_registry`. Every count is scoped to the solution being extracted; in particular
   `registry_active_before` is the number of active rows carrying this run's `solution_id` before
   reconciliation, never the whole registry.
 - **FR-025**: The two residuals MUST be computed by code independent of the reconciliation logic, from the
-  other counts alone, and written even when zero.
+  other counts alone, and written even when zero: `unaccounted_observed = symbols_observed −
+  (symbols_matched + symbols_reactivated + symbols_new)`; `unaccounted_registry =
+  registry_active_before − (symbols_matched + symbols_retired)` — reactivated rows were not active
+  before, so the registry-side formula is unchanged.
 - **FR-026**: If either residual is non-zero, the extractor MUST exit with code 4, MUST NOT modify any
   published table, and MUST write one `extract_runs` row marked failed carrying the counts (I8).
 
@@ -412,10 +429,11 @@ report; unset it and confirm the runner reports Skipped.
   `Handles`-clause handlers, one of which handles two events; one `AddHandler` wiring; two method
   overloads with identical bodies; two non-overloaded methods with identical signatures and identical
   bodies that differ only in name; an interface with two implementers; an `Inherits` chain of two; an
-  `Imports` statement; and two projects joined by a project reference.
+  `Imports` statement; and two projects joined by a project reference. Both projects MUST share a root
+  namespace so that the per-solution namespace merge (FR-007) is exercised by I2 and I5.
 - **FR-036**: The fixture MUST be loaded once per test collection and shared read-only; tests that mutate
-  source (I1, I4, I6, I7) MUST operate on a copy.
-- **FR-037**: Each invariant I1–I14 MUST be one test, written Red first per Article II, run against real
+  source (I1, I4, I6, I7, I15) MUST operate on a copy.
+- **FR-037**: Each invariant I1–I15 MUST be one test, written Red first per Article II, run against real
   SQLite and the real compiled fixture per Article III, with no mock of the compiler or the database.
 - **FR-038**: The I13 tripwire MUST first assert a positive count of INSERT/UPDATE statements in the Core
   repository source and then assert zero occurrences of each destructive form reaching `code_symbols`:
@@ -439,11 +457,12 @@ Column sets follow constitution Articles V–IX; the DDL is proposed in the plan
   move. Created run.
 - **extract_runs**: One row per attempted run that reached validation. The stamp: solution, source
   digest (always), commit sha and dirty flag (nullable), build configuration, target framework, extractor
-  version, schema version, timestamp; the nine counts; an outcome (completed / failed).
+  version, schema version, timestamp; the ten counts; an outcome (completed / failed).
 - **code_symbols**: The identity registry. One row per source-declared symbol per solution, plus one per
   project. Identity is `solution_id` + `doc_comment_id`; ids are never reused; rows are retired, never
-  deleted. Carries kind, name, container, primary declaration location, `body_hash`, `is_active`,
-  first/last seen run.
+  deleted, and a retired row is reactivated when its identity reappears. Carries kind, name,
+  container, declaring project (null for namespace and project rows), primary declaration location,
+  `body_hash`, `is_active`, first/last seen run.
 - **code_parts**: Observation table, replaced per run per solution. One row per declaring reference of a
   symbol: location and `part_hash`.
 - **code_edges**: Observation table, replaced per run per solution. One row per occurrence: source
@@ -484,6 +503,8 @@ length, start line (1-based), start column (1-based).
 - **SC-012**: The I13 tripwire reports a positive number of write statements and 0 destructive
   statements reaching `code_symbols`, and is shown to go red when a DELETE against `code_symbols` is
   injected (Article II fire demonstration).
+- **SC-013**: A rename followed by a revert leaves the symbol on its original id: exactly 1
+  reactivation, 0 new rows, 0 candidates in the reverting run.
 
 ## Assumptions
 
@@ -534,6 +555,10 @@ length, start line (1-based), start column (1-based).
   (Clarifications). The only timing target is SC-010 for the fixture; real-solution timing is observed
   through the acceptance runner's elapsed-time line, not gated. Consequently in-memory staging is
   acceptable for this feature, and a later feature sets performance targets from observed numbers.
+- **A symbol's project is compiler fact — the compilation that declared it — recorded as a column.**
+  `part_of` follows `ContainingSymbol` and ends at the namespace; two `part_of` edges from one source
+  would break that rule, so the declaring project is `project_symbol_id` on the row, not a verb.
+  Namespaces and project rows carry null: a namespace spans projects, a project is one.
 - **The test framework, hashing algorithm for `body_hash`/`part_hash`, and lock mechanism are plan-level
   choices** constrained by Articles III, XI and XV; the spec fixes only their observable behaviour.
 - **Known limit of (B) — a renamed container blinds its members.** (B) requires the retired row and the

@@ -79,17 +79,24 @@ precedence:
 (A) Identity match — automatic. An observed symbol whose solution_id and DocumentationCommentId
 equal a registered active row keeps that row's id; labels and observation columns are refreshed.
 
+(A′) Reactivation — automatic. An observed symbol with no (A) match whose solution_id and
+DocumentationCommentId equal a RETIRED row, where no active row carries that identity, reactivates
+that row: is_active = 1, the id is kept, labels and observation columns are refreshed, last_seen_run
+advances, first_seen_run is unchanged. Where more than one retired row carries the identity, the
+most recently retired is reactivated. A reactivation is neither new nor matched; it is counted as
+symbols_reactivated.
+
 (B) Rename candidate — proposal only, never applied. An observed symbol with no (A) match, whose
 kind and container match a row retired in this run and whose content hash (Article VII, all
 declaring references) equals that row's, is minted a NEW id, and a rename_candidates row is written
 naming the retired id, the new id and the evidence. The registry is not changed by a candidate;
 acceptance is a separate, human-initiated operation.
 
-(C) Tiebreak within (B) — evidence only. Where more than one retired row satisfies (B), or none
-does but declaration path and span are within a stated proximity, the candidate row records the
-proximity as evidence and its rank. Proximity alone never creates a candidate.
+(C) Tiebreak within (B) — evidence only. Where more than one retired row satisfies (B), the
+candidate rows record the offset proximity of their primary declarations as evidence and a rank.
+Proximity alone never creates a candidate.
 
-Any observed symbol not matched by (A) is minted a new id. Any registered active row not observed
+Any observed symbol not matched by (A) or (A′) is minted a new id. Any registered active row not observed
 this run is marked is_active = 0 and its row stays. Ambiguity resolves to a new id, never to a
 guess: a false match is worse than an unnecessary identity.
 
@@ -111,12 +118,13 @@ Rationale: A fact a reader cannot check against the source is indistinguishable 
 
 ### VIII. Counts That Reconcile
 
-Every extract_runs row records: symbols_observed, symbols_matched, symbols_new, symbols_retired,
-registry_active_before, notes_orphaned, rename_candidates, unaccounted_observed and
-unaccounted_registry. The two residuals are computed independently of the logic they audit —
-unaccounted_observed = symbols_observed − (symbols_matched + symbols_new); unaccounted_registry =
-registry_active_before − (symbols_matched + symbols_retired) — and both are written even when
-zero. A run in which either residual is non-zero is reported as a failed run, not a partial one,
+Every extract_runs row records: symbols_observed, symbols_matched, symbols_reactivated,
+symbols_new, symbols_retired, registry_active_before, notes_orphaned, rename_candidates,
+unaccounted_observed and unaccounted_registry. The two residuals are computed independently of the
+logic they audit — unaccounted_observed = symbols_observed − (symbols_matched +
+symbols_reactivated + symbols_new); unaccounted_registry = registry_active_before −
+(symbols_matched + symbols_retired), unchanged because a reactivated row was not active before —
+and both are written even when zero. A run in which either residual is non-zero is reported as a failed run, not a partial one,
 and is not published (Article V). Import and load surfaces report what was processed, not only
 what failed. Until a notes table exists, notes_orphaned is written as 0; it is a column, not a
 lookup.
@@ -265,4 +273,17 @@ diagnostic for a missing XML comment. Branch taken: enforcement moved to the Rev
 Migration path: none required — no source code exists yet; this amendment lands before the first
 table.
 
-**Version**: 1.1.0 | **Ratified**: 2026-09-10 | **Last Amended**: 2026-09-10
+**2026-09-10 — v1.2.0 (MINOR).** One obligation added: Article VI gains (A′) Reactivation, and
+Article VIII gains the count symbols_reactivated with the observed-side residual extended to include
+it. One vacuous clause removed: Article VI (C) no longer speaks of a candidate arising when no
+retired row satisfies (B), which "Proximity alone never creates a candidate" already forbade. No
+article is removed or redefined.
+
+Rationale: Article XIV names deactivate and reactivate as the two legs of one pair; a revert that
+mints a third identity treats the return leg as a new arrival. Before this amendment, renaming X to
+Y and reverting Y to X produced three ids for one symbol and a rename candidate pointing at the
+wrong row.
+
+Migration path: none — no code exists.
+
+**Version**: 1.2.0 | **Ratified**: 2026-09-10 | **Last Amended**: 2026-09-10

@@ -32,10 +32,11 @@
 ## Notes
 
 - Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`
-- **One marker remains** (User Story 3, scenario 4 / invariant I7): whether a rename candidate is written
-  when one of two identical-body overloads is renamed. As written, I7 conflicts with Article VI (B)/(C)
-  and with the Q2 hash rule; the Assumptions section lists three readings with a recommendation. This is
-  an Architect ruling, not a spec defect the author can resolve alone.
+- **No markers remain.** The I7 marker from the specify pass was resolved in clarify (rewritten to the
+  multi-retired case); the plan review of 2026-09-10 then amended the constitution to v1.2.0
+  (reactivation, ten counts, (C) wording) and added I15, `project_symbol_id`, the per-solution
+  namespace merge and sibling-identifier exclusion to the spec. The checklist reflects spec.md, plan.md,
+  research.md, data-model.md, contracts/ and quickstart.md as they stand together.
 - On "no implementation details" and "non-technical stakeholders": the compiler, the database engine and
   the language are named because the constitution (Articles III, IV, XI, XV) fixes them and because the
   feature's subject *is* the compiler's output. Table and column names appear because they are the
