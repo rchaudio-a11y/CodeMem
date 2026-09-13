@@ -5,6 +5,8 @@
 ' Created: 2026-09-09
 '
 ' 2026-09-10 (fixpack 002, F4 cheap half): BuildFiles added and folded into Enumerate (research R28).
+' 2026-09-13 (fixpack 003, rule 1): SourceTrees takes the run's SolutionScope and admits only in-scope documents (FR-202); Enumerate is
+' unchanged, so the digest still covers every compiled input (FR-206).
 
 Imports System.IO
 Imports Microsoft.CodeAnalysis
@@ -89,16 +91,18 @@ Public Module CompiledInputs
     End Function
 
     ''' <summary>
-    ''' The syntax trees of a compilation that belong to source documents (the same obj/ rule as <see cref="Enumerate"/>).
-    ''' Generated and embedded trees are excluded and therefore declare nothing.
+    ''' The syntax trees of a compilation that declare symbols: source documents (the same obj/ rule as <see cref="Enumerate"/>) that lie
+    ''' under the run's scope root (fixpack 003, FR-202). Generated and embedded trees, and documents outside the scope root, declare nothing
+    ''' and source no edge.
     ''' </summary>
     ''' <param name="project">The project.</param>
     ''' <param name="compilation">Its compilation.</param>
+    ''' <param name="scope">The run's scope root (<see cref="SolutionScope"/>).</param>
     ''' <returns>The declaring trees.</returns>
-    Public Function SourceTrees(project As Project, compilation As Compilation) As HashSet(Of SyntaxTree)
+    Public Function SourceTrees(project As Project, compilation As Compilation, scope As SolutionScope) As HashSet(Of SyntaxTree)
         Dim paths As HashSet(Of String) = New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
         For Each document As Document In project.Documents
-            If IsSourceDocument(project, document) Then paths.Add(Path.GetFullPath(document.FilePath))
+            If IsSourceDocument(project, document) AndAlso scope.Contains(document.FilePath) Then paths.Add(Path.GetFullPath(document.FilePath))
         Next
         Dim trees As HashSet(Of SyntaxTree) = New HashSet(Of SyntaxTree)()
         For Each tree As SyntaxTree In compilation.SyntaxTrees

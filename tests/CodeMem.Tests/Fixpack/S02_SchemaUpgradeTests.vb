@@ -14,6 +14,13 @@
 ' FIRE:  2026-09-10 (4) as specified in T027 - AbortIf(DuringUpgrade) moved after SetSchemaVersion(2) - did NOT go red: both statements are inside
 '        the one transaction the FailFast discards, so the map reads 1 either way (that is FR-113 holding, not a gap in the test). Substitute
 '        fire: committed the upgrade on its own (db.Commit() : db.BeginImmediate()) before the abort -> red (expected 1, actual 2); reverted -> green.
+'
+' 2026-09-13 (fixpack 003, rule 2; a Red named in plan 003 §Test design before it ran): (1) red - Assert.Equal(before("code_edges"),
+' after("code_edges")) expected 137, actual 144. The Stage A extractor wrote 137 edges for the fixture; this executable also writes its seven
+' bare-name occurrences. code_edges is an observation table replaced wholesale per run (Article VI), so its count follows the extractor, not
+' the map's history; "every table keeps its rows" was and remains the fact for the identity and run tables. Amended in place: the upgraded map
+' must hold exactly the edges a fresh map of the same fixture gets from the same executable. code_symbols, code_parts and rename_candidates
+' equality stand (the fixture has no out-of-scope declaration). Re-run -> green.
 
 Imports CodeMem.Extraction
 Imports Xunit
@@ -58,8 +65,13 @@ Public Class S02_SchemaUpgradeTests
             Assert.Equal(runsBefore + 1, after("extract_runs"))
             Assert.Equal(before("code_symbols"), after("code_symbols"))
             Assert.Equal(before("code_parts"), after("code_parts"))
-            Assert.Equal(before("code_edges"), after("code_edges"))
             Assert.Equal(before("rename_candidates"), after("rename_candidates"))
+            ' Fixpack 003: code_edges follows the extractor (rule 2 writes the fixture's bare-name occurrences the Stage A run did not); the
+            ' upgraded map holds exactly what a fresh map of the same fixture gets from this executable.
+            Using fresh As TempMap = New TempMap()
+                Assert.Equal(ExitCode.Success, ExtractionRun.Execute(New ExtractionOptions With {.SolutionPath = _fixture.SolutionPath, .DbPath = fresh.Path}, Nothing))
+                Assert.Equal(MapQueries.CountRows(fresh.Path, "code_edges", MapQueries.ReadSolutions(fresh.Path)(0).Id), after("code_edges"))
+            End Using
 
             Dim runs As List(Of RunRow) = MapQueries.ReadRuns(map.Path)
             Assert.Equal(CInt(runsBefore) + 1, runs.Count)

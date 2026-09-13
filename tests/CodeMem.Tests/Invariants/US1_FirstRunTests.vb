@@ -8,6 +8,9 @@
 ' GREEN: 2026-09-09 after Slice A (T036-T051): stamp, identity and solution row written, exit 0 in ~2 s.
 '
 ' 2026-09-10 (fixpack 002, S02): map_identity.schema_version and the run row now read 2, and the run carries sdk_version (FR-111, FR-109).
+' 2026-09-13 (fixpack 003, FR-217; a Red named in plan 003 §Test design): red - Assert.Equal expected "0.1.0", actual "0.2.0" after the
+' extraction assembly's version moved to 0.2.0 (the fact set for one digest changed). The literal is amended; the fact - the run stamps the
+' assembly's version - is unchanged. Re-run -> green.
 
 Imports System.Diagnostics
 Imports System.Text.RegularExpressions
@@ -61,7 +64,7 @@ Public Class US1_FirstRunTests
             Assert.True(run.IsDirty.HasValue, "is_dirty must be non-null when the fixture lives inside a repository")
             Assert.Equal("Debug", run.BuildConfiguration)
             Assert.False(String.IsNullOrEmpty(run.TargetFramework))
-            Assert.Equal("0.1.0", run.ExtractorVersion)
+            Assert.Equal("0.2.0", run.ExtractorVersion)
             Assert.Equal(2, run.SchemaVersion)
             Assert.False(String.IsNullOrEmpty(run.SdkVersion), "sdk_version must be stamped on a version-2 run")
             Assert.Matches("^\d{4}-\d{2}-\d{2}T", run.StartedUtc)

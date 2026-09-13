@@ -7,6 +7,8 @@
 ' 2026-09-10 (fixpack 002): preflight, open, lock, InspectSchema, fresh-map creation and the 1 -> 2 upgrade all sit inside one error
 ' boundary (F6, F9, FR-106, FR-112, FR-115); MapLockHeldException -> 3, everything else -> 1 with one stderr line; the abort seam needs
 ' the nonce (F8); the stamp carries sdk_version (FR-109); refreshes and reactivations pass the observed kind (F2).
+' 2026-09-13 (fixpack 003, rule 1): step 8 resolves the SolutionScope from the git facts and stages, adds project rows for and runs the tree
+' rules over in-scope projects only (FR-201, FR-203); the green gate of step 6 still covers every compiled project.
 
 Imports System.IO
 Imports System.Text.RegularExpressions
@@ -114,19 +116,23 @@ Public Class ExtractionRun
                 .SdkVersion = SdkVersion.Resolve(basePath),
                 .StartedUtc = startedUtc}
 
-            ' Step 8: stage symbols (one walk per compilation), merge namespaces, add project rows, then run the eight edge rules.
+            ' Step 8: resolve the scope root (fixpack 003, FR-201: the repository working directory the stamp carries, else the solution
+            ' directory), then stage symbols (one walk per in-scope compilation), merge namespaces, add project rows for in-scope projects,
+            ' then run the eight edge rules. A project whose file is outside the scope root contributes nothing (FR-203).
+            Dim scope As SolutionScope = SolutionScope.Resolve(git.RepoRoot, basePath)
+            Dim inScope As List(Of CompiledProject) = compiled.FindAll(Function(p As CompiledProject) scope.Contains(p.Project.FilePath))
             Dim staged As List(Of ObservedSymbol) = New List(Of ObservedSymbol)()
             Dim perProject As Dictionary(Of CompiledProject, List(Of ObservedSymbol)) = New Dictionary(Of CompiledProject, List(Of ObservedSymbol))()
             Dim treesOf As Dictionary(Of CompiledProject, HashSet(Of SyntaxTree)) = New Dictionary(Of CompiledProject, HashSet(Of SyntaxTree))()
-            For Each project As CompiledProject In compiled
-                Dim trees As HashSet(Of SyntaxTree) = CompiledInputs.SourceTrees(project.Project, project.Compilation)
+            For Each project As CompiledProject In inScope
+                Dim trees As HashSet(Of SyntaxTree) = CompiledInputs.SourceTrees(project.Project, project.Compilation, scope)
                 Dim observed As List(Of ObservedSymbol) = SymbolWalker.Walk(project.Compilation, ProjectSymbols.DocIdOf(project.Project), basePath, trees)
                 treesOf(project) = trees
                 perProject(project) = observed
                 staged.AddRange(observed)
             Next
             staged = SymbolWalker.MergeNamespaces(staged)
-            For Each project As CompiledProject In compiled
+            For Each project As CompiledProject In inScope
                 staged.Add(ProjectSymbols.Create(project.Project, basePath))
             Next
             Dim rowDocIds As HashSet(Of String) = New HashSet(Of String)(StringComparer.Ordinal)
@@ -136,7 +142,7 @@ Public Class ExtractionRun
             Dim edges As List(Of ObservedEdge) = New List(Of ObservedEdge)()
             Dim treeRules As List(Of EdgeRule) = New List(Of EdgeRule) From {
                 New CallsRule(), New UsesRule(), New ImplementsRule(), New ExtendsRule(), New ImportsRule(), New DependsOnRule(), New HandlesRule()}
-            For Each project As CompiledProject In compiled
+            For Each project As CompiledProject In inScope
                 Dim context As EdgeContext = New EdgeContext(project, loader.Solution, basePath, treesOf(project), perProject(project), rowDocIds)
                 For Each rule As EdgeRule In treeRules
                     rule.Collect(context, edges)

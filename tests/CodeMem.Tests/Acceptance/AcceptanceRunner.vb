@@ -3,6 +3,9 @@
 ' Description: Skip-armed acceptance runner (FR-039): extracts the solution named by CODEMEM_ACCEPT_SOLUTION and reports counts; reported, never gated.
 ' Author: RCH Automation LLC
 ' Created: 2026-09-09
+'
+' 2026-09-13 (fixpack 003, rule 1): the handles-in-source count walks the same in-scope trees the run maps (SolutionScope resolved the way
+' ExtractionRun resolves it), so handles_written and handles_in_source still count one thing.
 
 Imports System.Diagnostics
 Imports CodeMem.Extraction
@@ -47,8 +50,11 @@ Public Class AcceptanceRunner
             Dim partialTypes As Integer = 0
             Dim seenTypes As HashSet(Of String) = New HashSet(Of String)(StringComparer.Ordinal)
             Using loader As SolutionLoader = SolutionLoader.Open(solutionPath, "Debug", Nothing)
-                For Each project As CompiledProject In loader.CompileAll(SolutionPaths.BaseDirectory(solutionPath))
-                    For Each tree As SyntaxTree In CompiledInputs.SourceTrees(project.Project, project.Compilation)
+                Dim basePath As String = SolutionPaths.BaseDirectory(solutionPath)
+                Dim scope As SolutionScope = SolutionScope.Resolve(GitProvenance.Read(basePath, CompiledInputs.Enumerate(loader.Solution, basePath)).RepoRoot, basePath)
+                For Each project As CompiledProject In loader.CompileAll(basePath)
+                    If Not scope.Contains(project.Project.FilePath) Then Continue For
+                    For Each tree As SyntaxTree In CompiledInputs.SourceTrees(project.Project, project.Compilation, scope)
                         For Each node As SyntaxNode In tree.GetRoot().DescendantNodes()
                             If TypeOf node Is HandlesClauseItemSyntax OrElse node.IsKind(SyntaxKind.AddHandlerStatement) Then handlesInSource += 1
                         Next

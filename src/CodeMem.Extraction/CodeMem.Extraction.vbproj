@@ -7,7 +7,8 @@
     <OptionExplicit>On</OptionExplicit>
     <OptionInfer>Off</OptionInfer>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <Version>0.1.0</Version>
+    <!-- Fixpack 003 (research R38, FR-217): the fact set for one digest changed (out-of-scope rows leave, bare-name edges arrive). -->
+    <Version>0.2.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
