@@ -143,6 +143,23 @@ and column — lines 39, 40, 48, 49, 58, 70, 80, 81, 89, 90, 112, 114, 115, 171,
 0 before, 1 after (`DungeonControl.vb` line 3987 column 45, from `EnqueueFoePhase` — the `AddressOf StepCornered`
 site), so it leaves the orphan list.
 
+### Live map record (2026-09-13, after the commit `f648846`; run by the Implementor at the Architect's request)
+
+Backup first: `C:\_DB\codemem.pre-003.2026-09-13.sqlite` (SHA-256 `1cae3e92…`, the pre-003 map). Extractor rebuilt from
+`f648846` (0 errors). The three runs against `C:\_DB\codemem.sqlite`, in order, each exit 0:
+
+```text
+solution=GameRoom run_id=4 observed=2170 matched=2170 reactivated=0 new=0 retired=2 registry_before=2172 notes_orphaned=0 candidates=0 unaccounted_observed=0 unaccounted_registry=0 digest=9883407acd732ee86808756e756ce9bd057baecf54801786ad6d4ad4aaa61ef7 sha=e1bbe024d9a49acc5f8756c2ebc79bb38092bb13
+solution=CodeMem run_id=5 observed=725 matched=691 reactivated=0 new=34 retired=3 registry_before=694 notes_orphaned=0 candidates=0 unaccounted_observed=0 unaccounted_registry=0 digest=fdc2baf28ed8bea938e7981b647c8ac87543d346d8de29bcc4423e7f7acfff92 sha=f6488469469ed8a3e1e395355820f95d406205c0
+solution=MemOS run_id=6 observed=14713 matched=0 reactivated=0 new=14713 retired=0 registry_before=0 notes_orphaned=0 candidates=0 unaccounted_observed=0 unaccounted_registry=0 digest=d72c3abdfa4c1b16516b08d531c904fdb5559cecd50337e0d56fce393e7fa049 sha=806f5f3fe45d05628f0c8370e337c6d16e43578c
+```
+
+Elapsed 16 s, 12 s, 31 s. Every count equals the copy's record above; CodeMem's run now carries the committed sha
+with `is_dirty = 0`. **MemOS is solution 3 in the live map** (run 6) — the id `code_map_solutions` row 1 binds to
+on the MemOS side. Orphans on the live map: GameRoom 279, CodeMem 136, MemOS 3 228 (as on the copy); `_balance`
+22 occurrences; `StepCornered` 1. No `-journal` file remained; the map is 64 MB. `C:\_DB\memos.sqlite` hashed
+`f876df36…` before and after the runs: untouched.
+
 ## What must not happen
 
 - No write to `C:\_DB\memos.sqlite` or to `code_map_solutions` (FR-218). The MemOS Shell may keep running;

@@ -353,8 +353,13 @@ edge anywhere. Orphans moved 306 → 279 (GameRoom) and 125 → 136 (CodeMem; th
 classes and facts, +12, against −1 module and −1 `Main`), each delta accounted for by kind in the quickstart.
 `_balance` went from 0 to 22 occurrences; `StepCornered` from 0 to 1. The live files' hashes are unchanged.
 
-**Not done here**: commits (the Architect's); the MemOS-side registry binding of any new solution id; any write to
-`C:\_DB\codemem.sqlite` or `memos.sqlite` (hashes before and after in the quickstart).
+**Live map (2026-09-13, after commit `f648846`, at the Architect's request)**: backup
+`C:\_DB\codemem.pre-003.2026-09-13.sqlite` taken, extractor rebuilt from the commit, the three runs made against
+`C:\_DB\codemem.sqlite` in the same order with the same counts as the copy (quickstart "Live map record"); MemOS
+is solution 3, run 6. `memos.sqlite` untouched (hash equal before and after).
+
+**Not done here**: the MemOS-side registry binding of solution 3 (`code_map_solutions` row 1 →
+`codemem_solution_id = 3`), which is MemOS's write, not the extractor's.
 
 ## Phase 0 / Phase 1 outputs
 
