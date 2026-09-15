@@ -141,6 +141,10 @@ first created and never rewritten. CodeMem opens no database in any role other t
 The constraint is on role, not path: tests create throwaway map files at temporary paths and those
 are still codemem.sqlite in role.
 
+One exception is ruled (decisions 137077, 142362, 152658; feature 004, amendment v1.3.0): the bridge opens
+the MemOS store read-only, for the code_map_solutions registry alone, to construct --solution-key and to bind
+map solutions to projects; it writes neither file. The extractor never opens the store.
+
 Rationale: A single writer against a single file is the cheapest guarantee that no run can
 half-overwrite another solution's map.
 
@@ -237,6 +241,9 @@ Every plan, task list and implementation review verifies:
 - Header block and XML docs on every new or modified file. This gate is the enforcement mechanism
   for the XML documentation rule; the compiler does not enforce it.
 - Any new abstraction justified by three call sites in hand.
+- New SqliteConnection appears in exactly two production files, MapDatabase.vb (the map: read-write for the
+  extractor, read-only for the bridge) and StoreDatabase.vb (the MemOS store, read-only, Article IX's ruled
+  exception), asserted by a test that names both and fires when a third site appears (v1.3.0).
 
 ## Governance
 
@@ -296,4 +303,22 @@ could honour it. The intent, that no fact row precedes the stamp, is unchanged.
 
 Migration path: none.
 
-**Version**: 1.2.1 | **Ratified**: 2026-09-10 | **Last Amended**: 2026-09-10
+**2026-09-15 — v1.3.0 (MINOR).** Article IX gains one ruled exception: the bridge (feature 004,
+`CodeMem.Bridge`) opens the MemOS store read-only, for the `code_map_solutions` registry alone, to construct
+`--solution-key` and to bind map solutions to projects; it writes neither file; the extractor never opens the
+store. The Review Gates gain the connection-site gate at exactly two named production files, `MapDatabase.vb`
+and `StoreDatabase.vb`. No article is removed or redefined: the extractor remains the sole writer of fact
+tables and the map remains the only database CodeMem writes.
+
+Rationale: decisions 137077 (2026-09-12), 142362 (2026-09-13) and 152658 (2026-09-15) rule that the bridge
+constructs the solution key from the registry and refuses an unregistered solution — a table enforces
+nothing, a function in the tool surface does — and that reading the registry file does not reintroduce the
+Shell dependency the bridge exists to escape. As written, Article IX's last sentence forbade the read; the
+2026-09-11 rule-of-five record had already flagged that its compatibility "belongs as an amendment on
+CodeMem's side". Ruled by the Architect at feature 004's STOP 1.
+
+Migration path: none — no code opened the store before this amendment. The test
+`SqlLocationGateTests.OnlyMapDatabaseOpensAConnection` is amended to the two files in the same task in which
+`StoreDatabase.vb` lands, after its Red is recorded, and re-fired.
+
+**Version**: 1.3.0 | **Ratified**: 2026-09-10 | **Last Amended**: 2026-09-15
