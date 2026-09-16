@@ -19,12 +19,17 @@
   <ItemGroup>
     <!-- The version-1 map fixture (research R30): copied beside the tests so V1MapFixture can copy it to a temp path. -->
     <None Update="Fixtures/Maps/sample-v1.sqlite" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Feature 004 (research R54): the spike's hook payloads, piped into the bridge's hook entry by B06. -->
+    <None Update="Fixtures/Hooks/*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\CodeMem.Core\CodeMem.Core.vbproj" />
     <ProjectReference Include="..\..\src\CodeMem.Extraction\CodeMem.Extraction.vbproj" />
     <ProjectReference Include="..\..\src\CodeMem.Extractor\CodeMem.Extractor.vbproj" />
+    <!-- Feature 004: the bridge's library for the in-process facts and the executable for the production route (Article XIII). -->
+    <ProjectReference Include="..\..\src\CodeMem.Bridging\CodeMem.Bridging.vbproj" />
+    <ProjectReference Include="..\..\src\CodeMem.Bridge\CodeMem.Bridge.vbproj" />
   </ItemGroup>
 
   <ItemGroup>

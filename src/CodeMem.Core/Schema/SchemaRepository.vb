@@ -6,6 +6,10 @@
 '
 ' 2026-09-10 (fixpack 002): CreateSchema became CreateVersion1; UpgradeToVersion2, SetSchemaVersion, CountUserTables and
 ' HasMapIdentityRow added; every method takes the MapDatabase so the work runs inside its BEGIN IMMEDIATE (research R22, R23).
+'
+' 2026-09-15 (feature 004): this file keeps LF line endings. The newlines inside the two DDL constants are part of the text SQLite stores in
+' sqlite_master, and S02 compares a fresh map's objects with the version-1 fixture map's; a tool that rewrites the file as CRLF turns that
+' comparison red (observed 2026-09-15 and restored the same day).
 
 Imports Microsoft.Data.Sqlite
 

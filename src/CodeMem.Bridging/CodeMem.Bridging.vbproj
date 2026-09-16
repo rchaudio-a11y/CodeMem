@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>CodeMem.Bridging</RootNamespace>
+    <OptionStrict>On</OptionStrict>
+    <OptionExplicit>On</OptionExplicit>
+    <OptionInfer>Off</OptionInfer>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Feature 004 (CON1): the bridge's library; the executable only wires. -->
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CodeMem.Core\CodeMem.Core.vbproj" />
+    <!-- SolutionScope is the one containment door (COR1, research R47, R59). -->
+    <ProjectReference Include="..\CodeMem.Extraction\CodeMem.Extraction.vbproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The MCP library the Shell's own server already runs against Claude Code (research R43); LibGit2Sharp at the version Extraction pins (R46). -->
+    <PackageReference Include="ModelContextProtocol.Core" Version="1.4.0" />
+    <PackageReference Include="LibGit2Sharp" Version="0.32.0" />
+  </ItemGroup>
+
+</Project>

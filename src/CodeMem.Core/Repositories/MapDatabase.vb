@@ -6,6 +6,9 @@
 '
 ' 2026-09-10 (fixpack 002): OpenOrCreate became Open (no schema work; SqliteConnectionStringBuilder, F5) plus InspectSchema (F6, FR-105).
 ' Creation and the 1 -> 2 upgrade now happen in ExtractionRun inside BEGIN IMMEDIATE, so a race to create one path is serialized.
+'
+' 2026-09-15 (feature 004, T011): ReadOnlyConnectionString and OpenReadOnly - the bridge's door, Mode=ReadOnly, no pragma (research R44,
+' FR-303) - and BeginRead / EndRead, one deferred read transaction per tool call (CON4, research R58). The extractor's path is unchanged.
 
 Imports Microsoft.Data.Sqlite
 
@@ -48,6 +51,55 @@ Public Class MapDatabase
         End Try
         Return New MapDatabase(connection)
     End Function
+
+    ''' <summary>
+    ''' The read-only connection string (feature 004, research R44): Mode=ReadOnly, no pooling, a 3 s busy timeout (R53). A missing file
+    ''' fails with SQLITE_CANTOPEN and is not created; a write fails with SQLITE_READONLY (demonstrated by B01's fire, FR-342).
+    ''' </summary>
+    ''' <param name="path">The map file path, typed so ';' and '=' in it are literal.</param>
+    ''' <returns>The connection string.</returns>
+    Public Shared Function ReadOnlyConnectionString(path As String) As String
+        Dim builder As SqliteConnectionStringBuilder = New SqliteConnectionStringBuilder With {.DataSource = path, .Mode = SqliteOpenMode.ReadOnly, .Pooling = False, .DefaultTimeout = 3}
+        Return builder.ConnectionString
+    End Function
+
+    ''' <summary>
+    ''' Opens the map read-only for one bridge call (FR-303): no journal_mode pragma (a write on a read-only connection) and no foreign_keys
+    ''' pragma (reads need none). <see cref="InspectSchema"/> works unchanged; <see cref="BeginImmediate"/> would refuse. On any failure the
+    ''' connection is disposed and the exception rethrown.
+    ''' </summary>
+    ''' <param name="path">The map file path; must exist.</param>
+    ''' <returns>The open, read-only database.</returns>
+    Public Shared Function OpenReadOnly(path As String) As MapDatabase
+        Dim connection As SqliteConnection = New SqliteConnection(ReadOnlyConnectionString(path))
+        Try
+            connection.Open()
+        Catch
+            connection.Dispose()
+            Throw
+        End Try
+        Return New MapDatabase(connection)
+    End Function
+
+    ''' <summary>
+    ''' Begins one deferred read transaction (an ordinary BEGIN; CON4, research R58): the SHARED lock lasts until <see cref="EndRead"/>, so a
+    ''' publication cannot straddle a call's reads.
+    ''' </summary>
+    Public Sub BeginRead()
+        Using command As SqliteCommand = _connection.CreateCommand()
+            command.CommandText = "BEGIN"
+            command.ExecuteNonQuery()
+        End Using
+        _inTransaction = True
+    End Sub
+
+    ''' <summary>
+    ''' Ends the read transaction (COMMIT); a no-op when none is open.
+    ''' </summary>
+    Public Sub EndRead()
+        If Not _inTransaction Then Return
+        Commit()
+    End Sub
 
     ''' <summary>
     ''' Classifies the file under the write lock (data-model.md "Map states at open"): no user table -> Fresh; no map_identity table or

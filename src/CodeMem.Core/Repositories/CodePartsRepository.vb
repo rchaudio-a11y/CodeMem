@@ -3,6 +3,8 @@
 ' Description: The code_parts observation table, replaced wholesale per run for one solution only (Article VI, FR-012, FR-031).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-09
+'
+' 2026-09-15 (feature 004, T020): ReadParts for the bridge's symbol_detail, SELECT-only (research R45).
 
 Imports Microsoft.Data.Sqlite
 
@@ -46,5 +48,31 @@ Public Module CodePartsRepository
             Next
         End Using
     End Sub
+
+    ''' <summary>
+    ''' Every declaring part of a symbol, ordered by path and offset (feature 004; 058 §3.3).
+    ''' </summary>
+    ''' <param name="db">The open map.</param>
+    ''' <param name="symbolId">The symbol.</param>
+    ''' <returns>The parts.</returns>
+    Public Function ReadParts(db As MapDatabase, symbolId As Long) As List(Of PartRecord)
+        Dim parts As List(Of PartRecord) = New List(Of PartRecord)()
+        Using command As SqliteCommand = db.CreateCommand()
+            command.CommandText = "SELECT symbol_id, path, start_offset, length, start_line, start_column FROM code_parts WHERE symbol_id = @symbol_id ORDER BY path, start_offset"
+            command.Parameters.AddWithValue("@symbol_id", symbolId)
+            Using reader As SqliteDataReader = command.ExecuteReader()
+                While reader.Read()
+                    parts.Add(New PartRecord With {
+                        .SymbolId = reader.GetInt64(0),
+                        .Path = reader.GetString(1),
+                        .StartOffset = reader.GetInt32(2),
+                        .Length = reader.GetInt32(3),
+                        .StartLine = reader.GetInt32(4),
+                        .StartColumn = reader.GetInt32(5)})
+                End While
+            End Using
+        End Using
+        Return parts
+    End Function
 
 End Module

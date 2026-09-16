@@ -6,7 +6,11 @@
 '
 ' 2026-09-10 (fixpack 002): Open uses SqliteConnectionStringBuilder (a ';' path, F05); ReadRuns selects sdk_version; ReadSchemaObjects,
 ' CountUserTables and CreateForeignDatabase added (research R22, R23). CreateForeignDatabase is the only place a foreign table is made.
+' 2026-09-15 (feature 004): AttemptWrite (B01's fire) and TryRenameSolution (B01's straddle fact, CON4) added; SetRepoRoot (B04's nested-root case) added.
+' 2026-09-16 (feature 004, T048): SetStartLine added - B07's same-project twin shape (COR3) cannot come from VB source (BC32009), so the
+' scenario moves one overload's start_line onto the other's in its temp map.
 
+Imports CodeMem.Core
 Imports Microsoft.Data.Sqlite
 
 ''' <summary>
@@ -460,5 +464,103 @@ Public Module MapQueries
         If reader.IsDBNull(index) Then Return Nothing
         Return reader.GetString(index)
     End Function
+
+    ''' <summary>
+    ''' Feature 004 (B01): attempts one INSERT into solutions through an open MapDatabase and reports the driver's error code, 0 when it
+    ''' succeeded. Through the read-only door the code is SQLITE_READONLY (8); through a read-write door the row is written.
+    ''' </summary>
+    ''' <param name="db">The open map, read-only or read-write.</param>
+    ''' <returns>0 on success, else the SqliteErrorCode.</returns>
+    Public Function AttemptWrite(db As MapDatabase) As Integer
+        Try
+            Using command As SqliteCommand = db.CreateCommand()
+                command.CommandText = "INSERT INTO solutions (key, name, repo_root, last_seen_path, created_utc, first_run_id) VALUES (@key, 'probe', NULL, 'probe', 'probe', NULL)"
+                command.Parameters.AddWithValue("@key", "__probe_" & Guid.NewGuid().ToString("N"))
+                command.ExecuteNonQuery()
+            End Using
+            Return 0
+        Catch ex As SqliteException
+            Return ex.SqliteErrorCode
+        End Try
+    End Function
+
+    ''' <summary>
+    ''' Feature 004 (B01, CON4): on a second read-write connection whose busy timeout is <paramref name="busySeconds"/>, BEGIN IMMEDIATE,
+    ''' rename a solution and COMMIT; returns 0 when the commit succeeded, else the driver's error code (SQLITE_BUSY, 5, while a reader
+    ''' holds its read transaction) after rolling back.
+    ''' </summary>
+    ''' <param name="db">Map path.</param>
+    ''' <param name="id">The solution id.</param>
+    ''' <param name="name">The new name.</param>
+    ''' <param name="busySeconds">The connection's busy timeout in seconds.</param>
+    ''' <returns>0 on success, else the SqliteErrorCode.</returns>
+    Public Function TryRenameSolution(db As String, id As Long, name As String, busySeconds As Integer) As Integer
+        Dim builder As SqliteConnectionStringBuilder = New SqliteConnectionStringBuilder With {.DataSource = db, .Pooling = False, .DefaultTimeout = busySeconds}
+        Using connection As SqliteConnection = New SqliteConnection(builder.ConnectionString)
+            connection.Open()
+            Try
+                Using command As SqliteCommand = connection.CreateCommand()
+                    command.CommandText = "BEGIN IMMEDIATE"
+                    command.ExecuteNonQuery()
+                End Using
+                Using command As SqliteCommand = connection.CreateCommand()
+                    command.CommandText = "UPDATE solutions SET name = @name WHERE id = @id"
+                    command.Parameters.AddWithValue("@name", name)
+                    command.Parameters.AddWithValue("@id", id)
+                    command.ExecuteNonQuery()
+                End Using
+                Using command As SqliteCommand = connection.CreateCommand()
+                    command.CommandText = "COMMIT"
+                    command.ExecuteNonQuery()
+                End Using
+                Return 0
+            Catch ex As SqliteException
+                Try
+                    Using command As SqliteCommand = connection.CreateCommand()
+                        command.CommandText = "ROLLBACK"
+                        command.ExecuteNonQuery()
+                    End Using
+                Catch inner As SqliteException
+                    ' nothing to roll back
+                End Try
+                Return ex.SqliteErrorCode
+            End Try
+        End Using
+    End Function
+
+    ''' <summary>
+    ''' Feature 004 (B04): rewrites solutions.repo_root on a throwaway map so a registered root can be placed inside a repository's tree
+    ''' (the "not a repository working directory" no_git case); used only to provoke that verdict.
+    ''' </summary>
+    ''' <param name="db">Map path.</param>
+    ''' <param name="solutionId">The solution id.</param>
+    ''' <param name="repoRoot">The root to write.</param>
+    Public Sub SetRepoRoot(db As String, solutionId As Long, repoRoot As String)
+        Using connection As SqliteConnection = Open(db)
+            Using command As SqliteCommand = connection.CreateCommand()
+                command.CommandText = "UPDATE solutions SET repo_root = @repo_root WHERE id = @id"
+                command.Parameters.AddWithValue("@repo_root", repoRoot)
+                command.Parameters.AddWithValue("@id", solutionId)
+                command.ExecuteNonQuery()
+            End Using
+        End Using
+    End Sub
+
+    ''' <summary>
+    ''' Moves one symbol row's start line (B07's same-project twin shape; a temp map only).
+    ''' </summary>
+    ''' <param name="db">Map path.</param>
+    ''' <param name="symbolId">The row.</param>
+    ''' <param name="startLine">The new start line.</param>
+    Public Sub SetStartLine(db As String, symbolId As Long, startLine As Integer)
+        Using connection As SqliteConnection = Open(db)
+            Using command As SqliteCommand = connection.CreateCommand()
+                command.CommandText = "UPDATE code_symbols SET start_line = @start_line WHERE id = @id"
+                command.Parameters.AddWithValue("@start_line", startLine)
+                command.Parameters.AddWithValue("@id", symbolId)
+                command.ExecuteNonQuery()
+            End Using
+        End Using
+    End Sub
 
 End Module

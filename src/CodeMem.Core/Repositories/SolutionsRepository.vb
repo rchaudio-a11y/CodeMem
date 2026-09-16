@@ -3,6 +3,9 @@
 ' Description: The solutions table: identity by key, labels refreshed per run (FR-032).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-09
+'
+' 2026-09-15 (feature 004, T018): ReadByKey made public and ReadAll / ReadById added for the bridge, SELECT-only (research R45); the three
+' readers share RowOf (Article XI: three call sites in hand).
 
 Imports Microsoft.Data.Sqlite
 
@@ -66,23 +69,68 @@ Public Module SolutionsRepository
         End Using
     End Sub
 
-    Private Function ReadByKey(db As MapDatabase, key As String) As SolutionRecord
+    ''' <summary>
+    ''' Reads the solution row with a key, exact.
+    ''' </summary>
+    ''' <param name="db">The open map.</param>
+    ''' <param name="key">The solution key.</param>
+    ''' <returns>The row, or Nothing.</returns>
+    Public Function ReadByKey(db As MapDatabase, key As String) As SolutionRecord
         Using command As SqliteCommand = db.CreateCommand()
             command.CommandText = "SELECT id, key, name, repo_root, last_seen_path, created_utc, first_run_id FROM solutions WHERE key = @key"
             command.Parameters.AddWithValue("@key", key)
             Using reader As SqliteDataReader = command.ExecuteReader()
                 If Not reader.Read() Then Return Nothing
-                Dim record As SolutionRecord = New SolutionRecord With {
-                    .Id = reader.GetInt64(0),
-                    .Key = reader.GetString(1),
-                    .Name = reader.GetString(2),
-                    .RepoRoot = If(reader.IsDBNull(3), Nothing, reader.GetString(3)),
-                    .LastSeenPath = reader.GetString(4),
-                    .CreatedUtc = reader.GetString(5)}
-                If Not reader.IsDBNull(6) Then record.FirstRunId = reader.GetInt64(6)
-                Return record
+                Return RowOf(reader)
             End Using
         End Using
+    End Function
+
+    ''' <summary>
+    ''' Reads the solution row with an id (feature 004).
+    ''' </summary>
+    ''' <param name="db">The open map.</param>
+    ''' <param name="id">The solution id.</param>
+    ''' <returns>The row, or Nothing.</returns>
+    Public Function ReadById(db As MapDatabase, id As Long) As SolutionRecord
+        Using command As SqliteCommand = db.CreateCommand()
+            command.CommandText = "SELECT id, key, name, repo_root, last_seen_path, created_utc, first_run_id FROM solutions WHERE id = @id"
+            command.Parameters.AddWithValue("@id", id)
+            Using reader As SqliteDataReader = command.ExecuteReader()
+                If Not reader.Read() Then Return Nothing
+                Return RowOf(reader)
+            End Using
+        End Using
+    End Function
+
+    ''' <summary>
+    ''' Reads every solution row ordered by key (feature 004; 056 §1.1).
+    ''' </summary>
+    ''' <param name="db">The open map.</param>
+    ''' <returns>The rows.</returns>
+    Public Function ReadAll(db As MapDatabase) As List(Of SolutionRecord)
+        Dim rows As List(Of SolutionRecord) = New List(Of SolutionRecord)()
+        Using command As SqliteCommand = db.CreateCommand()
+            command.CommandText = "SELECT id, key, name, repo_root, last_seen_path, created_utc, first_run_id FROM solutions ORDER BY key"
+            Using reader As SqliteDataReader = command.ExecuteReader()
+                While reader.Read()
+                    rows.Add(RowOf(reader))
+                End While
+            End Using
+        End Using
+        Return rows
+    End Function
+
+    Private Function RowOf(reader As SqliteDataReader) As SolutionRecord
+        Dim record As SolutionRecord = New SolutionRecord With {
+            .Id = reader.GetInt64(0),
+            .Key = reader.GetString(1),
+            .Name = reader.GetString(2),
+            .RepoRoot = If(reader.IsDBNull(3), Nothing, reader.GetString(3)),
+            .LastSeenPath = reader.GetString(4),
+            .CreatedUtc = reader.GetString(5)}
+        If Not reader.IsDBNull(6) Then record.FirstRunId = reader.GetInt64(6)
+        Return record
     End Function
 
 End Module

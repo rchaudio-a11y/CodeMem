@@ -3,6 +3,9 @@
 ' Description: The one door for rule 1 (fixpack 003, FR-201): the scope root of a run and whether a declaring file lies under it.
 ' Author: RCH Automation LLC
 ' Created: 2026-09-13
+'
+' 2026-09-15 (feature 004, COR1, research R59): ContainsDirectory added - equality or prefix over a directory normalised as Root is. Additive:
+' the extractor never calls it; Contains keeps its file semantics.
 
 Imports System.IO
 
@@ -43,6 +46,17 @@ Public Class SolutionScope
     ''' <returns>True when the resolved, separator-normalised path starts with the root (case-insensitive).</returns>
     Public Function Contains(fullPath As String) As Boolean
         Return Normalize(fullPath, False).StartsWith(Root, StringComparison.OrdinalIgnoreCase)
+    End Function
+
+    ''' <summary>
+    ''' Whether a directory is the scope root or lies under it (feature 004): the argument is normalised as <see cref="Root"/> is - full path,
+    ''' platform separators, one trailing separator - and compared case-insensitively for equality or prefix.
+    ''' </summary>
+    ''' <param name="directory">The directory; resolved to a full path here, never checked for existence.</param>
+    ''' <returns>True when the directory is the root or under it.</returns>
+    Public Function ContainsDirectory(directory As String) As Boolean
+        Dim normalized As String = Normalize(directory, True)
+        Return String.Equals(normalized, Root, StringComparison.OrdinalIgnoreCase) OrElse normalized.StartsWith(Root, StringComparison.OrdinalIgnoreCase)
     End Function
 
     Private Shared Function Normalize(text As String, asDirectory As Boolean) As String

@@ -12,6 +12,14 @@
 ' 2026-09-10 (fixpack 002, F10 / FR-121): the keyword regex matches with RegexOptions.IgnoreCase over whitespace-normalised literals
 ' (research R29); the New SqliteConnection count is unchanged. The 2026-09-09 fire was canonical spelling; the re-fire below is lowercase.
 ' FIRE:  2026-09-10 (T044) added a "select 1" literal (lowercase) to ExtractionRun.vb -> red (ExtractionRun.vb: "select 1" named); reverted -> green.
+'
+' 2026-09-15 (004): Support/RegistryFixture.vb holds the 029 §1 DDL, transcribed - a copy of a contract, not a reference - and
+' Guards/BridgeSqlGateTests.vb is the third SQL-scanning guard whose literals name the SQL they search for; both excluded.
+' RED:   2026-09-15 (T012) OnlyMapDatabaseOpensAConnection red the moment StoreDatabase.vb landed: expected ["MapDatabase.vb"], actual
+'        ["MapDatabase.vb", "StoreDatabase.vb"] - the named Red of constitution v1.3.0's amendment; the assertion is amended below to the two
+'        files the Review Gate names (the map's door, read-write for the extractor and read-only for the bridge; the store's door, read-only).
+' FIRE:  2026-09-15 (T012) added Dim probe As SqliteConnection = New SqliteConnection(...) to src/CodeMem.Bridge/Program.vb (source scan,
+'        no rebuild) -> red naming Program.vb (expected the two files, actual three); reverted -> green.
 
 Imports System.IO
 Imports System.Text.RegularExpressions
@@ -40,14 +48,15 @@ Public Class SqlLocationGateTests
         For Each file As String In SourceFiles(Path.Combine(root, "tests"))
             Dim normalized As String = file.Replace("\"c, "/"c)
             If normalized.EndsWith("/Support/MapQueries.vb", StringComparison.Ordinal) OrElse normalized.EndsWith("/Guards/SchemaConstraintTests.vb", StringComparison.Ordinal) OrElse
-               normalized.EndsWith("/Guards/TripwireTests.vb", StringComparison.Ordinal) OrElse normalized.EndsWith("/Guards/SqlLocationGateTests.vb", StringComparison.Ordinal) Then Continue For
+               normalized.EndsWith("/Guards/TripwireTests.vb", StringComparison.Ordinal) OrElse normalized.EndsWith("/Guards/SqlLocationGateTests.vb", StringComparison.Ordinal) OrElse
+               normalized.EndsWith("/Support/RegistryFixture.vb", StringComparison.Ordinal) OrElse normalized.EndsWith("/Guards/BridgeSqlGateTests.vb", StringComparison.Ordinal) Then Continue For
             Scan(file, offenders)
         Next
         Assert.True(offenders.Count = 0, String.Join(Environment.NewLine, offenders))
     End Sub
 
     ''' <summary>
-    ''' New SqliteConnection appears in exactly one production file, MapDatabase.vb.
+    ''' New SqliteConnection appears in exactly two production files, MapDatabase.vb and StoreDatabase.vb (constitution v1.3.0, 2026-09-15).
     ''' </summary>
     <Fact>
     Public Sub OnlyMapDatabaseOpensAConnection()
@@ -56,7 +65,8 @@ Public Class SqlLocationGateTests
         For Each file As String In SourceFiles(Path.Combine(root, "src"))
             If IO.File.ReadAllText(file).Contains("New SqliteConnection") Then sites.Add(Path.GetFileName(file))
         Next
-        Assert.Equal(New String() {"MapDatabase.vb"}, sites.ToArray())
+        sites.Sort(StringComparer.Ordinal)
+        Assert.Equal(New String() {"MapDatabase.vb", "StoreDatabase.vb"}, sites.ToArray())
     End Sub
 
     ''' <summary>

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "codemem": {
+      "type": "stdio",
+      "command": "src/CodeMem.Bridge/bin/Release/net8.0/CodeMem.Bridge.exe",
+      "args": ["serve"]
+    }
+  }
+}

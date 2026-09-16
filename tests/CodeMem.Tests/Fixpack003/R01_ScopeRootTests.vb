@@ -17,6 +17,11 @@
 '        green (the paths they build are already case-consistent and GetFullPath normalises separators on Windows: not fired by them, recorded
 '        as such), so fact (e) was added on the door itself; with the same injection (e) red ("case and separators are normalised"); reverted
 '        -> green. (e) is not Red-first: written against the finished rule, trusted through this fire.
+' 2026-09-15 (feature 004, COR1, T040): fact (f) ContainsDirectoryIncludesTheRootItself added in place - the additive method the bridge's
+'        repoPath resolution uses; Contains keeps its file semantics.
+' RED:   2026-09-15 (T040) (f) red: the assembly did not compile, ContainsDirectory not a member of SolutionScope (the battery's Red with B05
+'        and B06). GREEN: (T041) 6 of 6 once the method landed. FIRE: (T041) ContainsDirectory made prefix-only (the root's own length
+'        excluded) -> (f) red ("the root itself"); restored from a byte copy -> green.
 
 Imports System.IO
 Imports System.Text.RegularExpressions
@@ -221,6 +226,25 @@ Public Class R01_ScopeRootTests
         Assert.False(fallback.IsRepository)
         Assert.True(fallback.Contains(Path.Combine(root, "Solution", "A.vb")), "inside the solution directory")
         Assert.False(fallback.Contains(Path.Combine(root, "Shared", "A.vb")), "beside the solution directory, no repository")
+    End Sub
+
+    ''' <summary>
+    ''' (f) Feature 004 (COR1, T040): ContainsDirectory answers "is this directory the root or under it" - the root itself with and without its
+    ''' trailing separator, a subdirectory, mixed case and forward slashes True; the parent and a same-prefix sibling False; Contains keeps its
+    ''' file semantics unchanged.
+    ''' </summary>
+    <Fact>
+    Public Sub ContainsDirectoryIncludesTheRootItself()
+        Dim root As String = Path.Combine(Path.GetTempPath(), "codemem-tests", "Scope-" & Guid.NewGuid().ToString("N"))
+        Dim scope As SolutionScope = SolutionScope.Resolve(root, root)
+        Assert.True(scope.ContainsDirectory(root), "the root itself")
+        Assert.True(scope.ContainsDirectory(root & Path.DirectorySeparatorChar), "the root with its trailing separator")
+        Assert.True(scope.ContainsDirectory(Path.Combine(root, "sub")), "a subdirectory")
+        Assert.True(scope.ContainsDirectory(root.ToUpperInvariant() & "/SUB/DEEPER"), "case and separators are normalised")
+        Assert.False(scope.ContainsDirectory(Path.GetDirectoryName(root)), "the parent")
+        Assert.False(scope.ContainsDirectory(root & "2"), "a same-prefix sibling")
+        Assert.True(scope.Contains(Path.Combine(root, "sub", "File.vb")), "Contains: a file under the root")
+        Assert.False(scope.Contains(root & "2" & Path.DirectorySeparatorChar & "File.vb"), "Contains: a sibling directory sharing the prefix")
     End Sub
 
     ''' <summary>
