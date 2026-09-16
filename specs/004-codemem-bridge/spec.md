@@ -6,7 +6,11 @@
 
 **Status**: Specified and clarified 2026-09-15 (five rulings, session below); spike run the same day, both facts
 proven ([spike.md](spike.md)); plan written ([plan.md](plan.md)); **STOP 1 ruled 2026-09-15** (all eleven as
-proposed; constitution amended to v1.3.0). Next: `/speckit-tasks`, then implement.
+proposed; constitution amended to v1.3.0); tasks written; analyze passes 1 and 2 ruled the same day (Clarifications
+below). **Implemented 2026-09-16** (plan.md "Implementation record"): T001–T059 and T061 done, every Red and FIRE
+recorded, the live steps run through the Release executable read-only and on a copy of the map. Open: T060 (the
+live MemOS run 7, at the Architect's request after a backup), the Operator steps the record lists, and the commits;
+the 299-orphan figure was ruled the accepted baseline on 2026-09-16.
 
 **Input**: User description: "CodeMem 004: the bridge. PM: task 131384 and children 152646–152648 — read their
 details. Decisions 142362, 137077, 132115, 152658 are binding. Parent: 003, shipped. Build one process,
@@ -172,7 +176,7 @@ rules at STOP 1. Q5 and Q6 are also the subject of the spike, which may replace 
   repository and nothing outside it.** `.mcp.json` at the repository root (the ruling's "one `.mcp.json` entry";
   Claude Code reads it for sessions in this repository and asks the user before using a project server, which is
   the approval step, not an installation); a settings fragment under the bridge project (`hooks/` beside a short
-  document) holding the PostToolUse entry with a placeholder for the bridge's path, to be merged by hand into the
+  document) holding the PostToolUse entry with the bridge's absolute path on this machine (I9: the fragment ships it verbatim; the process document names the two lines that carry it), to be merged by hand into the
   user's own `settings.json` — user scope, because a build of GameRoom or MemOS happens in that repository's
   session, where this repository's project settings are not loaded; and the process document, which names the
   install steps (the `.mcp.json` approval, the user-scope server registration for other repositories, the
@@ -264,6 +268,35 @@ rules at STOP 1. Q5 and Q6 are also the subject of the spike, which may replace 
 - **TIM1** — a 540 s child budget inside the 600 s hook, with a scripted timeout fact (FR-328).
 - **Branch** — `004-codemem-bridge` from `b2e0168`; the v1.3.0 amendment and the 004 artifacts committed there
   before the first Red.
+
+### Session 2026-09-15 — review rulings after analyze, pass 2 (Architect; last pass before implement)
+
+- **Fixed now (HIGH)**: **I1** — the `BridgeTools` / `ReadSeams` / `BridgeHost` skeleton lands immediately after
+  T010's Red is recorded (CON2 permits a skeleton once its fact exists; tasks T011, T014). **I6** — the same rule in
+  Phase 6: T038–T040 before T037. **G1** — the B06 fact for Q6's no-fallback rule (`cwd` a registered root, the
+  command names a `.sln` under no root → the refusal names that path, zero launches) and its T046 FIRE
+  (retry-with-`cwd` in `HookEntry` goes red). **U1** — the eleven 058/060 refusal texts transcribed into
+  contracts/tools.md §6 with their bold phrases: the bridge's vocabulary lives in the bridge's contract, not by
+  pointer into MemOS documents.
+- **Fixed now (MEDIUM)**: **I2** — B04 (7) uses a temp `FixtureCopy` with no repository. **I3** — FR-332 scoped to
+  one bridge process; the hook-versus-serve race recorded under the plan's Known limits; the extractor's exit 3 is
+  the cross-process arbiter, accepted for this feature. **I4** — the contract's behaviour wins: split on chain
+  separators, the dotnet segment is the target, an earlier `cd` sets the effective directory (edge case
+  rewritten). **I5** — the six-name verdict order stated in FR-321; the US3 narrative refreshed. **G2** — the
+  FR-334 FIRE (T046 (i)). **G3** — Stopwatch assertions in T031, T035, T051. **G4** — B01 (5) compares the
+  descriptions `tools/list` returns with the constants. **U2** — B05 and B06 share one xUnit collection
+  (`ExtractLog`). **U3** — the spike's `hook.log` copied verbatim to
+  `tests/CodeMem.Tests/Fixtures/Hooks/spike-hook.log`. **C1** — the one-line Article I justification restored in
+  the plan.
+- **Carried to the implementation record (LOW)** — fixed when the file is touched during implement; any still open
+  is listed at close-out (T061): **I7** the plan's stale counts after CON1/COR1 (five → six files scanned,
+  `Contains` → `ContainsDirectory`, five → six support classes, one → two seams); **I8** the two live-arming
+  variables (`CODEMEM_LIVE_MAP`, `CODEMEM_LIVE_STORE`) beside `AcceptanceRunner`'s `CODEMEM_ACCEPT_SOLUTION`;
+  **I9** Q11's "placeholder" versus the fragment's absolute path; **I10** the origin token `green-build` versus
+  `green_build`; **I11** FR-307 and `--config`; **I12** FR-323's counts versus the data model's lists; **D1**
+  FR-303's clause restating FR-334; **G5** zero launches and the hash in B05 (9); **U4** the SQL-literal scan's
+  case sensitivity over the two prose files; **U5** the subdirectory-root edge case in the spec; **A1** FR-306's
+  29 kinds versus the data model's 32.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -359,7 +392,8 @@ each counted where expected.
 
 At session start, Claude Code calls `map_status` and reads, for every bound solution, the commit the latest
 completed run recorded, what HEAD is now in that repository, whether the tree is dirty, and one verdict by name:
-current, behind by N (HEAD named), dirty tree, no git, or map missing solution. On this desk, today: MemOS is
+current, behind by N (HEAD named), dirty tree, diverged (both shas named), no git, or map missing solution. On
+this desk, today: MemOS is
 behind by 11 with HEAD `cbeb661`; GameRoom's HEAD equals its run's commit but the tree is dirty; CodeMem is
 behind by 1. Nothing is guessed: a root the bridge cannot read is reported as such.
 
@@ -435,9 +469,9 @@ is the spike's fact 2, repeated as the live acceptance after implementation.
 7. **Given** two bound solutions reported `behind` or `dirty` and one `current`, **When** `extract(stale: true)` is
    called with `extract.enabled` on, **Then** the two are extracted in sequence, one run each, the current one is
    skipped and listed with its verdict, and the result lists all three.
-8. **Given** an `extract` already running through the bridge, **When** a second `extract` is called, **Then** the
-   second is refused by name and the first completes; the extractor's own lock (exit 3) is never the first line of
-   defence.
+8. **Given** an `extract` already running in a bridge process, **When** a second `extract` is called into that same
+   process, **Then** the second is refused by name and the first completes; inside one process the extractor's own
+   lock (exit 3) is never the first line of defence (across processes it is the arbiter — FR-332 as scoped, I3).
 9. **Given** the shipped fragment and `.mcp.json`, **When** the process document is followed on a clean machine
    state, **Then** nothing in `~/.claude/settings.json` has been written by this feature, and the user has made
    every edit named.
@@ -501,8 +535,10 @@ map; on the fixture map, a file linked into both fixture projects (the shape 003
 - **The extractor executable is missing, or exits without a summary line**: `extract` returns the exit code and
   stderr as observed and names the path it ran; counts absent; nothing inferred.
 - **A hook fires for a build that is not `dotnet build` or `dotnet test`** (`dotnet run`, `msbuild`, a build
-  inside a script): the hook does nothing and says nothing; only the two verbs, matched at the start of the
-  command, trigger.
+  inside a script): the hook does nothing and says nothing. The command is split on the chain separators `&&`,
+  `;` and `|`; the first segment beginning with one of the two verbs is the target, and an earlier `cd <dir>`
+  segment sets the effective directory (contracts/cli-config-hook.md §1, R48; the contract's behaviour ruled at
+  analyze pass 2, I4).
 - **A hook fires for a green build in an unregistered directory** (any `dotnet build` on this machine): the bridge
   refuses naming the path; the hook reports it and exits successfully — the build's session is never failed by the
   trigger.
@@ -552,8 +588,8 @@ map; on the fixture map, a file linked into both fixture projects (the shape 003
   and it MUST NOT contain source copied from that repository (142362 §3a: two readers, two hand edits per schema
   change).
 - **FR-303**: The bridge MUST open the map in read-only mode on every call (`Mode=ReadOnly`, the driver's
-  read-only open that refuses writes and never creates a file), for the duration of that call only, and MUST
-  never hold a map connection across calls or while an extraction it launched is running. Every SQL statement the
+  read-only open that refuses writes and never creates a file), for the duration of that call only and never
+  across calls (the extraction case is FR-334's — D1). Every SQL statement the
   bridge issues against the map lives in a named `CodeMem.Core` repository method (Article XI); neither bridge
   project holds a SQL literal, and a gate test asserts both that and that no INSERT, UPDATE, DELETE, DROP, CREATE,
   ALTER, ATTACH or PRAGMA that writes appears in those methods. A read tool opens the map once per call and reads
@@ -574,8 +610,9 @@ map; on the fixture map, a file linked into both fixture projects (the shape 003
   symbol not found, symbol out of scope, symbol retired, kind not examined, not a project row, not a type (for
   `type_usages`), gate off (which gate), path not registered (which path), key not registered, map missing
   solution, ambiguous root, ambiguous target (a build command naming more than one solution or project), extraction
-  already running, extractor not found, child timed out.
-- **FR-307**: The bridge MUST read `bridge.config.json` beside its executable on every call (Q8) and MUST NOT
+  already running, extractor not found, child timed out, key unbound, key inactive, target missing — thirty-two
+  kinds, the data model's list (A1).
+- **FR-307**: The bridge MUST read `bridge.config.json` beside its executable — or the file `--config` names (I11) — on every call (Q8) and MUST NOT
   invent a default for `mapPath` or `storePath`; a missing key is a refusal naming the key.
 - **FR-308**: The bridge MUST write neither database in any mode — no fact row, no audit row, no lock, no
   upgrade — and no cache or lock file of its own. Its only writes anywhere are the extract log of FR-351 and the
@@ -637,11 +674,13 @@ map; on the fixture map, a file linked into both fixture projects (the shape 003
   not be obtained, with the reason named.
 - **FR-321**: Each entry MUST carry exactly one verdict by name from: `current`, `behind` (with the count and HEAD
   named), `dirty`, `no_git`, `map_missing_solution` and `diverged` (both shas named, no count; Q4, ruled
-  2026-09-15), chosen in the order Q4 states.
+  2026-09-15), chosen in this order: `map_missing_solution` → `no_git` → `dirty` → `diverged` → `behind` →
+  `current` (Q4 as ruled, `diverged` placed at analyze pass 2, I5; data-model §7).
 - **FR-322**: `map_status` MUST never guess: a root that cannot be read, a repository that gives no answer, a
   recorded commit unknown to the repository, and a run that recorded no commit are each reported as what they are.
-- **FR-323**: The result MUST also carry the counts of bound, unbound and inactive registry rows and list the
-  unbound and inactive keys, so an operator can see what the bridge is not watching.
+- **FR-323**: The result MUST also carry the count of bound registry rows and the lists of unbound and inactive
+  rows (key and state; their lengths are the counts — I12, as the data model lists them), so an operator can see
+  what the bridge is not watching.
 - **FR-324**: `map_status` MUST use only `extract_runs`, `solutions` and `code_map_solutions` plus the
   repository's own answers; no schema change and no stored "stale" (Article V: the word is never stored).
 
@@ -669,10 +708,13 @@ map; on the fixture map, a file linked into both fixture projects (the shape 003
   gates the verb for every origin; `extract.onGreenBuild` gates the green-build origin only and is inert while
   `extract.enabled` is off. A refusal MUST name the gate that stopped it.
 - **FR-331**: The bridge MUST distinguish three origins of an `extract` — tool (a call on the MCP surface),
-  green-build (the hook) and manual (a human at the command line) — through one door (Article XII), with the
+  green-build (the hook; wire token `green_build` in the result's `origin` and the log — I10) and manual (a human at the command line) — through one door (Article XII), with the
   mechanism Q5 proposes or the spike replaces it with.
-- **FR-332**: The bridge MUST run at most one extraction at a time; a second call while one runs is refused by
-  name. It MUST wait for the child to exit and MUST NOT leave it running.
+- **FR-332**: The bridge MUST run at most one extraction at a time within one bridge process; a second call into
+  that process while one runs is refused by name. Across processes — the `hook` entry beside a `serve` session, or
+  two sessions — the extractor's own lock is the arbiter and its exit 3 is returned verbatim (scoped at analyze
+  pass 2, I3, ruled 2026-09-15; plan §Known limits). It MUST wait for the child to exit and MUST NOT leave it
+  running.
 - **FR-333**: A refused `extract` — any gate, any resolution failure — MUST start no process and leave the map
   byte-identical (asserted by hash).
 - **FR-334**: `extract` MUST hold no map connection while the child runs, so the extractor's `BEGIN IMMEDIATE`

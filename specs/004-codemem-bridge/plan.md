@@ -42,7 +42,7 @@ beside the bridge). All CodeMem-internal; permitted. **No reference of any kind 
 `code_map_solutions` only; one append-only text log. Schema version 2, unchanged; no DDL, no migration.
 
 **Testing**: xUnit, real SQLite, real compiled fixture, no mocks (Article III). New folder
-`tests/CodeMem.Tests/Bridge/` (B01–B08) plus two guards and five support classes; the test project references both bridge
+`tests/CodeMem.Tests/Bridge/` (B01–B08) plus two guards and seventeen support classes (I7); the test project references both bridge
 projects. Production-route facts spawn the real executable over stdio (Article XIII). One seam,
 `IExtractorLauncher`, so refusals can assert zero launches (R54). Live facts Skip-armed by `CODEMEM_LIVE_MAP` and
 `CODEMEM_LIVE_STORE`.
@@ -50,7 +50,9 @@ projects. Production-route facts spawn the real executable over stdio (Article X
 **Target Platform**: Windows 11 developer workstation; Claude Code 2.1.272 (VS Code extension binary).
 
 **Project Type**: CLI/stdio server over class libraries. **New projects**: two — an executable that only wires and
-its library (CON1); Article I passes without a justification.
+its library (CON1). Justification (Article I, restored at analyze pass 2, C1): an executable may hold nothing but
+wiring, so the readers, status, scope, the twin fold, configuration, refusals and the extract door need a library
+of their own, and a library cannot carry the entry point; hence two projects, the Extractor/Extraction shape.
 
 **Performance Goals**: SC-301 — each read tool under 3 s on the 64 MB live map (its own work); `map_status` with
 three repositories under 3 s; the hook entry's own cost under 100 ms (17 ms in the spike) so the extraction is the
@@ -70,7 +72,7 @@ one hook; one log.
 
 | Article / Gate | Status | How this plan satisfies it |
 |----------------|--------|----------------------------|
-| I. Library-First | PASS | `CodeMem.Bridge` is an executable that only wires — `Program.vb`, `BridgeCommandLine.vb`, `Mcp/BridgeServer.vb` — and `CodeMem.Bridging` is the class library holding readers, status, scope, the twin fold, configuration, refusals and the extract door (CON1, the Extractor/Extraction shape). One class per file; every SQL statement lives in Core. |
+| I. Library-First | PASS | `CodeMem.Bridge` is an executable that only wires — `Program.vb`, `BridgeCommandLine.vb`, `Mcp/BridgeServer.vb` — and `CodeMem.Bridging` is the class library holding readers, status, scope, the twin fold, configuration, refusals and the extract door (CON1, the Extractor/Extraction shape; the justification Article I requires is under Technical Context, Project Type). One class per file; every SQL statement lives in Core. |
 | II. Test-First | PASS | Every bridge fact is Red-first (no bridge exists: every fact is red until its slice lands); the two gate amendments and the read-only door carry their fire demonstrations; the description-phrase fact and the hash contract are Red on an empty tool set (§Test design). |
 | III. Integration-First | PASS | Real SQLite (fixture maps, a version-1 map, a foreign file, a throwaway registry store), the real compiled fixture, a real repository created by LibGit2Sharp, the real executable over stdio, the real extractor for one launch. |
 | IV. Compiler Fact Only | PASS | The bridge derives nothing: every row it returns is a map row; `map_status`'s facts are the repository's answers; verdict names are computed from those facts by a stated order (R52), never from a guess. |
@@ -80,12 +82,12 @@ one hook; one log.
 | VIII. Counts That Reconcile | PASS | `extract` reads the ten counts back from the published row, never from the summary line alone; residuals are reported as recorded. |
 | IX. One File, Many Solutions, One Writer | PASS under v1.3.0 (ruled at STOP 1) | The extractor stays the sole writer and the bridge opens the map read-only (FR-303, FR-342's fire). The registry read is the ruled exception now written into Article IX (research R55's wording, adopted 2026-09-15); the store is opened read-only, for `code_map_solutions` alone, through one door. |
 | X. Absence Must Be Representable | PASS | Every nullable fact is `null` on the wire, never a sentinel; `behindBy` is null when no count can be claimed (`diverged`); `latestRun` null when no run. |
-| XI. Anti-Abstraction | PASS | Microsoft.Data.Sqlite direct; all SQL in named Core repository methods (R45); one canonical model per concept (the envelope records); the one seam (`IExtractorLauncher`) exists for Article XIII's zero-launch assertion, not for anticipated call sites. |
+| XI. Anti-Abstraction | PASS | Microsoft.Data.Sqlite direct; all SQL in named Core repository methods (R45); one canonical model per concept (the envelope records); the two seams (`IExtractorLauncher`, `ReadSeams` — I7) exist for Article XIII's zero-launch assertion and the read-only straddle fact, not for anticipated call sites. |
 | XII. One Door for Every Rule | PASS | Map open + pin: `MapAccess`; store open: `StoreAccess`; scope: `ScopeResolver`; twin fold: `TwinFolder`; prefix: `SolutionScope.Contains` (003's door, reused); extract: `ExtractDoor` for all three origins; refusal wording: `BridgeRefusal`; config: `BridgeConfigFile.Load`. |
 | XIII. Production-Route Reachability | PASS | `BridgeProcess` spawns `CodeMem.Bridge.exe serve` and calls every tool once through JSON-RPC; the `hook` entry is driven with the spike's payload through the executable; one real extractor launch through the door. |
 | XIV. Archive, Never Delete | PASS | Nothing retired; no file archived. |
 | XV. Compiled .NET, No Foreign Runtime | PASS | The hook command is the bridge executable; no script; the spike's Python probe is scratch, replaced by the VB `BridgeProcess`. |
-| Gate: Option settings in every project file | PASS | `CodeMem.Bridge.vbproj` carries the four settings; `ProjectFileGateTests` covers it (its "at least four" becomes five files scanned). |
+| Gate: Option settings in every project file | PASS | `CodeMem.Bridge.vbproj` carries the four settings; `ProjectFileGateTests` covers it (its "at least four" becomes six files scanned — I7). |
 | Gate: no SQL outside a named repository method | PASS | Bridge project: zero SQL literals (new `BridgeSqlGateTests` asserts it); Core gains read methods only. |
 | Gate: `New SqliteConnection` in exactly two named files (v1.3.0) | PASS (ruled at STOP 1) | `MapDatabase.vb` and `StoreDatabase.vb`; the test is amended in the task that lands `StoreDatabase.vb`, after its Red is recorded, and re-fired. |
 | Gate: header block + XML docs | PASS | `FileHeaderGateTests` scans `src/` and `tests/` recursively; every new file complies. |
@@ -236,12 +238,12 @@ instance in `Envelopes/BridgeJson.vb`. Refusals: `CallToolResult` with `IsError 
 
 | File | Facts (Red-first; every guard with a FIRE line) | Red before code | FIRE after Green |
 |------|------------------------------------------------|-----------------|------------------|
-| `B01_ReadOnlyContractTests` | hash equal after each of the seven read tools **through the executable over stdio** (CON3); no `-journal`; `MapDatabase.OpenReadOnly` + INSERT → `SqliteException` code 8; `OpenReadOnly` of a missing path → code 14 and the file still absent; **a publication cannot straddle a tool's reads** (CON4): a rename attempted mid-call gets busy (5), the response carries the old name, the rename succeeds afterwards | no bridge, no `OpenReadOnly` | change the connection string to `ReadWrite` → the INSERT succeeds → red; end the read transaction before the reader → the straddle fact red; revert |
+| `B01_ReadOnlyContractTests` | hash equal after each of the seven read tools **through the executable over stdio** (CON3); no `-journal`; the descriptions `tools/list` returns equal the constants (G4); `MapDatabase.OpenReadOnly` + INSERT → `SqliteException` code 8; `OpenReadOnly` of a missing path → code 14 and the file still absent; **a publication cannot straddle a tool's reads** (CON4): a rename attempted mid-call gets busy (5), the response carries the old name, the rename succeeds afterwards | no bridge, no `OpenReadOnly` | change the connection string to `ReadWrite` → the INSERT succeeds → red; end the read transaction before the reader → the straddle fact red; revert |
 | `B02_PortedReaderTests` | 056/058/060 shapes on the fixture map (every property present, nulls included); the refusal chain in order (absent, foreign, v1, v3, registry absent, scope missing/conflict, filter missing, kind unknown, key unknown, symbol not found/out of scope/retired, kind not examined, not a project row); FR-348 over every occurrence; the FR-312 phrases in the eight descriptions | no tools | drop one phrase from a description → red; revert |
 | `B03_TypeUsagesTests` | fixture type: constructor call from the other project, member call from a sibling (`fromInside`), an `Implements`; `byVerb` seven keys; `total`/`fromOutside`; `NotAType` for a method | no tool | count inside uses as outside → `fromOutside` red; revert |
 | `B04_MapStatusTests` | the six states on a `GitFixture` (current, behind 1 with HEAD named, dirty, diverged with both shas and null count, no_git, map_missing_solution); unbound/inactive listing; no guess: a root that is a subdirectory of a repository → `no_git` with the reason | no tool | swap the verdict order (behind before dirty) → the dirty-and-behind fact red; revert |
-| `B05_ExtractGateTests` | the five-cell gate matrix by gate name, each with 0 launches and one log line; `PathNotRegistered` (0 launches, hash unchanged), `AmbiguousRoot`, `KeyNotRegistered`, `KeyUnbound`, `KeyInactive`, `MapMissingSolution`; `ExtractionRunning` with a sleeping scripted launcher; one real launch and one gate refusal **through the executable** (CON3); the root itself resolves (COR1); a scripted timeout is reported, never a success (TIM1); cardinality before configuration (INC2); `stale` considers three, extracts two, one log line each and no header (INC3) | no door | evaluate onGreenBuild before enabled → "onGreenBuild only, hook" cell red; revert |
-| `B06_HookEntryTests` | `CodeMem.Bridge.exe hook` with the green payload → exit 0, one JSON line, `additionalContext` names the resolved key or the refusal, one log line; the failure payload → "not a Bash PostToolUse", no log line, 0 launches; `cd X && dotnet test Y.vbproj` → Y's directory; options before the path, a quoted path and a cross-repository path each name the target; two candidates → ambiguous, never a fallback (COR2); `interrupted: true` → nothing | no entry | accept `PostToolUseFailure` → red; revert |
+| `B05_ExtractGateTests` | the five-cell gate matrix by gate name, each with 0 launches and one log line; `PathNotRegistered` (0 launches, hash unchanged), `AmbiguousRoot`, `KeyNotRegistered`, `KeyUnbound`, `KeyInactive`, `MapMissingSolution`; `ExtractionRunning` with a sleeping scripted launcher; one real launch and one gate refusal **through the executable** (CON3); the root itself resolves (COR1); a scripted timeout is reported, never a success (TIM1); cardinality before configuration (INC2); `stale` considers three, extracts two, one log line each and no header (INC3) | no door | evaluate onGreenBuild before enabled → "onGreenBuild only, hook" cell red; hold the read transaction across the launch → the real-launch fact red (G2); revert |
+| `B06_HookEntryTests` | `CodeMem.Bridge.exe hook` with the green payload → exit 0, one JSON line, `additionalContext` names the resolved key or the refusal, one log line; the failure payload → "not a Bash PostToolUse", no log line, 0 launches; `cd X && dotnet test Y.vbproj` → Y's directory; options before the path, a quoted path and a cross-repository path each name the target; two candidates → ambiguous, never a fallback (COR2); a named path under no root → refused naming it, `cwd` never tried (Q6, G1); `interrupted: true` → nothing | no entry | accept `PostToolUseFailure` → red; retry with `cwd` on `PathNotRegistered` → red (G1); revert |
 | `B07_TwinPresentationTests` | a fixture copy with one file linked into both projects → one declaration, `compiledInto` 2, `total` 1; detail of either id names both; two overloads on one line under one project stay two declarations (COR3); a partial type's parts remain one symbol | no fold | drop the all-distinct check → the same-project fact red; revert |
 | `B08_LiveMapTests` (SkippableFact) | `type_usages(3023)` ≥ 16 constructor calls and `references(3023)` = 0; twins 3556/4200; `map_status` MemOS `behind` with HEAD named | Skipped unarmed | — (live evidence, recorded in the quickstart) |
 | `R01_ScopeRootTests` (amended, COR1) | `ContainsDirectory`: the root itself (with and without the trailing separator), a subdirectory, mixed case and forward slashes → True; the parent and a same-prefix sibling → False; `Contains` unchanged | red: no such method | prefix-only (drop equality) → the root case red; revert |
@@ -254,9 +256,9 @@ goes red when `StoreDatabase.vb` appears — the amendment is applied in the sam
 `ProjectFileGateTests` stays green (it scans every `.vbproj`; the new one complies). No other existing test pins
 anything this feature changes. Any other Red is unexpected and stops the work.
 
-**Order** (CON2): gates and support; the B01 Red, then the doors and the server skeleton; the B02 Red, then the
+**Order** (CON2): gates and support; the B01 Red, then the skeleton its facts name, the doors and the server; the B02 Red, then the
 shared reads, the foundation and the five readers; `type_usages`; `map_status`; the `ContainsDirectory` Red and its
-method; the extract door with the scripted launcher, then the real launcher; the `hook` entry; the twin fold; the
+method; the B05, B06 and R01 Reds, then the seam and skeletons, the extract door with the scripted launcher, then the real launcher; the `hook` entry; the twin fold; the
 shipped files and the README; the full suite; the quickstart's live steps read-only; the live extraction only at
 the Architect's request. No slice before its Red.
 
@@ -281,6 +283,10 @@ tree hashed and `git status`ed before and after.
 - **A read during the bridge's own extraction is not tested** (analyze G8, accepted 2026-09-15): it is
   timing-dependent — the reader sees the previous completed run or refuses `Busy` during the publication instant
   (R53) — and is recorded here rather than asserted.
+- **The one-extraction-at-a-time guard is per process** (FR-332 as scoped at analyze pass 2, I3, ruled 2026-09-15):
+  the `hook` entry is a process of its own beside the `serve` session, so a hook-origin extract and a tool or
+  manual extract can overlap; the extractor's lock (exit 3) is the cross-process arbiter and is returned verbatim.
+  Accepted for this feature.
 
 ## STOP 1 — RULED 2026-09-15 (Architect)
 
@@ -326,12 +332,225 @@ launched, no header. **DUP1** dedup by edge id with its fact. **INC4** `solution
 seeded. **TIM1** 540 s child budget inside the 600 s hook. **Branch** `004-codemem-bridge` from `b2e0168`, the
 amendment and the artifacts committed there first.
 
+**Pass 2, 2026-09-15 (Architect, after the second `/speckit-analyze`; last pass before implement)** — recorded in
+the spec's Clarifications under the same name. Applied: **I1** the `BridgeTools`/`ReadSeams`/`BridgeHost` skeleton
+right after T010's Red (T011); **I6** T038–T040 before T037; **G1** the B06 no-fallback fact and its FIRE; **U1** the
+eleven refusal texts in contracts/tools.md §6; **I2** B04 (7) on a temp copy with no repository; **I3** FR-332 per
+process, the race under Known limits; **I4** the segment rule in the spec's edge case; **I5** the six-name verdict
+order in FR-321; **G2** the FR-334 FIRE; **G3** three Stopwatch assertions; **G4** descriptions compared over
+`tools/list`; **U2** one collection for B05 and B06; **U3** `spike-hook.log` in the fixtures; **C1** the Article I
+justification above. Carried (LOW): I7–I12, D1, G5, U4, U5, A1 — fixed as each file is touched; listed at close-out.
+
 ## Complexity Tracking
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
 | Article IX, last sentence (CodeMem opens no database other than its map) — the bridge opens the MemOS store read-only for `code_map_solutions` | Decisions 137077, 142362 and 152658 rule that the bridge constructs `--solution-key` from the registry and refuses unregistered solutions; without the read there is no registry and no `projectId` scope | Passing keys by hand (procedure, not protection — 132094's own argument); copying the registry into the bridge's config (a second hand-maintained source, ruled out at clarify Q1) |
 | Review Gate "New SqliteConnection in exactly one file" — becomes two | The store needs its own door so it is never mistaken for a map (`InspectSchema`, the pin, the repositories' parameter type are the map's) | Opening the store through `MapDatabase` (the class's name is a role promise; Article IX) |
+
+## Implementation record (2026-09-16)
+
+**Environment**: Windows 11 Home 10.0.26200; `dotnet --version` 10.0.401; runtime Microsoft.NETCore.App 8.0.31 runs
+the net8.0 projects. Starting point commit `fcde454` on `004-codemem-bridge` (the analyze pass-2 artifact edits
+and `Fixtures/Hooks/` uncommitted in the tree); 68 passed / 1 skipped / 69 total in 1 m 41 s, 0 warnings. Packages
+added: ModelContextProtocol.Core 1.4.0 and LibGit2Sharp 0.32.0 on `CodeMem.Bridging`. Committed 2026-09-16 at the
+Architect's direction: the implementation (the two projects, the Core reads, the tests, the shipped files) as
+`fe59871`; the records (this section, the quickstart tables, the spec status, the process document) in the commit
+that follows it, whose sha the close-out report names.
+
+**Order followed**: tasks.md T001–T061 in order, with the two pass-2 reorderings honoured — the
+BridgeTools/ReadSeams/BridgeHost skeleton landed immediately after T010's Red (I1), and T038–T040 ran before T037
+(I6). Phase 1 T001–T009; Phase 2 T010–T016; US1 T017–T026; US2 T027–T031; US3 T032–T036; US4 T038, T039, T040,
+T037, T041–T047; US5 T048–T051; Phase 8 T052–T061. Every test file was written and run before the code it names;
+every Red was recorded in the file's header before the code landed; every FIRE was injected alone, run on its one
+fact, and restored from a byte copy (`cmp` equal) before the task closed. The whole-suite lines are in
+quickstart.md "Implementation record — build and test lines".
+
+**Reds observed** (each in its file's header, dated):
+
+- B01 (T010): the assembly did not compile — twelve errors naming the door and the skeleton; (T015) with the server
+  wired and no tool registered, (4) vacuous and (6) `NotImplementedException("US1")`.
+- BridgeSqlGate (T008): (2) vacuous — no `Registry/` folder yet; green at T013 when the registry read landed.
+- B02 (T017): (1)–(7) on `NotImplementedException("US1")`; (8) green (the descriptions were constants since T014).
+- B03 (T027): (1), (1b), (1c), (3), (4) on `NotImplementedException("US2")`; (5) on KeyNotFound (not registered);
+  (2) green already (it pins `references`' existing narrowness, FR-318).
+- B04 (T032): all ten — the class fixture's first `map_status` threw `NotImplementedException("US3")`.
+- B05, B06 and R01 (f) (T038–T040): the battery's Red was the compile failure; after T037's skeleton and T041, B05
+  17 red on `NotImplementedException("US4")` and (15) on KeyNotFound; B06 11 red (the hook branch of `Program.vb`
+  threw, so every entry exited non-zero).
+- B07 (T048): (1), (2), (3) against the pass-through folder — total 3 where 2 was asserted, `compiledInto` of 1
+  where 2 was; (4) green as T048 foresaw; (5) green, not red (the fold sentence was verbatim since T014).
+- B08 (T025): (3) red on the first armed run — 299 orphans, not 279 (below, "Live figures"); (T051) (7) red on its
+  first armed run — total 2, not 1 (the contains filter also finds `CodeMemMapFixtureTests`).
+- Two unexpected Reds, both diagnosed and both mine: S02 at T026 (the line-ending pass had rewritten
+  `SchemaRepository.vb` as CRLF; restored to LF with a header note — the DDL constants' newlines are the bytes
+  SQLite stores), and B02 (4) at T023 (my miscount of MainForm.vb's lines: 5, 13, 17).
+
+**FIREs** (every one restored from a byte copy, green after): T007 MemOS ProjectReference inserted → red naming
+the project file. T011 `Mode` changed to ReadWriteCreate → B01 (1), (2), (3) red. T012 a second `New
+SqliteConnection` in `Program.vb` → SqlLocationGate red. T013 three fires on BridgeSqlGate (a `projects` literal in
+the registry read; a `SELECT 1` in `BridgeCommandLine.vb`; a `StoreDatabase` probe in `ExtractionRun.vb`). T024 (a)
+the `part_of` phrase removed from the references description → B02 (8); (b) `is_active` dropped from `Search` →
+B02 (7); (c) `verb <> 'part_of'` dropped from `ReadReferences` → B02 (4); (d) `EndRead` before serialisation →
+B01 (6). T030 (a) every occurrence counted outside → B03 (1); (b) UNION → UNION ALL on the implements/extends arm →
+B03 (1c). T034 behind before dirty → B04 (3). T041 `ContainsDirectory` prefix-only → R01 (f). T046 (a)–(i) as
+tasks.md names them, one red each: (a) B05 (3), (b) B05 (5), (c) B06 (2), (d) B05 (10), (e) B06 (3e), (f) B05
+(12b), (g) B05 (7b), (h) B06 (3f) (G1), (i) B05 (13) — the real child exited 1 with "database error: SQLite Error
+5: 'database is locked'" while the bridge held its read transaction across the launch (FR-334, G2). T050 the
+all-distinct check dropped from the folder → B07 (4).
+
+**Review pass (T053), v1.3.0 Review Gates, every new and changed file**:
+
+- Option settings: `CodeMem.Bridge.vbproj` and `CodeMem.Bridging.vbproj` carry Strict/Explicit On, Infer Off,
+  `Version` 0.1.0; `CodeMem.Extraction.vbproj` stays 0.2.0 (one additive method); `ProjectFileGateTests` green over
+  six project files.
+- SQL location: every statement the bridge issues lives in `Core/Repositories` (`Registry/` for the store);
+  `SqlLocationGateTests` (two connection sites: `MapDatabase.vb`, `StoreDatabase.vb`) and `BridgeSqlGateTests`
+  (no literal under the two bridge projects; the registry read names `code_map_solutions` only; Core's read methods
+  SELECT-only; `StoreDatabase` referenced only under `Registry/`) green. The test project's SQL stays in
+  `MapQueries` (one write helper added, `SetStartLine`, for B07's shape).
+- Header block and XML docs: `FileHeaderGateTests` green over `src/CodeMem.Bridge/**`, `src/CodeMem.Bridging/**`
+  and `tests/CodeMem.Tests/Bridge/**`; `MemOsReferenceGateTests` green (no reference into `rchaudio-a11y\MemOS`).
+- Tripwire green; the MemOS working tree untouched (`git status --porcelain` empty before and after the armed run).
+- FIRE lines present for T007, T008 (its fire ran at T013, when the read it guards existed), T011, T012, T013,
+  T024, T030, T034, T041 (in R01's header, on the GREEN line), T046, T050.
+- CON1: the executable holds `Program.vb`, `BridgeCommandLine.vb` and `Mcp/BridgeServer.vb` only, plus the sample
+  config, the fragment and the process document.
+- No new abstraction beyond `IExtractorLauncher` (the launcher seam) and `ReadSeams` (the read-only straddle seam);
+  no schema change; no constitution amendment beyond v1.3.0 (STOP 1).
+
+**One door per rule — the doors and their callers**:
+
+| Rule | Door | Callers |
+|---|---|---|
+| read-only open, pin, busy translation | `MapAccess.OpenRead` / `Translate` | `BridgeTools.RunRead`, `ExtractDoor.Run` / `RunStale`, `LiveBridge` (test) |
+| registry read (Article IX exception) | `StoreAccess.ReadRegistry` → `CodeMapSolutionsRepository` | `BridgeTools.RunRead`, `ExtractDoor` |
+| configuration | `BridgeConfigFile.Load` | `BridgeTools.RunRead`, `ExtractDoor`, `LiveBridge` (test) |
+| scope (projectId / solutionKey) | `ScopeResolver.ValidateArguments` / `Resolve` | `BridgeTools` |
+| symbol identity (found, in scope, active) | `SymbolResolver.RequireActive` / `RequireProjectRow` | `SymbolDetailReader`, `ReferencesReader`, `TypeUsagesReader`, `SymbolSearchReader`, `OrphansReader` |
+| the presentation rule (twins) | `TwinFolder.Fold` / `HeaderOf` / `FoldsTogether` | `SymbolSearchReader`, `SymbolDetailReader` |
+| refusal texts | `BridgeRefusal.Named` | every door and reader |
+| the two gates | `ExtractGates.Check` / `GateName` | `ExtractDoor.Run` / `RunStale` |
+| target resolution (key or path) | `TargetResolver.Resolve` (containment: `SolutionScope.ContainsDirectory`) | `ExtractDoor` |
+| the hook's payload | `HookRequest.Parse` | `HookEntry` |
+| the extract door | `ExtractDoor.Run` / `RunStale` | `BridgeTools.Extract`, `Program` (extract), `HookEntry`, `RunStale` (per solution) |
+| the child process | `IExtractorLauncher` → `ProcessExtractorLauncher.Launch` | `ExtractDoor` (constructed by `BridgeServer`, `Program`, `HookEntry`; `ScriptedLauncher` in tests) |
+| the verdicts | `MapStatusReader.Read` / `EntryOf` (facts: `RepositoryFacts.Read`) | `BridgeTools.MapStatus`, `ExtractDoor.RunStale` |
+| the log | `ExtractLog.Append` | `ExtractDoor` |
+| JSON on the wire | `BridgeJson.Serialize` | `BridgeTools`, `Program`, `HookEntry` |
+
+**Deviations from the design documents, with reasons**:
+
+1. **`BridgeHost.Invoke`, not `Call`**: `Call` is a VB keyword. Likewise `partialType` and `overloadPair` in B07,
+   `ContextOf`, `RunIdPattern`: VB's case-insensitive names clash with methods of the same spelling.
+2. **`MapAccess` issues `BEGIN` before the schema inspection** (T023): a deferred `BEGIN` alone holds no lock in
+   rollback-journal mode; the SHARED lock is taken by the first SELECT, so the pin's own read had to be inside the
+   transaction for B01 (6)'s straddle (busy code 5 during the call) to hold. The first run recorded 0, not 5.
+3. **B01 (5) compares the tool list as sorted sets**: the SDK lists tools in its own order, not registration
+   order; FR-321's six-name order is asserted on `RegisteredToolNames`, not on `tools/list`.
+4. **The hook's answer line carries the key before "refused"** when the target resolved but the launch was refused
+   (`…: <key>: refused — …`, e.g. ExtractorNotFound) — the contract's two shapes plus the resolved key, so a reader
+   sees what resolved.
+5. **`SchemaRepository.vb` stays LF** (header note): the CRLF pass turned S02 red; its multi-line DDL constants are
+   the bytes SQLite stores in `sqlite_master`, compared to the v1 fixture.
+6. **`RegistryFixture` opens with `PRAGMA foreign_keys = OFF`**: the bundled SQLite enforces foreign keys by default
+   and the 029 DDL references `projects`, which the fixture does not create.
+7. **`RepositoryFacts.StatusScan` runs a tuned `StatusOptions`** (no ignored, no unaltered, no rename detection, no
+   recursion into untracked directories, submodules excluded): the default scan of the three live trees took
+   3067 ms and broke SC-301; tuned, `map_status` answers in ~155 ms. Recorded as a limit below.
+8. **B05 (6) asserts the path against the parsed refusal text**, not the raw JSON, where backslashes are escaped.
+9. **B06 (3d)'s `Seed` copies the fixture tree only when the target is absent**, so a second scenario in one host
+   reuses it.
+10. **T048's same-project shape is made by moving a row**: VB refuses two method declarations on one logical line
+    (BC32009) and the extractor records raw line spans, so `TwinScenario` extracts two overloads on adjacent lines
+    and sets the second row's `start_line` to the first's in the temp map (`MapQueries.SetStartLine`). The rows,
+    their doc ids and their project are the extractor's own; the T050 fire reddened (4) as designed. The overloads
+    are named `Overloaded`, not `M` — the name filter is a contains match and `M` matches every method with an m;
+    `DefineConstants` takes the VB form `$(DefineConstants),TWIN_APP=True` (the semicolon form is a C# idiom vbc
+    rejects, BC31030).
+11. **B07 (1), (3) and B08 (7) assert total 2, not 1**: the contains filter also finds the fixture's `Twins` class
+    and MemOS's `CodeMemMapFixtureTests`; the facts pick the declaration by exact name.
+12. **A solution key resolves against the map without a registry row** (B07 (3) as first written expected a
+    refusal): registration gates `extract` and the `projectId` scope, not reads by key — FR-310's letter; recorded
+    here so nobody re-derives it.
+13. **B08 (3): 299 orphans, not 279** — diagnosed read-only: 279 over the kinds 003 examined plus 20 rows (19
+    properties, 1 field) that 060 FR-405 made examined. The fact asserts both figures. **Ruled 2026-09-16 (Architect): 299
+    is accepted as the live figure and is the baseline** — 279 over 003's kinds plus the 20 rows 060's filter made
+    examinable; the next change to that number is a Red to diagnose.
+14. **The eleven refusal texts were transcribed into contracts/tools.md §6** (pass 2, U1) and `BridgeRefusal.Named`
+    composes all thirty-two from there; FR-306's list now names all thirty-two (A1).
+15. **`type_usages`' four arms are a UNION**: arm (d) (implements/extends) duplicates arm (a)'s edge rows, so the
+    dedup is by edge id; UNION ALL is the T030 (b) fire.
+16. **T046 (a)'s injection**: swapping the two gate lines alone does not redden (3) (with `onGreenBuild` on, the
+    swapped check passes and `enabled` still refuses); the injection that expresses the fault is the hook's own gate
+    deciding the green-build origin, which is what was fired and recorded.
+
+**Analyze pass 2 LOW items carried to implementation** (spec Clarifications "review rulings pass 2"):
+
+| Tag | Item | Status |
+|---|---|---|
+| I7 | the plan's stale counts after CON1/COR1 | fixed at close-out in this plan: six project files scanned, `ContainsDirectory`, seventeen support classes, two seams |
+| I8 | the two live-arming variables beside `AcceptanceRunner`'s | fixed: quickstart "Build and test" names both; B08's header names all three |
+| I9 | Q11's "placeholder" versus the fragment's absolute path | fixed in spec Q11: the fragment ships the absolute path verbatim |
+| I10 | the origin token `green-build` versus `green_build` | fixed in FR-331: the prose word and the wire token named together |
+| I11 | FR-307 and `--config` | fixed in FR-307: beside the executable, or the file `--config` names |
+| I12 | FR-323's counts versus the data model's lists | fixed in FR-323: the bound count and the two lists, as the envelope carries them |
+| D1 | FR-303's clause restating FR-334 | fixed in FR-303: the extraction case points to FR-334 |
+| G5 | zero launches and the hash in B05 (9) | fixed: B05 (9) asserts `Requests.Count` 0 and the hash equal |
+| U4 | the SQL-literal scan's case sensitivity over the two prose files | fixed: `BridgeSqlGateTests` scans case-sensitively and drops comment lines |
+| U5 | the subdirectory-root edge case in the spec | fixed: spec edge case "Two registered roots nest" |
+| A1 | FR-306's 29 kinds versus the data model's 32 | fixed in FR-306: the three missing kinds named, thirty-two in all |
+
+None remains open.
+
+**Known limits carried** (the list above stands, G8 among them) **and two added by implementation**:
+
+- **`map_status`'s dirty check counts tracked changes and top-level untracked entries**: the tuned status scan
+  does not recurse into untracked directories (a new directory shows as one untracked entry) and skips ignored
+  files; a file inside a new directory is seen as that directory. The verdict is still `dirty`; only the reason's
+  count differs from `git status`'s file count.
+- **The same-project twin shape cannot arise from VB source** (BC32009), so the folder's all-distinct rule is
+  exercised by a moved row in a temp map, never by a real extraction; the rule stays because the contract states it
+  (COR3) and a foreign or future producer could write such rows.
+
+17. **B08 runs in a non-parallel collection** (`LiveMap`, `DisableParallelization`): the first armed whole-suite
+    run (T054) measured `map_status` at 4108 ms while the extraction scenarios ran beside it, where it takes ~150 ms
+    alone; SC-301 is a statement about the bridge, so its facts now run while nothing else does.
+18. **The shipped sample was not JSON** — found by the live step (T055), not by a test: `bridge.config.sample.json`
+    carried single backslashes in its paths, so every call against the config copied beside the Release
+    executable was refused as Unconfigured. B05 (18) now parses the sample and the fragment and loads the sample
+    through `BridgeConfigFile.Load` (Red on the broken file, green after the rewrite with JSON escapes).
+
+**Whole-suite runs** (quickstart "Implementation record — build and test lines"): T047 139 passed / 7 skipped in
+2 m 26 s; T054 unarmed 144 passed / 8 skipped in 2 m 54 s, armed first run 150 passed / 1 failed (B08 (6), the
+timing above) / 1 skipped in 2 m 40 s; the final runs on the last build are the last two rows of that table. Every
+armed run: the live map's hash `ab23953e…` and the store's `3b3f9aa2…` equal before and after; MemOS
+`git status --porcelain` empty before and after (FR-349).
+
+**Live steps (T055–T059), 2026-09-16, through the Release executable over stdio** (quickstart "Record" and "Side by
+side"; a minimal MCP stdio client in the scratchpad drove the calls): `solutions` three solutions at runs 4, 5, 6;
+`symbol_search(projectId 132040, "btnDeal_Click")` id 584; `symbol_detail(1200)` `M:GameRoom.Shoe.Draw` at
+`Shoe.vb:36`; `references(1200)` 7 calls in `BlackjackControl.vb`; `orphans(GameRoom)` 299 (91 + 208); `type_usages
+(3023)` 20 with 16 from outside and `references(3023)` 0; `CodeMemMapFixture` 3556 + 4200 as one declaration;
+`map_status` MemOS `behind` by 11 at `cbeb6615`; `extract(MemOS)` with both gates off refused naming
+`extract.enabled` with one log line; on a byte-equal copy of the map with `extract.enabled` on, `extract(MemOS)` exit
+0 in 30.6 s — run 7, 15792 observed, 14650 matched, 1142 new, 63 retired, digest `051faf7d…` — and `map_status`
+MemOS `current`; the hook entry by hand on the copy: a green build in `repos\CodeMem` extracted CodeMem as run 8 in
+7 s, the gate-off case named `extract.onGreenBuild`, an unregistered directory named the path, exit 0 every time.
+Every call under 110 ms but the extraction itself. The live map and the store were never written; the MemOS tree
+stayed clean.
+
+**Left to the Operator and the Architect** (not this feature's code, or not this feature's hand):
+
+- Approve the `codemem` project server in an interactive Claude Code session in `repos\CodeMem` (`claude mcp list`
+  shows it connected) and, for other repositories, the user-scope line in the process document.
+- The MemOS Shell column of the side-by-side table (SC-302).
+- Merge `hooks/settings.fragment.json` into `~/.claude/settings.json` and watch a real `dotnet build` in a session
+  produce the line (T059's mechanism was exercised by hand; the merge is the Operator's).
+- **T060**, the live MemOS run 7, only at the Architect's request and after a backup; both gates stay off in the
+  config beside the executable until the Architect flips them.
+- ~~Accept 299 orphans on GameRoom~~ — ruled 2026-09-16: 299 is the accepted baseline (deviation 13).
+- The commits.
 
 ## Phase 0 / Phase 1 outputs
 

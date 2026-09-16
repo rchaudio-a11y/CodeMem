@@ -90,7 +90,7 @@ interface, enum or delegate — in one call: references to the type itself, **ca
 members, and every implements or extends edge pointing at it. Grouped by verb with counts, then the flat occurrence
 list; each occurrence names the symbol it actually targets (the type, a constructor or a member) and whether it
 comes **from inside** the type (a member calling a sibling). **total** counts every occurrence; **fromOutside** is the
-number to read before a delete or rename. Resolved by the compiler's identity, uncapped, active symbols only;
+number to read before removing or renaming it. Resolved by the compiler's identity, uncapped, active symbols only;
 containment (part_of) is not a use. A symbolId that is not a type is refused by name — use references. Requires
 symbolId and exactly one of projectId or solutionKey. Read-only."
 
@@ -242,7 +242,17 @@ Retired rows are never in a group.
 | `Busy` | **An extraction is in progress** on '{mapPath}'; the map was not readable within {n} seconds. Retry when it finishes; this is normal for a large solution. |
 | `Unopenable` | The CodeMem map at '{mapPath}' **could not be opened**: {driver text}. Check the path and its permissions. |
 | `RegistryAbsent` | The MemOS store at '{storePath}' holds **no code_map_solutions table**. Nothing is wrong with the map; the registry migration has not gone live on that store. |
-| `ScopeMissing` / `ScopeConflict` / `FilterMissing` / `KindUnknown` / `SymbolIdMissing` / `SolutionKeyUnknown` / `SymbolNotFound` / `SymbolOutOfScope` / `SymbolRetired` / `KindNotExamined` / `NotAProjectRow` | 058 §5 and 060 §4 texts with tool names unprefixed (`symbol_search`, `solutions`) and the same distinguishing phrases. |
+| `ScopeMissing` | Supply **exactly one of projectId** (a MemOS project, resolved through the code_map_solutions registry) or solutionKey (one map solution). **Neither** was supplied. |
+| `ScopeConflict` | Supply **exactly one of projectId** or solutionKey. **Both** were supplied; they can disagree, so neither is chosen for you. |
+| `FilterMissing` | Supply a **name, a kind, or both**. A search with no filter is not run. |
+| `KindUnknown` | '{given}' is **not a symbol kind** in the CodeMem map. Use one of: {the fourteen kinds, comma-separated}. |
+| `SymbolIdMissing` | Supply **symbolId** — the map's symbol id, as symbol_search returns it. |
+| `SolutionKeyUnknown` | The CodeMem map at '{mapPath}' **holds no solution with key** '{key}'. Keys are exact; solutions lists them. |
+| `SymbolNotFound` | The CodeMem map at '{mapPath}' **holds no symbol with id** {symbolId}. Find the id with symbol_search. |
+| `SymbolOutOfScope` | Symbol {id} ('{name}') belongs to solution '{solutionKey}', which is **not in the requested scope** ({scope description}). Ask with that solution's key, or with a project bound to it. |
+| `SymbolRetired` | Symbol {id} ('{name}', {kind}, {path}) in solution '{solutionKey}' is **retired**; it was last seen in extract run {lastSeenRunId}. Search again for the current symbol, or consult the rename candidates whose retired symbol is {id}. |
+| `KindNotExamined` | '{given}' is a symbol kind orphans **does not examine**: {for project: project rows are roots, unreferenced by construction; for namespace: the reason the description states under `no namespace rows`}. Filter by an examined kind, or omit kind. |
+| `NotAProjectRow` | Symbol {id} ('{name}', {kind}, {path}:{line}) is **not a project row**; projectSymbolId takes the id of a project-kind symbol — the ids the result's byProject lists. |
 | `NotAType` | Symbol {id} ('{name}', {kind}) is **not a type**; type_usages takes a class, module, structure, interface, enum or delegate. **Use references** for a member. |
 | `GateOff` | extract is refused: **{gate} is false** in '{configPath}'. The Architect flips it; nothing ran and the map is unchanged. |
 | `TargetMissing` | Supply **exactly one of solutionKey, repoPath or stale**. Nothing ran. |
@@ -256,6 +266,13 @@ Retired rows are never in a group.
 | `ExtractorNotFound` | The extractor was **not found** at '{extractorPath}'. Set extractorPath in '{configPath}' or build CodeMem.sln. Nothing ran. |
 | `AmbiguousTarget` | The build names **more than one target** ({candidates}); the hook resolves none of them and never falls back to the working directory. Nothing ran. |
 | `ChildTimedOut` | The extractor for '{key}' **exceeded 540 s** and was stopped; the map holds whatever it published before and nothing after. Run it by hand to see why. |
+
+The eleven kinds from `ScopeMissing` to `NotAProjectRow` are transcribed from 058 §5 and 060 §4 (analyze pass 2,
+U1, ruled 2026-09-15): the bridge's vocabulary lives here, not by pointer into MemOS documents. Tool names are
+unprefixed (`symbol_search`, `solutions`, `orphans`); the registry replaces the `projects` table in
+`ScopeMissing`; `ProjectUnknown` is not ported (Q7). `{scope description}` is `projectId {n}, resolving to: {keys
+or "no solution"}` or `solutionKey '{key}'`. `BridgeRefusal.For` owns these texts (T019); facts assert the bold
+phrases (T017 (7)).
 
 ## 7. What these tools never do
 
