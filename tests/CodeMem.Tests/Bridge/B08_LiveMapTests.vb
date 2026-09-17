@@ -32,6 +32,20 @@
 '        row, and no unbound list. (8) added: extract --repo-path on DSP_Processor's repository resolves from the map alone, through a
 '        scripted launcher (FR-434). Unarmed: Skipped, as before; the armed Reds are recorded when the live steps run (T041-T045).
 
+' RED:   2026-09-17 (T042) the armed live run after the map was upgraded to schema 3: (6) red - MemOS "behind" where "current" was
+'        asserted. Diagnosed: HEAD bf275596 is 2 commits past the recorded cbeb6615, tree clean, and those two commits are MemOS's own
+'        map-pin fixpack and its merge - made so MemOS could read a version-3 map at all. The fact was asserting a TRANSIENT; re-pinning
+'        it to behind/2 would have gone red again on the next MemOS commit. Reworked (the Architect's direction): (6) now recomputes each
+'        entry's inputs from git and asserts the verdict those inputs imply, so it holds at any staleness, and is renamed
+'        LiveMapStatusVerdictsAgreeWithGit. MemOS was also re-extracted at the same request (run 13, sha bf275596), which is what P008 of
+'        the MemOS fixpack needs. Live coverage on the armed run after the rework, all five entries compared and agreeing: current x2
+'        (DSP_Processor, MemOS) and dirty x3 (CodeMem, GameRoom, RicksLife) - CodeMem dirty WITH behindBy 20, which is the one case that
+'        exercises the dirty-before-behind precedence. behind, diverged and no_git had no live instance on that run and are covered by the
+'        fixture facts, not here; this fact claims only that whatever state the repositories are in, the verdict matches git.
+' RED:   2026-09-17 (T042, after the MemOS re-extraction the Architect asked for) (7) red - presented 15545 where active - 277 = 15547.
+'        Diagnosed and re-pinned to 279: the fixpack added exactly two members to CodeMemMapFixture.vb, which is LINKED into the
+'        integration project as well, so each folds as one twin pair. The arithmetic closes exactly (15,824 - 279 = 15,545); see the
+'        comment at the assertion. This figure is expected to move with every MemOS extraction that touches a linked file.
 Imports System.Diagnostics
 Imports System.Linq
 Imports System.Text.Json
@@ -168,34 +182,153 @@ Public Class B08_LiveMapTests
     End Sub
 
     ''' <summary>
-    ''' (6) map_status on the live registry after run 7 (T060): the MemOS entry current, HEAD equal to the run's commit, behindBy 0; the
-    ''' GameRoom and CodeMem entries present with non-null heads; five entries, one per solutions row, and no unbound list (SC-304,
-    ''' FR-345; 005 FR-418). Before run 7 it asserted behind or dirty
-    ''' with HEAD past the recorded commit - the state finding 152646 named; the next MemOS commit turns this red, to diagnose.
+    ''' (6) map_status over the live map: five entries, one per solutions row, no unbound list (SC-304, FR-345; 005 FR-418) - and
+    ''' <b>every entry's verdict checked against git read independently</b>, so the fact holds at ANY staleness.
+    ''' <para>
+    ''' <b>Why it no longer asserts a verdict by name.</b> Until 2026-09-17 this fact asserted MemOS <c>current</c> with
+    ''' <c>behindBy</c> 0 - a transient. It went red the moment MemOS took its next commit (T042: HEAD bf275596 two commits past
+    ''' the recorded cbeb6615), which is a state the map is ALLOWED to be in, not a defect. Re-pinning the number would have
+    ''' bought one day. So the fact now recomputes each entry's inputs from git itself - HEAD, whether the tree is dirty,
+    ''' ancestry, and the distance from the recorded commit - and asserts the bridge's verdict is the one those inputs imply
+    ''' under the documented precedence (no_git, dirty, diverged, behind, current: MapStatusReader's header).
+    ''' </para>
+    ''' <para>
+    ''' <b>The independent side mirrors the production options deliberately</b>: RepositoryFacts scans with
+    ''' <c>ExcludeSubmodules</c>, so the dirty probe passes <c>--ignore-submodules=all</c>. Where the two could disagree for a
+    ''' reason that is not a defect, the probe is made to agree on purpose, and said so here.
+    ''' </para>
+    ''' <para>
+    ''' <b>What this proves and what it does not</b> (scope carried into the claim): the recorded commit is taken from the reply,
+    ''' so this fact does NOT independently verify what the map holds - (1) and the solutions facts do that. What it does prove
+    ''' is that, for the recorded commit, the verdict, HEAD, dirty flag and distance the bridge reports are the ones git gives,
+    ''' on every entry, whatever the staleness. A comparison that never ran proves nothing, so the count of entries actually
+    ''' compared is asserted non-zero and printed.
+    ''' </para>
     ''' </summary>
     <SkippableFact>
-    Public Sub LiveMapStatusReportsMemOsBehind()
+    Public Sub LiveMapStatusVerdictsAgreeWithGit()
         Dim live As LiveBridge = Arm()
         Dim reply As BridgeReply = Timed(live, "map_status", Args())
         Dim root As JsonElement = reply.Root()
         Dim entries As Dictionary(Of String, JsonElement) = New Dictionary(Of String, JsonElement)(StringComparer.Ordinal)
         For Each entry As JsonElement In root.GetProperty("entries").EnumerateArray()
             entries(entry.GetProperty("solutionKey").GetString()) = entry
-            _output.WriteLine(entry.GetProperty("solutionKey").GetString() & ": " & entry.GetProperty("verdict").GetString() & " - " & entry.GetProperty("reason").GetString())
         Next
-        Dim memos As JsonElement = entries("MemOS")
-        Assert.Equal("current", memos.GetProperty("verdict").GetString())
-        Assert.Equal(JsonValueKind.String, memos.GetProperty("head").GetProperty("sha").ValueKind)
-        Assert.Equal(memos.GetProperty("run").GetProperty("commitSha").GetString(), memos.GetProperty("head").GetProperty("sha").GetString())
-        Assert.Equal(0, memos.GetProperty("head").GetProperty("behindBy").GetInt32())
-        For Each key As String In New String() {"GameRoom", "CodeMem"}
-            Assert.Equal(JsonValueKind.String, entries(key).GetProperty("head").GetProperty("sha").ValueKind)
-        Next
+
         Assert.Equal(5, root.GetProperty("entries").GetArrayLength())
         Assert.Equal(Timed(live, "solutions", Args()).Root().GetProperty("solutions").GetArrayLength(), root.GetProperty("entries").GetArrayLength())
         Assert.False(HasProperty(root, "unbound"))
+        For Each key As String In New String() {"GameRoom", "CodeMem", "MemOS"}
+            Assert.True(entries.ContainsKey(key), "the live map no longer holds " & key)
+        Next
+
+        Dim compared As Integer = 0
+        For Each pair As KeyValuePair(Of String, JsonElement) In entries
+            Dim entry As JsonElement = pair.Value
+            Dim verdict As String = entry.GetProperty("verdict").GetString()
+
+            ' No completed run, or a run that recorded no commit: no_git is the only lawful answer and there is nothing to compare.
+            If Not HasProperty(entry, "run") OrElse entry.GetProperty("run").ValueKind = JsonValueKind.Null Then
+                Assert.Equal("no_git", verdict)
+                Continue For
+            End If
+            Dim recordedSha As JsonElement = entry.GetProperty("run").GetProperty("commitSha")
+            If recordedSha.ValueKind <> JsonValueKind.String Then
+                Assert.Equal("no_git", verdict)
+                Continue For
+            End If
+
+            Dim recorded As String = recordedSha.GetString()
+            Dim repoRoot As String = entry.GetProperty("repoRoot").GetString()
+            Dim headSha As String = Git(repoRoot, "rev-parse HEAD")
+            If headSha Is Nothing Then
+                Assert.Equal("no_git", verdict)
+                Continue For
+            End If
+
+            Dim treeDirty As Boolean = Not String.IsNullOrWhiteSpace(Git(repoRoot, "status --porcelain --ignore-submodules=all"))
+            Dim isAncestor As Boolean = GitExitsZero(repoRoot, "merge-base --is-ancestor " & recorded & " HEAD")
+            Dim behindBy As Integer = 0
+            If isAncestor Then
+                Dim counted As String = Git(repoRoot, "rev-list --count " & recorded & "..HEAD")
+                If counted IsNot Nothing Then Integer.TryParse(counted, behindBy)
+            End If
+
+            Dim expected As String
+            If treeDirty Then
+                expected = "dirty"
+            ElseIf Not isAncestor Then
+                expected = "diverged"
+            ElseIf behindBy > 0 Then
+                expected = "behind"
+            Else
+                expected = "current"
+            End If
+
+            _output.WriteLine(pair.Key & ": bridge " & verdict & " | git HEAD " & headSha.Substring(0, 8) &
+                              " dirty=" & treeDirty.ToString() & " ancestor=" & isAncestor.ToString() &
+                              " behindBy=" & behindBy.ToString() & " -> expected " & expected &
+                              " | " & entry.GetProperty("reason").GetString())
+
+            Assert.Equal(expected, verdict)
+            Assert.Equal(headSha, entry.GetProperty("head").GetProperty("sha").GetString())
+            Assert.Equal(treeDirty, entry.GetProperty("head").GetProperty("treeDirty").GetBoolean())
+            ' diverged claims no count by contract; every other computable verdict states the distance git gives.
+            If expected <> "diverged" Then
+                Assert.Equal(behindBy, entry.GetProperty("head").GetProperty("behindBy").GetInt32())
+            End If
+            compared += 1
+        Next
+
+        Assert.True(compared >= 1, "no entry was comparable against git, so this fact asserted nothing about any verdict")
+        _output.WriteLine("entries compared against git: " & compared.ToString())
+
         live.AssertUnchanged()
     End Sub
+
+    ''' <summary>
+    ''' Runs git in a repository root and returns its trimmed stdout, or <see langword="Nothing"/> when git cannot be run or
+    ''' exits non-zero. The independent side of fact (6); nothing else in this class shells out.
+    ''' </summary>
+    ''' <param name="repoRoot">The working directory to run in.</param>
+    ''' <param name="arguments">The git arguments.</param>
+    ''' <returns>Trimmed stdout, or Nothing.</returns>
+    Private Shared Function Git(repoRoot As String, arguments As String) As String
+        Try
+            Dim psi As ProcessStartInfo = New ProcessStartInfo("git", arguments) With {
+                .WorkingDirectory = repoRoot, .RedirectStandardOutput = True, .RedirectStandardError = True,
+                .UseShellExecute = False, .CreateNoWindow = True}
+            Using started As Process = Process.Start(psi)
+                Dim output As String = started.StandardOutput.ReadToEnd()
+                started.StandardError.ReadToEnd()
+                started.WaitForExit()
+                If started.ExitCode <> 0 Then Return Nothing
+                Return output.Trim()
+            End Using
+        Catch
+            Return Nothing
+        End Try
+    End Function
+
+    ''' <summary>Runs git and reports only whether it exited 0 - for the predicates that answer by exit code.</summary>
+    ''' <param name="repoRoot">The working directory to run in.</param>
+    ''' <param name="arguments">The git arguments.</param>
+    ''' <returns><c>True</c> when git exited 0.</returns>
+    Private Shared Function GitExitsZero(repoRoot As String, arguments As String) As Boolean
+        Try
+            Dim psi As ProcessStartInfo = New ProcessStartInfo("git", arguments) With {
+                .WorkingDirectory = repoRoot, .RedirectStandardOutput = True, .RedirectStandardError = True,
+                .UseShellExecute = False, .CreateNoWindow = True}
+            Using started As Process = Process.Start(psi)
+                started.StandardOutput.ReadToEnd()
+                started.StandardError.ReadToEnd()
+                started.WaitForExit()
+                Return started.ExitCode = 0
+            End Using
+        Catch
+            Return False
+        End Try
+    End Function
 
     ''' <summary>
     ''' (7) Twins on the live MemOS map (SC-309): CodeMemMapFixture presents once with compiledInto 3556 and 4200 (total 2: the contains
@@ -225,7 +358,11 @@ Public Class B08_LiveMapTests
         Next
         Dim active As Integer = live.ActiveSymbolCount("MemOS")
         _output.WriteLine("MemOS active rows " & active & ", presented " & presented & ", absorbed " & (active - presented))
-        Assert.Equal(active - 277, presented)
+        ' 279 absorbed, not 277 (re-pinned 2026-09-17, T042): MemOS run 13 added two members to
+        ' tests/contract/MemOS.ContractTests/TestSupport/CodeMemMapFixture.vb - Migration2To3Text and Migration2To3Sql - and that file is
+        ' <Compile Include=...Link=...> into MemOS.IntegrationTests as well, so each new member is compiled into two projects and folds as
+        ' one twin pair: 277 + 2. Checked, not assumed: 15,824 active - 279 = 15,545 presented, the figures the run reported.
+        Assert.Equal(active - 279, presented)
         live.AssertUnchanged()
     End Sub
 
