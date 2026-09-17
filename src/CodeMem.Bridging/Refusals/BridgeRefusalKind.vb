@@ -8,6 +8,7 @@
 ' (one scope argument remains). The registry-side kinds leave in two steps as their callers do: KeyNotRegistered, KeyUnbound, KeyInactive,
 ' MapMissingSolution and PathNotRegistered at T021 with the resolver; RegistryAbsent at T024 with the archive. The count is 29 at T024.
 ' 2026-09-17 (T021): the five resolver kinds gone with TargetResolver's rewrite; 30 remain until RegistryAbsent leaves at T024.
+' 2026-09-17 (T024): RegistryAbsent gone with the archive - 29 kinds, B09 (6) green.
 
 ''' <summary>
 ''' Every way a tool refuses. The wording of each lives in <see cref="BridgeRefusal"/>; facts assert each kind's distinguishing phrase.
@@ -29,8 +30,6 @@ Public Enum BridgeRefusalKind
     Busy
     ''' <summary>The map could not be opened for another reason.</summary>
     Unopenable
-    ''' <summary>The store holds no code_map_solutions table (004; retired at T024 with the archive).</summary>
-    RegistryAbsent
     ''' <summary>No solutionKey.</summary>
     ScopeMissing
     ''' <summary>The call carries projectId, which this bridge does not take (feature 005).</summary>

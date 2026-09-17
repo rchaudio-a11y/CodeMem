@@ -5,7 +5,8 @@
 ' Created: 2026-09-15
 '
 ' 2026-09-17 (feature 005, T013): storePath is no longer read - a file carrying it is refused naming the key (FR-403). The StorePath property
-' stays, never set, until T024 archives the last file that reads it (StoreAccess); it leaves with the archive.
+' stays, never set, until T024 archives the last file that reads it (the store door); it leaves with the archive.
+' 2026-09-17 (feature 005, T024): StorePath gone with the archive; the class names the map and nothing else.
 
 ''' <summary>
 ''' One read of the configuration file: the map path, the optional extractor path, the two gates and where it was read from. Never cached.
@@ -14,9 +15,6 @@ Public Class BridgeConfig
 
     ''' <summary>The map file.</summary>
     Public Property MapPath As String
-
-    ''' <summary>Never set since feature 005 (the bridge opens no store); removed at T024 with its last reader.</summary>
-    Public Property StorePath As String
 
     ''' <summary>The extractor executable or dll, or Nothing for the default beside the bridge.</summary>
     Public Property ExtractorPath As String

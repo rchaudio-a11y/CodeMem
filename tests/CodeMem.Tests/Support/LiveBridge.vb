@@ -1,6 +1,6 @@
 ' File: LiveBridge.vb
 ' Project: CodeMem.Tests
-' Description: An in-process host over the live map and store with the map's hash taken at arming, for the B08 facts (feature 004).
+' Description: An in-process host over the live map with the map's hash taken at arming, for the B08 facts (feature 004; 005 T023: the store is gone).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-15
 
@@ -22,11 +22,10 @@ Public Class LiveBridge
     Private ReadOnly _before As String
 
     ''' <summary>
-    ''' Writes a temp configuration naming the live paths and hashes the map.
+    ''' Writes a temp configuration naming the live map, both gates off, and hashes the map.
     ''' </summary>
     ''' <param name="mapPath">The live map.</param>
-    ''' <param name="storePath">The live store.</param>
-    Public Sub New(mapPath As String, storePath As String)
+    Public Sub New(mapPath As String)
         Me.MapPath = mapPath
         Host = New BridgeHost(BridgeHost.WriteConfig(mapPath, Nothing, False, False))
         _before = MapSnapshot.FileBytesHash(mapPath)

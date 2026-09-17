@@ -1,10 +1,10 @@
 ' File: B08_LiveMapTests.vb
 ' Project: CodeMem.Tests
-' Description: Skip-armed facts on the live map and store (read-only): the three solutions, 003's figures, the registry route, each call under 3 s, the map's hash unchanged (SC-301..SC-304, SC-309; FR-344, FR-345; research R54).
+' Description: Skip-armed facts on the live map (read-only): the five solutions, 003's figures, resolution from the map alone, each call under 3 s, the map's hash unchanged (SC-301..SC-304, SC-309; FR-344, FR-345; 005 FR-434; research R54).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-15
 '
-' Armed by CODEMEM_LIVE_MAP and CODEMEM_LIVE_STORE (paths); unset -> Skipped, as AcceptanceRunner is armed by CODEMEM_ACCEPT_SOLUTION.
+' Armed by CODEMEM_LIVE_MAP (a path); unset -> Skipped, as AcceptanceRunner is armed by CODEMEM_ACCEPT_SOLUTION.
 ' Every fact hashes the live map before and after its calls. The live figures are recorded in the quickstart's Record table; a number
 ' that differs from 003's record is a Red to diagnose, and only the Architect accepts a changed number.
 ' RED:   2026-09-15 (T025) (3) red on the first armed run: total 299, expected 279. Diagnosed on the live map, read-only (the scratch
@@ -26,6 +26,11 @@
 '        read-only against the map and the answers: a test added after run 6 names CodeMemMapReader once (uses, never constructed;
 '        type_usages 25 against references 1); MemOS is at the run's commit; the eleven commits added 55 twin pairs (277, all pairs).
 '        Each fact re-pinned to the live state with the diagnosis in its comment (the rule: a changed live number is a Red to diagnose).
+' 2026-09-17 (feature 005, T023): CODEMEM_LIVE_STORE is gone with the store. (4) by projectId retired - its route left the bridge; the
+'        004 body is in _Archive/004-store/tests/B08_RetiredFacts.vb - and asked again by solutionKey GameRoom (the same row, id 584).
+'        (1) expects five solutions (DSP_Processor and RicksLife joined the live map after 004), (6) five entries, one per solutions
+'        row, and no unbound list. (8) added: extract --repo-path on DSP_Processor's repository resolves from the map alone, through a
+'        scripted launcher (FR-434). Unarmed: Skipped, as before; the armed Reds are recorded when the live steps run (T041-T045).
 
 Imports System.Diagnostics
 Imports System.Linq
@@ -53,10 +58,10 @@ Public Class B08_LiveMapTests
     End Sub
 
     ''' <summary>
-    ''' (1) solutions lists GameRoom, CodeMem and MemOS with runs 4, 5 and 6 or later.
+    ''' (1) solutions lists five: GameRoom, CodeMem and MemOS with runs 4, 5 and 6 or later, DSP_Processor and RicksLife (005).
     ''' </summary>
     <SkippableFact>
-    Public Sub LiveSolutionsListsThree()
+    Public Sub LiveSolutionsListsFive()
         Dim live As LiveBridge = Arm()
         Dim reply As BridgeReply = Timed(live, "solutions", Args())
         Dim runs As Dictionary(Of String, Long) = New Dictionary(Of String, Long)(StringComparer.Ordinal)
@@ -66,6 +71,8 @@ Public Class B08_LiveMapTests
         Assert.True(runs("GameRoom") >= 4, "GameRoom run " & runs("GameRoom"))
         Assert.True(runs("CodeMem") >= 5, "CodeMem run " & runs("CodeMem"))
         Assert.True(runs("MemOS") >= 6, "MemOS run " & runs("MemOS"))
+        Assert.True(runs.ContainsKey("DSP_Processor") AndAlso runs.ContainsKey("RicksLife"), "keys: " & String.Join(", ", runs.Keys))
+        Assert.Equal(5, runs.Count)
         live.AssertUnchanged()
     End Sub
 
@@ -117,13 +124,14 @@ Public Class B08_LiveMapTests
     End Sub
 
     ''' <summary>
-    ''' (4) symbol_search by projectId 132040 resolves through the registry to GameRoom: btnDeal_Click is one row, id 584.
+    ''' (4) symbol_search by solutionKey GameRoom resolves from the map alone: btnDeal_Click is one row, id 584 (the 004 fact asked by
+    ''' projectId 132040 through the registry; 005 FR-405).
     ''' </summary>
     <SkippableFact>
-    Public Sub LiveSearchByProjectResolvesThroughTheRegistry()
+    Public Sub LiveSearchByKeyResolvesFromTheMap()
         Dim live As LiveBridge = Arm()
-        Dim reply As BridgeReply = Timed(live, "symbol_search", Args("projectId", 132040L, "name", "btnDeal_Click"))
-        Assert.Equal("projectId", reply.Root().GetProperty("scope").GetProperty("by").GetString())
+        Dim reply As BridgeReply = Timed(live, "symbol_search", Args("solutionKey", "GameRoom", "name", "btnDeal_Click"))
+        Assert.Equal("solutionKey", reply.Root().GetProperty("scope").GetProperty("by").GetString())
         Assert.Equal(1, reply.Root().GetProperty("symbols").GetArrayLength())
         Assert.Equal(584L, reply.Root().GetProperty("symbols")(0).GetProperty("id").GetInt64())
         live.AssertUnchanged()
@@ -161,7 +169,8 @@ Public Class B08_LiveMapTests
 
     ''' <summary>
     ''' (6) map_status on the live registry after run 7 (T060): the MemOS entry current, HEAD equal to the run's commit, behindBy 0; the
-    ''' GameRoom and CodeMem entries present with non-null heads; unbound empty (SC-304, FR-345). Before run 7 it asserted behind or dirty
+    ''' GameRoom and CodeMem entries present with non-null heads; five entries, one per solutions row, and no unbound list (SC-304,
+    ''' FR-345; 005 FR-418). Before run 7 it asserted behind or dirty
     ''' with HEAD past the recorded commit - the state finding 152646 named; the next MemOS commit turns this red, to diagnose.
     ''' </summary>
     <SkippableFact>
@@ -182,7 +191,9 @@ Public Class B08_LiveMapTests
         For Each key As String In New String() {"GameRoom", "CodeMem"}
             Assert.Equal(JsonValueKind.String, entries(key).GetProperty("head").GetProperty("sha").ValueKind)
         Next
-        Assert.Equal(0, root.GetProperty("unbound").GetArrayLength())
+        Assert.Equal(5, root.GetProperty("entries").GetArrayLength())
+        Assert.Equal(Timed(live, "solutions", Args()).Root().GetProperty("solutions").GetArrayLength(), root.GetProperty("entries").GetArrayLength())
+        Assert.False(HasProperty(root, "unbound"))
         live.AssertUnchanged()
     End Sub
 
@@ -219,14 +230,31 @@ Public Class B08_LiveMapTests
     End Sub
 
     ''' <summary>
-    ''' Arms the facts: both variables set, else Skipped.
+    ''' (8) extract --repo-path on DSP_Processor's repository resolves to key DSP_Processor from the map alone (005 FR-434; analyze G4): a temp
+    ''' configuration with both gates on and a scripted launcher, so nothing real runs; the scripted request's solution path is the map's
+    ''' last_seen_path; the live map's hash unchanged.
     ''' </summary>
-    ''' <returns>The host over the live paths with the hash taken.</returns>
+    <SkippableFact>
+    Public Sub ExtractByRepoPathResolvesDspProcessorFromTheMapAlone()
+        Dim live As LiveBridge = Arm()
+        Dim host As BridgeHost = New BridgeHost(BridgeHost.WriteConfig(live.MapPath, Nothing, True, True))
+        host.Launcher.Script(0, "solution=DSP_Processor run_id=0 observed=0", "")
+        Dim reply As BridgeReply = host.Invoke("extract", Args("repoPath", "C:\Users\rchau\source\repos\DSP_Processor"))
+        Assert.False(reply.IsError, reply.Text)
+        Assert.Equal("DSP_Processor", reply.Root().GetProperty("target").GetProperty("resolvedKey").GetString())
+        Dim expected As String = MapQueries.ReadSolutions(live.MapPath).Find(Function(row As SolutionRow) row.Key = "DSP_Processor").LastSeenPath
+        Assert.Equal(expected, Assert.Single(host.Launcher.Requests).SolutionPath)
+        live.AssertUnchanged()
+    End Sub
+
+    ''' <summary>
+    ''' Arms the facts: the variable set, else Skipped.
+    ''' </summary>
+    ''' <returns>The host over the live map with the hash taken.</returns>
     Private Shared Function Arm() As LiveBridge
         Dim mapPath As String = Environment.GetEnvironmentVariable("CODEMEM_LIVE_MAP")
-        Dim storePath As String = Environment.GetEnvironmentVariable("CODEMEM_LIVE_STORE")
-        Skip.If(String.IsNullOrEmpty(mapPath) OrElse String.IsNullOrEmpty(storePath), "CODEMEM_LIVE_MAP and CODEMEM_LIVE_STORE are not both set")
-        Return New LiveBridge(mapPath, storePath)
+        Skip.If(String.IsNullOrEmpty(mapPath), "CODEMEM_LIVE_MAP is not set")
+        Return New LiveBridge(mapPath)
     End Function
 
     ''' <summary>
@@ -244,6 +272,11 @@ Public Class B08_LiveMapTests
         Assert.False(reply.IsError, tool & ": " & reply.Text)
         Assert.True(watch.ElapsedMilliseconds < Budget, tool & " took " & watch.ElapsedMilliseconds & " ms")
         Return reply
+    End Function
+
+    Private Shared Function HasProperty(element As JsonElement, name As String) As Boolean
+        Dim value As JsonElement
+        Return element.TryGetProperty(name, value)
     End Function
 
     Private Shared Function Args(ParamArray pairs As Object()) As Dictionary(Of String, Object)

@@ -15,6 +15,12 @@
 '        and the version line); (1) and (2) still red as named.
 ' FIRE:  2026-09-17 (T003) (3): "the sole writer of fact tables" changed to "the only writer" in the constitution -> red (Actual: "...the
 '        only writer of fact t..."); reverted -> green.
+' GREEN: 2026-09-17 (T024) (1) and (2) with the archive: the eight files under _Archive/004-store/, StorePath and RegistryAbsent gone, every
+'        comment that named one of the eight rewritten in words (the scan reads comments too, by design: FR-402 is textual).
+' FIRE:  2026-09-17 (T024, source scans with --no-build, each reverted from a byte copy): (1) a New SqliteConnection line appended to
+'        src/CodeMem.Bridging/Reading/MapAccess.vb -> red "MapAccess.vb:94: SqliteConnection"; a comment ' memos.sqlite appended to
+'        src/CodeMem.Bridging/Mcp/BridgeTools.vb -> red "BridgeTools.vb:284: memos"; (2) Dim r As <the store's database class> = Nothing
+'        appended to B09_StandaloneTests.vb -> red "B09_StandaloneTests.vb: <that name>"; green after each revert.
 
 Imports System.IO
 Imports System.Text.RegularExpressions

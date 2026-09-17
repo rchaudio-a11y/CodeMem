@@ -8,6 +8,7 @@
 ' ScopeMissing, SolutionKeyUnknown, TargetMissing and AmbiguousRoot revised to 005 contracts/tools.md §6; Unopenable's store variant gone;
 ' ScopeConflict gone. The 004 texts of the kinds that leave at T021 and T024 stay until their kind leaves.
 ' 2026-09-17 (T021): the five resolver texts gone (KeyNotRegistered, KeyUnbound, KeyInactive, MapMissingSolution, PathNotRegistered).
+' 2026-09-17 (T024): RegistryAbsent's text gone with the archive; the seven retired texts are listed in _Archive/004-store/README.md.
 
 ''' <summary>
 ''' A refusal is text on the wire, never an exception (058's rule). <see cref="Named"/> is the only place a sentence is composed; facts assert
@@ -57,8 +58,6 @@ Public Class BridgeRefusal
                 Return "An extraction is in progress on '" & F(facts, "mapPath") & "'; the map was not readable within " & F(facts, "seconds") & " seconds. Retry when it finishes; this is normal for a large solution."
             Case BridgeRefusalKind.Unopenable
                 Return "The CodeMem map at '" & F(facts, "path") & "' could not be opened: " & F(facts, "driver") & ". Check the path and its permissions."
-            Case BridgeRefusalKind.RegistryAbsent
-                Return "The store at '" & F(facts, "storePath") & "' holds no code_map_solutions table. Nothing is wrong with the map; the registry migration has not gone live on that store."
             Case BridgeRefusalKind.ScopeMissing
                 Return "Supply solutionKey — one map solution, exact; solutions lists the keys. Nothing was opened."
             Case BridgeRefusalKind.ProjectIdRemoved

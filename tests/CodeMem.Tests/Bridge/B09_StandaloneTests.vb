@@ -12,8 +12,9 @@
 '        methods (research R68's primary mechanism; the fallback was not needed), the library taking the raw dictionary (BridgeToolBindings).
 ' FIRE:  2026-09-17 (T018) (2): ScopeResolver.RefuseProjectId returned before reading the dictionary -> red ("solutions: projectId was not
 '        refused; got {...map...}"); reverted -> green.
-' RED:   2026-09-17 (T021) (6) added with the five resolver kinds gone: 30 kinds, not 29 - RegistryAbsent stays for StoreAccess until
+' RED:   2026-09-17 (T021) (6) added with the five resolver kinds gone: 30 kinds, not 29 - RegistryAbsent stays for the store door until
 '        the archive (T024). Expected red; green at T024.
+' GREEN: 2026-09-17 (T024) (6) with the archive: 29.
 
 Imports System.IO
 Imports System.Text.Json

@@ -1,6 +1,6 @@
 ' File: BridgeSqlGateTests.vb
 ' Project: CodeMem.Tests
-' Description: Review gate (feature 004, FR-303, FR-304): no SQL literal in either bridge project; Core's read methods are SELECT-only; the registry module names code_map_solutions and nothing else; the store is opened only by the bridge.
+' Description: Review gate (feature 004, FR-303, FR-304): no SQL literal in either bridge project; Core's read methods are SELECT-only (feature 005, T024: the registry-module and store facts are archived).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-15
 '
@@ -13,21 +13,22 @@
 '        existing Read functions of Core (ReadActive, ReadRetiredByDocIds, ReadByKey, ReadGuid) SELECT-only.
 ' 2026-09-15 (T013): two refinements once the subjects existed - whole-line comments are dropped before every scan (XML docs quote member
 '        names: ReadOnlyConnectionString was charged with the next method's <see cref>), and (4) treats Core/Repositories/Registry/ and
-'        StoreDatabase.vb as the definitions (the registry module takes a StoreDatabase; nothing else in Core, Extraction or the Extractor may).
-' GREEN: 2026-09-15 (T013) 4 of 4 once CodeMapSolutionsRepository landed (2 finds its SELECT).
-' FIRE:  2026-09-15 (T013) (2): a "SELECT id FROM projects" literal in CodeMapSolutionsRepository.vb -> red (expected code_map_solutions,
+'        the store's database class as the definitions (the registry module takes the store; nothing else in Core, Extraction or the Extractor may).
+' GREEN: 2026-09-15 (T013) 4 of 4 once the registry module landed (2 finds its SELECT).
+' FIRE:  2026-09-15 (T013) (2): a "SELECT id FROM projects" literal in the registry module -> red (expected code_map_solutions,
 '        actual projects); (1): a "SELECT 1" literal in BridgeCommandLine.vb -> red (BridgeCommandLine.vb: SELECT 1); (4): Dim probe As
-'        StoreDatabase in src/CodeMem.Extraction/Run/ExtractionRun.vb -> red (ExtractionRun.vb: StoreDatabase); each reverted -> green.
+'        the store's database class in src/CodeMem.Extraction/Run/ExtractionRun.vb -> red (ExtractionRun.vb named); each reverted -> green.
+' 2026-09-17 (feature 005, T024): (2) and (4) cut into _Archive/004-store/tests/BridgeSqlGateTests_RetiredFacts.vb with the store; (1) and (3)
+'        stay. The two archived class names above are written in words: BridgeStandaloneGateTests (2) forbids them in every .vb file.
 
 Imports System.IO
 Imports System.Text.RegularExpressions
 Imports Xunit
 
 ''' <summary>
-''' Four facts over string literals: (1) none with a SQL keyword under src/CodeMem.Bridge or src/CodeMem.Bridging; (2) the registry module's
-''' literals are SELECTs naming code_map_solutions only, never sqlite_master (INC1); (3) every Read/Search function in Core's repositories
-''' begins with SELECT or WITH and writes nothing; (4) StoreDatabase and CodeMapSolutionsRepository are referenced only by the bridge and
-''' the tests (v1.3.0's last sentence: the extractor never opens the store).
+''' Two facts over string literals: (1) none with a SQL keyword under src/CodeMem.Bridge or src/CodeMem.Bridging; (3) every Read/Search
+''' function in Core's repositories begins with SELECT or WITH and writes nothing. (2) and (4), the registry module's and the store's,
+''' are archived (feature 005, T024).
 ''' </summary>
 Public Class BridgeSqlGateTests
 
@@ -35,7 +36,6 @@ Public Class BridgeSqlGateTests
     Private Shared ReadOnly SqlKeyword As Regex = New Regex("\b(SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|ATTACH|PRAGMA)\b", RegexOptions.Compiled)
     Private Shared ReadOnly WriteKeyword As Regex = New Regex("\b(INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|ATTACH|PRAGMA)\b", RegexOptions.Compiled)
     Private Shared ReadOnly Declaration As Regex = New Regex("^[ \t]*(?:Public|Private|Friend|Protected)?[ \t]*(?:Shared[ \t]+)?(?:Function|Sub)[ \t]+(\w+)", RegexOptions.Compiled Or RegexOptions.Multiline)
-    Private Shared ReadOnly TableAfterFromOrJoin As Regex = New Regex("\b(?:FROM|JOIN)\s+([A-Za-z_][A-Za-z0-9_]*)", RegexOptions.Compiled)
 
     ''' <summary>
     ''' (1) No string literal under either bridge project carries a SQL keyword: every query lives in Core (FR-303, Article XI).
@@ -53,33 +53,6 @@ Public Class BridgeSqlGateTests
             Next
         Next
         Assert.True(offenders.Count = 0, String.Join(Environment.NewLine, offenders))
-    End Sub
-
-    ''' <summary>
-    ''' (2) The registry module under Core/Repositories/Registry holds at least one SELECT (the vacuous guard), no write keyword, no
-    ''' sqlite_master, and every table after FROM or JOIN is code_map_solutions (FR-304, INC1).
-    ''' </summary>
-    <Fact>
-    Public Sub RegistryReadsNameOnlyTheRegistryTable()
-        Dim folder As String = Path.Combine(RepoPaths.RepositoryRoot(), "src", "CodeMem.Core", "Repositories", "Registry")
-        Dim literals As List(Of String) = New List(Of String)()
-        If Directory.Exists(folder) Then
-            For Each file As String In Directory.GetFiles(folder, "*.vb")
-                literals.AddRange(LiteralsOf(file))
-            Next
-        End If
-        Dim selects As Integer = 0
-        For Each literal As String In literals
-            If literal.TrimStart().StartsWith("SELECT", StringComparison.Ordinal) Then selects += 1
-        Next
-        Assert.True(selects >= 1, "no SELECT literal under Core/Repositories/Registry: the scan is vacuous")
-        For Each literal As String In literals
-            Assert.False(WriteKeyword.IsMatch(literal), "a write keyword in the registry module: " & literal)
-            Assert.DoesNotContain("sqlite_master", literal, StringComparison.OrdinalIgnoreCase)
-            For Each table As Match In TableAfterFromOrJoin.Matches(literal)
-                Assert.Equal("code_map_solutions", table.Groups(1).Value)
-            Next
-        Next
     End Sub
 
     ''' <summary>
@@ -120,31 +93,6 @@ Public Class BridgeSqlGateTests
         Next
         Assert.True(checked >= 1, "no Read/Search function with a literal found under Core/Repositories: the scan is vacuous")
         Assert.True(failures.Count = 0, String.Join(Environment.NewLine, failures))
-    End Sub
-
-    ''' <summary>
-    ''' (4) The identifiers StoreDatabase and CodeMapSolutionsRepository appear, outside their own definitions, only under src/CodeMem.Bridging,
-    ''' src/CodeMem.Bridge and tests: nothing in Core, Extraction or the Extractor opens the store (constitution v1.3.0, Article IX).
-    ''' </summary>
-    <Fact>
-    Public Sub TheStoreIsOpenedOnlyByTheBridge()
-        Dim root As String = RepoPaths.RepositoryRoot()
-        Dim identifiers As String() = New String() {"StoreDatabase", "CodeMapSolutionsRepository"}
-        Dim offenders As List(Of String) = New List(Of String)()
-        Dim files As List(Of String) = SqlLocationGateTests.SourceFiles(Path.Combine(root, "src"))
-        files.AddRange(SqlLocationGateTests.SourceFiles(Path.Combine(root, "tests")))
-        For Each file As String In files
-            Dim normalized As String = file.Replace("\"c, "/"c)
-            If normalized.Contains("/CodeMem.Bridging/") OrElse normalized.Contains("/CodeMem.Bridge/") OrElse normalized.Contains("/tests/") Then Continue For
-            If normalized.Contains("/CodeMem.Core/Repositories/Registry/") Then Continue For
-            Dim name As String = Path.GetFileName(file)
-            Dim text As String = CodeText(file)
-            For Each identifier As String In identifiers
-                If String.Equals(name, identifier & ".vb", StringComparison.Ordinal) Then Continue For
-                If Regex.IsMatch(text, "\b" & identifier & "\b") Then offenders.Add(name & ": " & identifier)
-            Next
-        Next
-        Assert.True(offenders.Count = 0, String.Join(Environment.NewLine, offenders))
     End Sub
 
     ''' <summary>

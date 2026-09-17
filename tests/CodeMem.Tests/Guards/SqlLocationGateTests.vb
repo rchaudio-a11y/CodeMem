@@ -13,13 +13,21 @@
 ' (research R29); the New SqliteConnection count is unchanged. The 2026-09-09 fire was canonical spelling; the re-fire below is lowercase.
 ' FIRE:  2026-09-10 (T044) added a "select 1" literal (lowercase) to ExtractionRun.vb -> red (ExtractionRun.vb: "select 1" named); reverted -> green.
 '
-' 2026-09-15 (004): Support/RegistryFixture.vb holds the 029 §1 DDL, transcribed - a copy of a contract, not a reference - and
+' 2026-09-15 (004): the registry fixture under Support/ holds the 029 §1 DDL, transcribed - a copy of a contract, not a reference - and
 ' Guards/BridgeSqlGateTests.vb is the third SQL-scanning guard whose literals name the SQL they search for; both excluded.
-' RED:   2026-09-15 (T012) OnlyMapDatabaseOpensAConnection red the moment StoreDatabase.vb landed: expected ["MapDatabase.vb"], actual
-'        ["MapDatabase.vb", "StoreDatabase.vb"] - the named Red of constitution v1.3.0's amendment; the assertion is amended below to the two
+' 2026-09-17 (005, T023): the registry fixture's exclusion removed - no caller remains (the 005 gate names it among the archived eight);
+'        SqlAppearsOnlyInRepositories is red on its transcribed DDL until T024 moves the file to _Archive/ - the archive's named Red.
+' RED:   2026-09-15 (T012) OnlyMapDatabaseOpensAConnection red the moment the store's database file landed: expected ["MapDatabase.vb"],
+'        actual the map's file and the store's - the named Red of constitution v1.3.0's amendment; the assertion is amended below to the two
 '        files the Review Gate names (the map's door, read-write for the extractor and read-only for the bridge; the store's door, read-only).
 ' FIRE:  2026-09-15 (T012) added Dim probe As SqliteConnection = New SqliteConnection(...) to src/CodeMem.Bridge/Program.vb (source scan,
 '        no rebuild) -> red naming Program.vb (expected the two files, actual three); reverted -> green.
+' RED:   2026-09-17 (005, T024) OnlyMapDatabaseOpensAConnection red the moment the store's database file moved to _Archive/: expected the
+'        two files, actual ["MapDatabase.vb"] - the named Red of constitution v1.4.0's amendment (Article IX back to v1.2.1, the gate at
+'        one file). The assertion amended to the one file; SqlAppearsOnlyInRepositories green again with the fixture's DDL out of the tree.
+' FIRE:  2026-09-17 (005, T024) Dim probe As SqliteConnection = New SqliteConnection(...) appended to src/CodeMem.Bridging/Status/
+'        MapStatusReader.vb (source scan, --no-build) -> OnlyMapDatabaseOpensAConnection red (expected the one file, actual two); reverted
+'        from a byte copy -> green.
 
 Imports System.IO
 Imports System.Text.RegularExpressions
@@ -49,14 +57,15 @@ Public Class SqlLocationGateTests
             Dim normalized As String = file.Replace("\"c, "/"c)
             If normalized.EndsWith("/Support/MapQueries.vb", StringComparison.Ordinal) OrElse normalized.EndsWith("/Guards/SchemaConstraintTests.vb", StringComparison.Ordinal) OrElse
                normalized.EndsWith("/Guards/TripwireTests.vb", StringComparison.Ordinal) OrElse normalized.EndsWith("/Guards/SqlLocationGateTests.vb", StringComparison.Ordinal) OrElse
-               normalized.EndsWith("/Support/RegistryFixture.vb", StringComparison.Ordinal) OrElse normalized.EndsWith("/Guards/BridgeSqlGateTests.vb", StringComparison.Ordinal) Then Continue For
+               normalized.EndsWith("/Guards/BridgeSqlGateTests.vb", StringComparison.Ordinal) Then Continue For
             Scan(file, offenders)
         Next
         Assert.True(offenders.Count = 0, String.Join(Environment.NewLine, offenders))
     End Sub
 
     ''' <summary>
-    ''' New SqliteConnection appears in exactly two production files, MapDatabase.vb and StoreDatabase.vb (constitution v1.3.0, 2026-09-15).
+    ''' New SqliteConnection appears in exactly one production file, MapDatabase.vb (constitution v1.4.0, 2026-09-17; v1.3.0 had named a
+    ''' second, the store's, from 2026-09-15 to 2026-09-17).
     ''' </summary>
     <Fact>
     Public Sub OnlyMapDatabaseOpensAConnection()
@@ -66,7 +75,7 @@ Public Class SqlLocationGateTests
             If IO.File.ReadAllText(file).Contains("New SqliteConnection") Then sites.Add(Path.GetFileName(file))
         Next
         sites.Sort(StringComparer.Ordinal)
-        Assert.Equal(New String() {"MapDatabase.vb", "StoreDatabase.vb"}, sites.ToArray())
+        Assert.Equal(New String() {"MapDatabase.vb"}, sites.ToArray())
     End Sub
 
     ''' <summary>
