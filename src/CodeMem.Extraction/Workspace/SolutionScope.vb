@@ -6,6 +6,8 @@
 '
 ' 2026-09-15 (feature 004, COR1, research R59): ContainsDirectory added - equality or prefix over a directory normalised as Root is. Additive:
 ' the extractor never calls it; Contains keeps its file semantics.
+' 2026-09-17 (feature 005, T028): NormalizeDirectory exposed - the one directory normalisation, for the bridge's not-in-map keys (R64).
+' Additive; nothing in the extractor changes.
 
 Imports System.IO
 
@@ -57,6 +59,15 @@ Public Class SolutionScope
     Public Function ContainsDirectory(directory As String) As Boolean
         Dim normalized As String = Normalize(directory, True)
         Return String.Equals(normalized, Root, StringComparison.OrdinalIgnoreCase) OrElse normalized.StartsWith(Root, StringComparison.OrdinalIgnoreCase)
+    End Function
+
+    ''' <summary>
+    ''' A directory normalised as <see cref="Root"/> is: full path, platform separators, one trailing separator (feature 005).
+    ''' </summary>
+    ''' <param name="directory">The directory; resolved to a full path here, never checked for existence.</param>
+    ''' <returns>The normalised directory.</returns>
+    Public Shared Function NormalizeDirectory(directory As String) As String
+        Return Normalize(directory, True)
     End Function
 
     Private Shared Function Normalize(text As String, asDirectory As Boolean) As String

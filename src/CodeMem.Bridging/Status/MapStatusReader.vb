@@ -7,6 +7,7 @@
 ' 2026-09-17 (feature 005, T015): entries come from solutions rows, not registry rows; map_missing_solution cannot arise and is gone; the
 ' root asked is the extractor's own answer - repo_root, else the solution file's directory (SolutionScope.Resolve, Q6). notInMap is filled
 ' by NotInMapReader from T028; until then the list is empty and the error null.
+' 2026-09-17 (T028): notInMap filled last - the map facts first, the repositories, then the log (R64).
 ' 2026-09-17 (T021): ScopeOf added beside RootOf - TargetResolver asks the same scope for containment (one root rule, Q6).
 
 Imports System.IO
@@ -41,6 +42,13 @@ Public Module MapStatusReader
         For Each solution As SolutionRecord In solutions
             envelope.Entries.Add(EntryOf(solution, runs(solution.Id)))
         Next
+        Dim roots As List(Of (Key As String, Root As String)) = New List(Of (Key As String, Root As String))()
+        For Each solution As SolutionRecord In solutions
+            roots.Add((solution.Key, RootOf(solution)))
+        Next
+        Dim observed As (Entries As List(Of NotInMapEntryEnvelope), ErrorText As String) = NotInMapReader.Read(roots, ExtractLog.LogPath())
+        envelope.NotInMap = observed.Entries
+        envelope.NotInMapError = observed.ErrorText
         Return envelope
     End Function
 

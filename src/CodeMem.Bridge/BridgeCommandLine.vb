@@ -3,6 +3,9 @@
 ' Description: Parses the bridge's command line (contracts/cli-config-hook.md §1): the three entries, --config on every entry, the extract options.
 ' Author: RCH Automation LLC
 ' Created: 2026-09-15
+'
+' 2026-09-17 (feature 005, T027): --solution <path> on the extract entry, only beside --solution-key (contracts/cli-config-hook.md §1); there is no
+' --key - --solution-key is the one spelling.
 
 ''' <summary>
 ''' The parse result: the entry, its options, a help request, or a usage error. Argument names are case-insensitive; values follow as the
@@ -32,6 +35,9 @@ Public Class BridgeCommandLine
     ''' <summary>The --repo-path value, or Nothing.</summary>
     Public Property RepoPath As String
 
+    ''' <summary>--solution: the solution file to extract beside --solution-key, or Nothing (feature 005).</summary>
+    Public Property SolutionPath As String
+
     ''' <summary>True when --stale was given.</summary>
     Public Property Stale As Boolean
 
@@ -51,7 +57,7 @@ Public Class BridgeCommandLine
     Public Shared ReadOnly Property Usage As String
         Get
             Return "usage: CodeMem.Bridge [serve] [--config <path>]" & Environment.NewLine &
-                "       CodeMem.Bridge extract (--solution-key <key> | --repo-path <dir> | --stale) [--on-green-build] [--config <path>]" & Environment.NewLine &
+                "       CodeMem.Bridge extract (--solution-key <key> [--solution <path>] | --repo-path <dir> | --stale) [--on-green-build] [--config <path>]" & Environment.NewLine &
                 "       CodeMem.Bridge hook [--config <path>]" & Environment.NewLine &
                 "       CodeMem.Bridge --help" & Environment.NewLine &
                 Environment.NewLine &
@@ -60,7 +66,9 @@ Public Class BridgeCommandLine
                 "         hook     Claude Code's PostToolUse hook: reads the event JSON from stdin, prints one JSON line, always exits 0" & Environment.NewLine &
                 Environment.NewLine &
                 "--config names the configuration file; without it, bridge.config.json beside the executable." & Environment.NewLine &
-                "--on-green-build marks the green-build origin; the hook entry uses it, a human does not." & Environment.NewLine
+                "--on-green-build marks the green-build origin; the hook entry uses it, a human does not." & Environment.NewLine &
+                "--solution names the solution file (.sln or .slnx) to extract beside --solution-key: the way a solution the map has never seen is added." & Environment.NewLine &
+                "There is no --key; --solution-key is the one spelling." & Environment.NewLine
         End Get
     End Property
 
@@ -98,6 +106,11 @@ Public Class BridgeCommandLine
                     If result.Entry <> ExtractEntry Then Return ExtractOnly(result, args(i))
                     result.SolutionKey = args(i + 1)
                     i += 2
+                Case "--solution"
+                    If i + 1 >= args.Length Then Return MissingValue(result, args(i))
+                    If result.Entry <> ExtractEntry Then Return ExtractOnly(result, args(i))
+                    result.SolutionPath = args(i + 1)
+                    i += 2
                 Case "--repo-path"
                     If i + 1 >= args.Length Then Return MissingValue(result, args(i))
                     If result.Entry <> ExtractEntry Then Return ExtractOnly(result, args(i))
@@ -116,6 +129,7 @@ Public Class BridgeCommandLine
                     Return result
             End Select
         End While
+        If result.SolutionPath IsNot Nothing AndAlso result.SolutionKey Is Nothing Then result.ErrorText = "--solution applies only beside --solution-key"
         Return result
     End Function
 

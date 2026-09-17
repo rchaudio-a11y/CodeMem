@@ -217,16 +217,17 @@ Public Class BridgeTools
     ''' </summary>
     ''' <param name="rawArguments">The call's arguments as received, or Nothing.</param>
     ''' <param name="solutionKey">A map solution key, or Nothing.</param>
+    ''' <param name="solutionPath">The solution file to extract beside solutionKey, or Nothing (005 FR-414).</param>
     ''' <param name="repoPath">A directory under a mapped root, or Nothing.</param>
     ''' <param name="stale">True to refresh every stale mapped solution, or Nothing.</param>
     ''' <returns>The result or a refusal.</returns>
-    Public Function Extract(rawArguments As IReadOnlyDictionary(Of String, JsonElement), Optional solutionKey As String = Nothing, Optional repoPath As String = Nothing, Optional stale As Boolean? = Nothing) As CallToolResult
+    Public Function Extract(rawArguments As IReadOnlyDictionary(Of String, JsonElement), Optional solutionKey As String = Nothing, Optional solutionPath As String = Nothing, Optional repoPath As String = Nothing, Optional stale As Boolean? = Nothing) As CallToolResult
         Try
             ScopeResolver.RefuseProjectId(rawArguments)
         Catch ex As BridgeRefusalException
             Return Refuse(ex.Refusal)
         End Try
-        Dim request As ExtractRequest = New ExtractRequest With {.Origin = ExtractOrigin.Tool, .SolutionKey = Normalise(solutionKey), .RepoPath = Normalise(repoPath), .Stale = stale.HasValue AndAlso stale.Value}
+        Dim request As ExtractRequest = New ExtractRequest With {.Origin = ExtractOrigin.Tool, .SolutionKey = Normalise(solutionKey), .SolutionPath = Normalise(solutionPath), .RepoPath = Normalise(repoPath), .Stale = stale.HasValue AndAlso stale.Value}
         If request.Stale Then
             Dim staleResult As StaleResult = _door.RunStale(request)
             Return Wire(BridgeJson.Serialize(staleResult), staleResult.IsFailure)

@@ -11,6 +11,9 @@
 ' 2026-09-17 (feature 005, T015): RunStale reads map_status from the map alone (no registry); Run's store stage leaves at T021 with the resolver.
 ' 2026-09-17 (feature 005, T021): Run's store stage is gone - the resolver reads the map's solutions rows (R65) and answers not in the
 ' map from the directory's own solution files (R66). The map is the only file the door opens.
+' 2026-09-17 (feature 005, T027): solutionPath beside solutionKey (R67) - cardinality names it, the log's target column reads
+' solutionKey=<key> solution=<path>, the launch line is unchanged in shape.
+' 2026-09-17 (feature 005, T028): RunStale carries map_status's notInMap list and never launches for an entry of it (FR-420).
 
 Imports System.Diagnostics
 Imports System.IO
@@ -128,7 +131,7 @@ Public Class ExtractDoor
     ''' <param name="request">The request, with Stale true.</param>
     ''' <returns>The result.</returns>
     Public Function RunStale(request As ExtractRequest) As StaleResult
-        Dim result As StaleResult = New StaleResult With {.ReadAtUtc = BridgeJson.NowUtc(), .Origin = OriginText(request.Origin), .Gate = "-", .Considered = New List(Of StaleEntryEnvelope)()}
+        Dim result As StaleResult = New StaleResult With {.ReadAtUtc = BridgeJson.NowUtc(), .Origin = OriginText(request.Origin), .Gate = "-", .Considered = New List(Of StaleEntryEnvelope)(), .NotInMap = New List(Of NotInMapEntryEnvelope)()}
         Try
             RequireOneTarget(request)
             Dim config As BridgeConfig = BridgeConfigFile.Load(_configPath)
@@ -143,6 +146,7 @@ Public Class ExtractDoor
                 status = MapStatusReader.Read(config, map)
                 map.EndRead()
             End Using
+            result.NotInMap = status.NotInMap
             For Each entry As MapStatusEntryEnvelope In status.Entries
                 Dim item As StaleEntryEnvelope = New StaleEntryEnvelope With {.SolutionKey = entry.SolutionKey, .Verdict = entry.Verdict}
                 If entry.Verdict = "behind" OrElse entry.Verdict = "dirty" OrElse entry.Verdict = "diverged" Then
@@ -165,6 +169,7 @@ Public Class ExtractDoor
         If request.RepoPath IsNot Nothing Then named += 1
         If request.Stale Then named += 1
         If named <> 1 Then Throw Refuse(BridgeRefusalKind.TargetMissing)
+        If request.SolutionPath IsNot Nothing AndAlso request.SolutionKey Is Nothing Then Throw Refuse(BridgeRefusalKind.TargetMissing)
     End Sub
 
     Private Shared Function LineOf(launch As LaunchResult) As String
@@ -245,7 +250,7 @@ Public Class ExtractDoor
 
     Private Shared Function TargetAsGiven(request As ExtractRequest) As String
         If request.Stale Then Return "stale"
-        If request.SolutionKey IsNot Nothing Then Return "solutionKey=" & request.SolutionKey
+        If request.SolutionKey IsNot Nothing Then Return "solutionKey=" & request.SolutionKey & If(request.SolutionPath Is Nothing, "", " solution=" & request.SolutionPath)
         If request.RepoPath IsNot Nothing Then Return "repoPath=" & request.RepoPath
         Return "-"
     End Function

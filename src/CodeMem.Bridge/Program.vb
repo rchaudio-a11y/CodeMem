@@ -43,6 +43,7 @@ Public Module Program
                 Dim request As ExtractRequest = New ExtractRequest With {
                     .Origin = If(parsed.OnGreenBuild, ExtractOrigin.GreenBuild, ExtractOrigin.Manual),
                     .SolutionKey = parsed.SolutionKey,
+                    .SolutionPath = parsed.SolutionPath,
                     .RepoPath = parsed.RepoPath,
                     .Stale = parsed.Stale}
                 If request.Stale Then

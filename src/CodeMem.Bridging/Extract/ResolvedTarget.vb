@@ -18,7 +18,7 @@ Public Class ResolvedTarget
     ''' <summary>The configured map, passed as --db.</summary>
     Public Property MapPath As String
 
-    ''' <summary>The map's solution id.</summary>
-    Public Property SolutionId As Long
+    ''' <summary>The map's solution id; Nothing when the path was given with the key (the solution need not be in the map yet, 005 R67).</summary>
+    Public Property SolutionId As Long?
 
 End Class

@@ -69,7 +69,7 @@ Public Module BridgeServer
             Case "map_status"
                 Return New Func(Of RequestContext(Of CallToolRequestParams), CallToolResult)(AddressOf bindings.MapStatus)
             Case "extract"
-                Return New Func(Of RequestContext(Of CallToolRequestParams), String, String, Boolean?, CallToolResult)(AddressOf bindings.Extract)
+                Return New Func(Of RequestContext(Of CallToolRequestParams), String, String, String, Boolean?, CallToolResult)(AddressOf bindings.Extract)
             Case Else
                 Throw New InvalidOperationException("no delegate for tool " & name)
         End Select

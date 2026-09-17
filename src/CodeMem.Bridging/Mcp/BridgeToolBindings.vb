@@ -92,11 +92,12 @@ Public Class BridgeToolBindings
     ''' <summary>extract.</summary>
     ''' <param name="context">The request context the SDK injects.</param>
     ''' <param name="solutionKey">A map solution key, or Nothing.</param>
+    ''' <param name="solutionPath">The solution file to extract beside solutionKey, or Nothing (005 FR-414).</param>
     ''' <param name="repoPath">A directory under a mapped root, or Nothing.</param>
     ''' <param name="stale">True to refresh every stale mapped solution, or Nothing.</param>
     ''' <returns>The result or a refusal.</returns>
-    Public Function Extract(context As RequestContext(Of CallToolRequestParams), Optional solutionKey As String = Nothing, Optional repoPath As String = Nothing, Optional stale As Boolean? = Nothing) As CallToolResult
-        Return _tools.Extract(ArgumentsOf(context), solutionKey, repoPath, stale)
+    Public Function Extract(context As RequestContext(Of CallToolRequestParams), Optional solutionKey As String = Nothing, Optional solutionPath As String = Nothing, Optional repoPath As String = Nothing, Optional stale As Boolean? = Nothing) As CallToolResult
+        Return _tools.Extract(ArgumentsOf(context), solutionKey, solutionPath, repoPath, stale)
     End Function
 
     ''' <summary>

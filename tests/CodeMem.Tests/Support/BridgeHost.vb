@@ -67,7 +67,7 @@ Public Class BridgeHost
             Case "map_status"
                 result = _tools.MapStatus(raw)
             Case "extract"
-                result = _tools.Extract(raw, GetString(args, "solutionKey"), GetString(args, "repoPath"), GetBoolean(args, "stale"))
+                result = _tools.Extract(raw, GetString(args, "solutionKey"), GetString(args, "solutionPath"), GetString(args, "repoPath"), GetBoolean(args, "stale"))
             Case Else
                 Throw New ArgumentOutOfRangeException(NameOf(name), name, "unknown tool")
         End Select

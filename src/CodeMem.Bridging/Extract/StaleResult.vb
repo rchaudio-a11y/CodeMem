@@ -29,6 +29,9 @@ Public Class StaleResult
     ''' <summary>How many were extracted.</summary>
     Public Property ExtractedCount As Integer
 
+    ''' <summary>The observed directories not in the map, as map_status lists them; never extracted (005 FR-420).</summary>
+    Public Property NotInMap As List(Of NotInMapEntryEnvelope)
+
     ''' <summary>Not serialised: true when the verb was refused.</summary>
     <JsonIgnore>
     Public ReadOnly Property IsFailure As Boolean

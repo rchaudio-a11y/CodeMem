@@ -6,12 +6,16 @@
 '
 ' 2026-09-17 (feature 005, T021): rewritten over solutions rows - the registry is gone. A solution's root is the extractor's own answer
 ' (MapStatusReader.ScopeOf: repo_root, else the solution file's directory) and containment is SolutionScope.ContainsDirectory, the one door.
+' 2026-09-17 (feature 005, T027): a key with an explicit path is the target as given, no lookup (R67) - the file's existence is the extractor's
+' own preflight, reported verbatim; the row is created by the extractor when the key is new.
 
+Imports System.IO
 Imports CodeMem.Core
 Imports CodeMem.Extraction
 
 ''' <summary>
-''' By key: the row, or SolutionKeyUnknown with the add remedy. By path: every row's scope asked, the longest containing root wins, equal
+''' By key: the row, or SolutionKeyUnknown with the add remedy; with a path beside the key, the pair as given and no lookup. By path: every
+''' row's scope asked, the longest containing root wins, equal
 ''' lengths are AmbiguousRoot, none is PathNotInMap or AmbiguousSolutionFile from the directory's own solution files.
 ''' </summary>
 Public Module TargetResolver
@@ -25,11 +29,14 @@ Public Module TargetResolver
     ''' <returns>The target.</returns>
     ''' <exception cref="BridgeRefusalException">SolutionKeyUnknown, PathNotInMap, AmbiguousSolutionFile or AmbiguousRoot.</exception>
     Public Function Resolve(request As ExtractRequest, config As BridgeConfig, map As MapDatabase) As ResolvedTarget
-        If request.SolutionKey IsNot Nothing Then Return ByKey(request.SolutionKey, config, map)
+        If request.SolutionKey IsNot Nothing Then Return ByKey(request.SolutionKey, request.SolutionPath, config, map)
         Return ByPath(request.RepoPath, config, map)
     End Function
 
-    Private Function ByKey(key As String, config As BridgeConfig, map As MapDatabase) As ResolvedTarget
+    Private Function ByKey(key As String, solutionPath As String, config As BridgeConfig, map As MapDatabase) As ResolvedTarget
+        If solutionPath IsNot Nothing Then
+            Return New ResolvedTarget With {.SolutionKey = key, .SolutionPath = Path.GetFullPath(solutionPath), .MapPath = config.MapPath, .SolutionId = Nothing}
+        End If
         Dim solution As SolutionRecord = SolutionsRepository.ReadByKey(map, key)
         If solution Is Nothing Then Throw Refuse(BridgeRefusalKind.SolutionKeyUnknown, "mapPath", config.MapPath, "key", key)
         Return TargetOf(solution, config)
