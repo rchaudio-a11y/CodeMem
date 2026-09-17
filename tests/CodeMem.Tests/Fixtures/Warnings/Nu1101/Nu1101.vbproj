@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Feature 005 (research R71): a net8.0 project referencing a package no configured source holds. Restore fails with NU1101
+       (an error) and still writes the assets file; the loader must stop the load by name, before the compiler (FR-427, Q8). -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Nu1101</RootNamespace>
+    <OptionStrict>On</OptionStrict>
+    <OptionExplicit>On</OptionExplicit>
+    <OptionInfer>Off</OptionInfer>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CodeMem.NoSuchPackage" Version="1.0.0" />
+  </ItemGroup>
+
+</Project>

@@ -9,6 +9,7 @@
 ' 2026-09-15 (feature 004): AttemptWrite (B01's fire) and TryRenameSolution (B01's straddle fact, CON4) added; SetRepoRoot (B04's nested-root case) added.
 ' 2026-09-16 (feature 004, T048): SetStartLine added - B07's same-project twin shape (COR3) cannot come from VB source (BC32009), so the
 ' scenario moves one overload's start_line onto the other's in its temp map.
+' 2026-09-17 (feature 005, T006): ReadWarnings added - the extract_run_warnings rows of one run (schema version 3; X02, S03).
 
 Imports CodeMem.Core
 Imports Microsoft.Data.Sqlite
@@ -562,5 +563,27 @@ Public Module MapQueries
             End Using
         End Using
     End Sub
+
+    ''' <summary>
+    ''' Reads the restore warnings recorded on one run (feature 005, schema version 3), ordered by id.
+    ''' </summary>
+    ''' <param name="db">Map path.</param>
+    ''' <param name="runId">Run id.</param>
+    ''' <returns>The rows as (code, project path or Nothing, message).</returns>
+    Public Function ReadWarnings(db As String, runId As Long) As List(Of (Code As String, ProjectPath As String, Message As String))
+        Dim rows As List(Of (Code As String, ProjectPath As String, Message As String)) = New List(Of (Code As String, ProjectPath As String, Message As String))()
+        Using connection As SqliteConnection = Open(db)
+            Using command As SqliteCommand = connection.CreateCommand()
+                command.CommandText = "SELECT code, project_path, message FROM extract_run_warnings WHERE run_id = @run_id ORDER BY id"
+                command.Parameters.AddWithValue("@run_id", runId)
+                Using reader As SqliteDataReader = command.ExecuteReader()
+                    While reader.Read()
+                        rows.Add((reader.GetString(0), If(reader.IsDBNull(1), Nothing, reader.GetString(1)), reader.GetString(2)))
+                    End While
+                End Using
+            End Using
+        End Using
+        Return rows
+    End Function
 
 End Module

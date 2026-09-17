@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Feature 005 (research R71): the source of packages/CodeMem.NetFxOnly.1.0.0.nupkg, a package whose only asset sits under
+       lib/net461 so that a net8.0 consumer restores it with NU1701. The assembly is built for net8.0; NuGet judges compatibility by
+       the folder name, not the assembly. Rebuild the package with: dotnet build; dotnet pack - -no-build (from this directory). -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>NetFxOnly</RootNamespace>
+    <OptionStrict>On</OptionStrict>
+    <OptionExplicit>On</OptionExplicit>
+    <OptionInfer>Off</OptionInfer>
+    <PackageId>CodeMem.NetFxOnly</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>RCH Automation LLC</Authors>
+    <Description>CodeMem test fixture: a .NET Framework-only package for the NU1701 fact.</Description>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <PackageOutputPath>..\packages</PackageOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="bin\Debug\net8.0\NetFxOnly.dll" Pack="true" PackagePath="lib\net461\" />
+  </ItemGroup>
+
+</Project>

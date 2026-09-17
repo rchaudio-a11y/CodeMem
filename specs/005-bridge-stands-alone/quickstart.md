@@ -14,6 +14,8 @@ in `tasks.md` and the code.
 
 ## Build and test
 
+**T001 (2026-09-17)**: branch `005-bridge-stands-alone` from `90d62ca`; the artefacts committed as `ff0ce54`; `dotnet build` 0 / 0; `dotnet test` **144 passed / 1 failed / 8 skipped (2 m 27 s)** — S02 (2) `UpgradedMapHasTheSameSchemaObjectsAsAFreshMap` red because the 004 merge checkout had rewritten `src/CodeMem.Core/Schema/SchemaRepository.vb` to CRLF under `core.autocrlf=true` (the 004 record's "must stay LF" trap): the DDL literals' line endings become the sql text in `sqlite_master`, and the version-1 fixture map was created from LF text. Fixed on the branch by `.gitattributes` (`text eol=lf` for that file; `*.sqlite` and `*.nupkg` binary) and normalising the file; S02 4 / 4 green; the whole suite re-run at T011.
+
 ```powershell
 dotnet build CodeMem.sln -c Release --nologo -v q
 dotnet test --nologo -v q                                   # the whole suite; baseline 145 passed / 8 skipped / 2 m 33 s before 005

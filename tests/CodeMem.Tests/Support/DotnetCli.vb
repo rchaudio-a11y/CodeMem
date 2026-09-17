@@ -5,6 +5,8 @@
 ' Created: 2026-09-09
 '
 ' 2026-09-10 (fixpack 002): Output added (captures stdout, for comparing the sdk_version stamp with dotnet --version).
+' 2026-09-17 (feature 005, T005): TryRun added - returns the exit code instead of throwing, for the Nu1101 fixture whose restore fails
+' by design and still writes the assets file the loader reads (research R71).
 
 Imports System.Diagnostics
 
@@ -59,5 +61,28 @@ Public Module DotnetCli
         End Using
     End Function
 
+    ''' <summary>
+    ''' Runs <c>dotnet</c> with arguments in a directory and returns its exit code without throwing (feature 005: a restore that is
+    ''' expected to fail).
+    ''' </summary>
+    ''' <param name="arguments">The command line after <c>dotnet</c>.</param>
+    ''' <param name="workingDirectory">The working directory.</param>
+    ''' <returns>The process exit code.</returns>
+    Public Function TryRun(arguments As String, workingDirectory As String) As Integer
+        Dim psi As ProcessStartInfo = New ProcessStartInfo("dotnet", arguments) With {
+            .WorkingDirectory = workingDirectory,
+            .RedirectStandardOutput = True,
+            .RedirectStandardError = True,
+            .UseShellExecute = False,
+            .CreateNoWindow = True}
+        Using process As Process = Process.Start(psi)
+            Dim stdoutTask As Threading.Tasks.Task(Of String) = process.StandardOutput.ReadToEndAsync()
+            Dim stderrTask As Threading.Tasks.Task(Of String) = process.StandardError.ReadToEndAsync()
+            process.WaitForExit()
+            stdoutTask.Wait()
+            stderrTask.Wait()
+            Return process.ExitCode
+        End Using
+    End Function
 
 End Module

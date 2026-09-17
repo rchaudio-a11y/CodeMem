@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Sample.Lib/Sample.Lib.vbproj" />
+  <Project Path="Sample.App/Sample.App.vbproj" />
+</Solution>

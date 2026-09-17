@@ -19,6 +19,7 @@
   <ItemGroup>
     <!-- The version-1 map fixture (research R30): copied beside the tests so V1MapFixture can copy it to a temp path. -->
     <None Update="Fixtures/Maps/sample-v1.sqlite" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Fixtures/Maps/version2.sqlite" CopyToOutputDirectory="PreserveNewest" />
     <!-- Feature 004 (research R54): the spike's hook payloads, piped into the bridge's hook entry by B06. -->
     <None Update="Fixtures/Hooks/*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

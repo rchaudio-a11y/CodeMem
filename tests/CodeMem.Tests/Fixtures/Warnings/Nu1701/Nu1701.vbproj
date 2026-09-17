@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Feature 005 (research R71): a net8.0 project referencing the .NET Framework-only package in ../packages. Restore reports
+       NU1701 as a warning; the design-time build replays it as a workspace Failure the loader must classify (FR-427). -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Nu1701</RootNamespace>
+    <OptionStrict>On</OptionStrict>
+    <OptionExplicit>On</OptionExplicit>
+    <OptionInfer>Off</OptionInfer>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CodeMem.NetFxOnly" Version="1.0.0" />
+  </ItemGroup>
+
+</Project>
