@@ -7,6 +7,7 @@
 ' 2026-09-17 (feature 005, T013): the four new texts (ProjectIdRemoved, ConfigKeyRetired, PathNotInMap in its two shapes, AmbiguousSolutionFile);
 ' ScopeMissing, SolutionKeyUnknown, TargetMissing and AmbiguousRoot revised to 005 contracts/tools.md §6; Unopenable's store variant gone;
 ' ScopeConflict gone. The 004 texts of the kinds that leave at T021 and T024 stay until their kind leaves.
+' 2026-09-17 (T021): the five resolver texts gone (KeyNotRegistered, KeyUnbound, KeyInactive, MapMissingSolution, PathNotRegistered).
 
 ''' <summary>
 ''' A refusal is text on the wire, never an exception (058's rule). <see cref="Named"/> is the only place a sentence is composed; facts assert
@@ -86,8 +87,6 @@ Public Class BridgeRefusal
                 Return "extract is refused: " & F(facts, "gate") & " is false in '" & F(facts, "configPath") & "'. The Architect flips it; nothing ran and the map is unchanged."
             Case BridgeRefusalKind.TargetMissing
                 Return "Supply exactly one of solutionKey, repoPath or stale; solutionPath only beside solutionKey. Nothing ran."
-            Case BridgeRefusalKind.PathNotRegistered
-                Return "No registered solution's repository root contains '" & F(facts, "path") & "'. Registered roots: " & F(facts, "roots") & ". Nothing ran."
             Case BridgeRefusalKind.PathNotInMap
                 If facts IsNot Nothing AndAlso facts.ContainsKey("file") Then
                     Return "'" & F(facts, "path") & "' is not in the map: no mapped solution's root contains it. Mapped roots: " & F(facts, "roots") & ". It holds " & F(facts, "file") & "; to add it, run: " & F(facts, "command") & " (the extract tool: solutionKey and solutionPath). Nothing ran and nothing was added."
@@ -97,14 +96,6 @@ Public Class BridgeRefusal
                 Return "'" & F(facts, "path") & "' is not in the map and holds more than one solution file (" & F(facts, "files") & "); no key is suggested. Choose one and run: extract --solution-key <key> --solution <that file>. Nothing ran and nothing was added."
             Case BridgeRefusalKind.AmbiguousRoot
                 Return "'" & F(facts, "path") & "' lies under a root shared by more than one mapped solution (" & F(facts, "keys") & "); name the solutionKey. Nothing ran."
-            Case BridgeRefusalKind.KeyNotRegistered
-                Return "No code_map_solutions row has solution_key '" & F(facts, "key") & "'. Keys are exact; solutions lists the map's, map_status the registry's. Nothing ran."
-            Case BridgeRefusalKind.KeyUnbound
-                Return "Registry row '" & F(facts, "key") & "' has no codemem_solution_id: it has never been published. Run the extractor by hand once with --solution-key " & F(facts, "key") & " and bind the row; the bridge does not extract an unbound solution."
-            Case BridgeRefusalKind.KeyInactive
-                Return "Registry row '" & F(facts, "key") & "' is " & F(facts, "state") & ", not active. Nothing ran."
-            Case BridgeRefusalKind.MapMissingSolution
-                Return "Registry row '" & F(facts, "key") & "' binds map solution " & F(facts, "id") & ", but the map at '" & F(facts, "mapPath") & "' holds no solution " & F(facts, "id") & ". Nothing ran."
             Case BridgeRefusalKind.ExtractionRunning
                 Return "An extraction launched by this bridge is still running (" & F(facts, "key") & "); wait for its result. Nothing ran."
             Case BridgeRefusalKind.ExtractorNotFound

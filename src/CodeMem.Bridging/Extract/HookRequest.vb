@@ -3,6 +3,8 @@
 ' Description: Parses a PostToolUse payload into the repoPath the hook hands the door, or a named non-case (contracts/cli-config-hook.md §1 steps 1-4; FR-335, spec Q6, COR2; research R42, R48).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-15
+'
+' 2026-09-17 (feature 005, T021): a .slnx token names its directory exactly as a .sln token does (FR-412).
 
 Imports System.IO
 Imports System.Text.Json
@@ -98,7 +100,7 @@ Public Class HookRequest
     End Function
 
     Private Shared Function IsSolutionOrProject(token As String) As Boolean
-        Return token.EndsWith(".sln", StringComparison.OrdinalIgnoreCase) OrElse token.EndsWith(".vbproj", StringComparison.OrdinalIgnoreCase)
+        Return token.EndsWith(".sln", StringComparison.OrdinalIgnoreCase) OrElse token.EndsWith(".slnx", StringComparison.OrdinalIgnoreCase) OrElse token.EndsWith(".vbproj", StringComparison.OrdinalIgnoreCase)
     End Function
 
     Private Shared Function Text(element As JsonElement, name As String) As String

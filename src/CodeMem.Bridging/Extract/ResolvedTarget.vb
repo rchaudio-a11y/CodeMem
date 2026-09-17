@@ -1,6 +1,6 @@
 ' File: ResolvedTarget.vb
 ' Project: CodeMem.Bridging
-' Description: What target resolution hands the launch: the registry's key, the map's last-seen path, the configured map (FR-327; data-model §8).
+' Description: What target resolution hands the launch: the map solution's key and last-seen path, the configured map (FR-327; 005 FR-410; data-model §8).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-15
 

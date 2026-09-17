@@ -9,6 +9,8 @@
 ' semaphore (one extraction per process, FR-332 as scoped) -> the extractor's existence -> the launch under the 540 s budget (TIM1) -> the
 ' line -> the run read back on a fresh read-only open -> the log line -> the result.
 ' 2026-09-17 (feature 005, T015): RunStale reads map_status from the map alone (no registry); Run's store stage leaves at T021 with the resolver.
+' 2026-09-17 (feature 005, T021): Run's store stage is gone - the resolver reads the map's solutions rows (R65) and answers not in the
+' map from the directory's own solution files (R66). The map is the only file the door opens.
 
 Imports System.Diagnostics
 Imports System.IO
@@ -67,11 +69,10 @@ Public Class ExtractDoor
                 Throw New BridgeRefusalException(gate)
             End If
             result.Gate = "passed"
-            Dim registry As List(Of RegistryRecord) = StoreAccess.ReadRegistry(config)
             Dim target As ResolvedTarget
             Using map As MapDatabase = MapAccess.OpenRead(config)
                 Try
-                    target = TargetResolver.Resolve(request, config, registry, map)
+                    target = TargetResolver.Resolve(request, config, map)
                 Catch ex As BridgeRefusalException
                     resolution = ex.Refusal.Kind.ToString()
                     Throw

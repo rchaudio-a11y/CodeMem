@@ -12,6 +12,8 @@
 '        methods (research R68's primary mechanism; the fallback was not needed), the library taking the raw dictionary (BridgeToolBindings).
 ' FIRE:  2026-09-17 (T018) (2): ScopeResolver.RefuseProjectId returned before reading the dictionary -> red ("solutions: projectId was not
 '        refused; got {...map...}"); reverted -> green.
+' RED:   2026-09-17 (T021) (6) added with the five resolver kinds gone: 30 kinds, not 29 - RegistryAbsent stays for StoreAccess until
+'        the archive (T024). Expected red; green at T024.
 
 Imports System.IO
 Imports System.Text.Json
@@ -204,6 +206,15 @@ Public Class B09_StandaloneTests
                 Return "{""solutionKey"":""Sample"",""symbolId"":" & consumerId & "}"
         End Select
     End Function
+
+    ''' <summary>
+    ''' (6) The vocabulary has twenty-nine kinds: the four 005 kinds in; ScopeConflict, RegistryAbsent and the five resolver kinds out (FR-409;
+    ''' analyze U1).
+    ''' </summary>
+    <Fact>
+    Public Sub TheVocabularyHasTwentyNineKinds()
+        Assert.Equal(29, [Enum].GetValues(GetType(BridgeRefusalKind)).Length)
+    End Sub
 
     Private Shared Function WithProjectId(argumentsJson As String) As String
         If argumentsJson = "{}" Then Return "{""projectId"":132040}"

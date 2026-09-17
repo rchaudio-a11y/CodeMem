@@ -7,6 +7,7 @@
 ' 2026-09-17 (feature 005, T015): entries come from solutions rows, not registry rows; map_missing_solution cannot arise and is gone; the
 ' root asked is the extractor's own answer - repo_root, else the solution file's directory (SolutionScope.Resolve, Q6). notInMap is filled
 ' by NotInMapReader from T028; until then the list is empty and the error null.
+' 2026-09-17 (T021): ScopeOf added beside RootOf - TargetResolver asks the same scope for containment (one root rule, Q6).
 
 Imports System.IO
 Imports CodeMem.Core
@@ -50,7 +51,16 @@ Public Module MapStatusReader
     ''' <param name="solution">The map solution.</param>
     ''' <returns>The normalised root with one trailing separator.</returns>
     Public Function RootOf(solution As SolutionRecord) As String
-        Return SolutionScope.Resolve(solution.RepoRoot, Path.GetDirectoryName(Path.GetFullPath(solution.LastSeenPath))).Root
+        Return ScopeOf(solution).Root
+    End Function
+
+    ''' <summary>
+    ''' The scope behind <see cref="RootOf"/>, for the resolver's containment question (T021): the same one answer, asked once.
+    ''' </summary>
+    ''' <param name="solution">The map solution.</param>
+    ''' <returns>The scope.</returns>
+    Public Function ScopeOf(solution As SolutionRecord) As SolutionScope
+        Return SolutionScope.Resolve(solution.RepoRoot, Path.GetDirectoryName(Path.GetFullPath(solution.LastSeenPath)))
     End Function
 
     ''' <summary>

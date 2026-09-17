@@ -26,6 +26,14 @@
 '        refused as Unconfigured - the shipped bridge.config.sample.json carried single backslashes in its paths, not JSON escapes;
 '        (18) red on JsonReaderException ("'_' is an invalid escapable character"). GREEN: the sample rewritten with "C:\_DB\..."
 '        (18) 1 passed; the live reads then answered (quickstart, Record). Nothing tested the shipped file before this fact.
+'
+' 2026-09-17 (feature 005, T019): RED - every extract fact red once the store had no path to open (T013: no configuration names one) and,
+' with the resolver still registry-bound, (6) and (9) red on their phrases. Amended: the scenario's two registries became two maps
+' (Map: Sample; NestedMap: Sample, Inner, Twin - (8) reads NestedHost); (6) expects the not-in-map answer; (9) is the map's one key
+' refusal, SolutionKeyUnknown with the add remedy - the unbound / inactive / ghost cases and (17), the empty registry, are cut into
+' _Archive/004-store/tests/B05_RetiredFacts.vb; (11)'s registry seed is gone. Green at T021 with the resolver.
+' GREEN: 2026-09-17 (T021) 17 of 18 with B10 9 of 9 and B06 14 of 14 once TargetResolver read the map's rows; (18) red on ConfigKeyRetired -
+'        the shipped sample still carried storePath (the T022 Red). (18) amended to assert the key absent; the sample rewritten -> green.
 
 Imports System.IO
 Imports System.Text.Json
@@ -175,7 +183,8 @@ Public Class B05_ExtractGateTests
     End Sub
 
     ''' <summary>
-    ''' (6) A repoPath under no registered root is refused naming the path (FR-347): no launch, the map byte-identical, one log line.
+    ''' (6) A repoPath under no mapped root is answered not in the map naming the path (FR-347; 005 FR-411): no launch, the map byte-identical,
+    ''' one log line resolved as PathNotInMap.
     ''' </summary>
     <Fact>
     Public Sub PathUnderNoRootRefusesNamingThePath()
@@ -184,7 +193,7 @@ Public Class B05_ExtractGateTests
         Dim before As String = MapSnapshot.FileBytesHash(_scenario.Map.Path)
         Dim reply As BridgeReply = host.Invoke("extract", Args("repoPath", nowhere))
         Assert.True(reply.IsError)
-        Assert.Contains("No registered solution's repository root contains", reply.Text)
+        Assert.Contains("not in the map", reply.Text)
         Assert.Contains(nowhere, reply.Root().GetProperty("refusal").GetProperty("text").GetString())
         Assert.Equal(0, host.Launcher.Requests.Count)
         Assert.Equal(before, MapSnapshot.FileBytesHash(_scenario.Map.Path))
@@ -226,7 +235,7 @@ Public Class B05_ExtractGateTests
     ''' </summary>
     <Fact>
     Public Sub NestedRootsPickTheLongestAndSameRootTwiceIsAmbiguous()
-        Dim host As BridgeHost = New BridgeHost(_scenario.Config(_scenario.NestedRegistry, True, True))
+        Dim host As BridgeHost = _scenario.NestedHost(True, True)
         Dim nested As BridgeReply = host.Invoke("extract", Args("repoPath", Path.Combine(_scenario.Copy.Directory, "Sample.Lib")))
         Assert.False(nested.IsError, nested.Text)
         Assert.Equal("Inner", nested.Root().GetProperty("target").GetProperty("resolvedKey").GetString())
@@ -239,16 +248,15 @@ Public Class B05_ExtractGateTests
     End Sub
 
     ''' <summary>
-    ''' (9) Key refusals by name: unknown, unbound, inactive, bound to an id the map lacks; none launches, the map byte-identical (SC-306).
+    ''' (9) A key the map lacks is refused naming it, with the add remedy (005 FR-415); no launch, the map byte-identical (SC-306).
     ''' </summary>
     <Fact>
     Public Sub KeyRefusals()
         Dim host As BridgeHost = _scenario.Host(True, True)
         Dim before As String = MapSnapshot.FileBytesHash(_scenario.Map.Path)
-        Expect("unknown key", host.Invoke("extract", Args("solutionKey", "Nope")), "No code_map_solutions row")
-        Expect("unbound", host.Invoke("extract", Args("solutionKey", "Unbound")), "no codemem_solution_id")
-        Expect("inactive", host.Invoke("extract", Args("solutionKey", "Retired")), "inactive")
-        Expect("ghost", host.Invoke("extract", Args("solutionKey", "Ghost")), "holds no solution 99")
+        Dim reply As BridgeReply = host.Invoke("extract", Args("solutionKey", "Nope"))
+        Expect("unknown key", reply, "holds no solution with key")
+        Assert.Contains("extract --solution-key Nope --solution", reply.Text, StringComparison.Ordinal)
         Assert.Equal(0, host.Launcher.Requests.Count)
         Assert.Equal(before, MapSnapshot.FileBytesHash(_scenario.Map.Path))
     End Sub
@@ -279,54 +287,51 @@ Public Class B05_ExtractGateTests
         Dim tag As String = Guid.NewGuid().ToString("N").Substring(0, 8)
         Dim copies As List(Of FixtureCopy) = New List(Of FixtureCopy)()
         Using map As TempMap = New TempMap()
-            Using registry As RegistryFixture = New RegistryFixture()
-                Try
-                    For Each state As String In New String() {"current", "behind", "dirty"}
-                        Dim copy As FixtureCopy = New FixtureCopy()
-                        copies.Add(copy)
-                        Dim key As String = "Stale" & tag & state
-                        Using repo As Repository = GitFixture.Init(copy.ParentDirectory)
-                            GitFixture.CommitAll(repo, "c1")
-                            Assert.Equal(ExitCode.Success, ExtractionRun.Execute(New ExtractionOptions With {.SolutionPath = copy.SolutionPath, .DbPath = map.Path, .SolutionKey = key}, Nothing))
-                            If state = "behind" Then
-                                GitFixture.Touch(copy.ParentDirectory, "Sample/Sample.Lib/Extra.vb", "Public Class Extra" & vbLf & "End Class" & vbLf)
-                                GitFixture.CommitAll(repo, "c2")
-                            ElseIf state = "dirty" Then
-                                File.AppendAllText(Path.Combine(copy.Directory, "Sample.Lib", "Consumer.vb"), "' dirty" & vbLf)
-                            End If
-                        End Using
-                        registry.Seed(131373, key, MapQueries.ReadSolutions(map.Path).Find(Function(s As SolutionRow) s.Key = key).Id, "active", copy.SolutionPath)
-                    Next
-                    Dim host As BridgeHost = New BridgeHost(BridgeHost.WriteConfig(map.Path, Nothing, True, True))
-                    Dim reply As BridgeReply = host.Invoke("extract", Args("stale", True))
-                    Assert.False(reply.IsError, reply.Text)
-                    Dim root As JsonElement = reply.Root()
-                    Assert.Equal(3, root.GetProperty("considered").GetArrayLength())
-                    Assert.Equal(2, root.GetProperty("extractedCount").GetInt32())
-                    For Each entry As JsonElement In root.GetProperty("considered").EnumerateArray()
-                        Dim key As String = entry.GetProperty("solutionKey").GetString()
-                        If key.EndsWith("current", StringComparison.Ordinal) Then
-                            Assert.False(entry.GetProperty("extracted").GetBoolean())
-                            Assert.Equal("current", entry.GetProperty("verdict").GetString())
-                            Assert.Equal(JsonValueKind.Null, entry.GetProperty("result").ValueKind)
-                        Else
-                            Assert.True(entry.GetProperty("extracted").GetBoolean(), key)
-                            Assert.True(entry.GetProperty("result").GetProperty("launched").GetBoolean(), key)
+            Try
+                For Each state As String In New String() {"current", "behind", "dirty"}
+                    Dim copy As FixtureCopy = New FixtureCopy()
+                    copies.Add(copy)
+                    Dim key As String = "Stale" & tag & state
+                    Using repo As Repository = GitFixture.Init(copy.ParentDirectory)
+                        GitFixture.CommitAll(repo, "c1")
+                        Assert.Equal(ExitCode.Success, ExtractionRun.Execute(New ExtractionOptions With {.SolutionPath = copy.SolutionPath, .DbPath = map.Path, .SolutionKey = key}, Nothing))
+                        If state = "behind" Then
+                            GitFixture.Touch(copy.ParentDirectory, "Sample/Sample.Lib/Extra.vb", "Public Class Extra" & vbLf & "End Class" & vbLf)
+                            GitFixture.CommitAll(repo, "c2")
+                        ElseIf state = "dirty" Then
+                            File.AppendAllText(Path.Combine(copy.Directory, "Sample.Lib", "Consumer.vb"), "' dirty" & vbLf)
                         End If
-                    Next
-                    Assert.Equal(2, host.Launcher.Requests.Count)
-                    Dim lines As List(Of String()) = LogLines.Containing("Stale" & tag)
-                    Assert.Equal(2, lines.Count)
-                    For Each line As String() In lines
-                        Assert.Equal("stale", line(2))
-                        Assert.Equal("passed", line(4))
-                    Next
-                Finally
-                    For Each copy As FixtureCopy In copies
-                        copy.Dispose()
-                    Next
-                End Try
-            End Using
+                    End Using
+                Next
+                Dim host As BridgeHost = New BridgeHost(BridgeHost.WriteConfig(map.Path, Nothing, True, True))
+                Dim reply As BridgeReply = host.Invoke("extract", Args("stale", True))
+                Assert.False(reply.IsError, reply.Text)
+                Dim root As JsonElement = reply.Root()
+                Assert.Equal(3, root.GetProperty("considered").GetArrayLength())
+                Assert.Equal(2, root.GetProperty("extractedCount").GetInt32())
+                For Each entry As JsonElement In root.GetProperty("considered").EnumerateArray()
+                    Dim key As String = entry.GetProperty("solutionKey").GetString()
+                    If key.EndsWith("current", StringComparison.Ordinal) Then
+                        Assert.False(entry.GetProperty("extracted").GetBoolean())
+                        Assert.Equal("current", entry.GetProperty("verdict").GetString())
+                        Assert.Equal(JsonValueKind.Null, entry.GetProperty("result").ValueKind)
+                    Else
+                        Assert.True(entry.GetProperty("extracted").GetBoolean(), key)
+                        Assert.True(entry.GetProperty("result").GetProperty("launched").GetBoolean(), key)
+                    End If
+                Next
+                Assert.Equal(2, host.Launcher.Requests.Count)
+                Dim lines As List(Of String()) = LogLines.Containing("Stale" & tag)
+                Assert.Equal(2, lines.Count)
+                For Each line As String() In lines
+                    Assert.Equal("stale", line(2))
+                    Assert.Equal("passed", line(4))
+                Next
+            Finally
+                For Each copy As FixtureCopy In copies
+                    copy.Dispose()
+                Next
+            End Try
         End Using
     End Sub
 
@@ -378,7 +383,7 @@ Public Class B05_ExtractGateTests
     ''' </summary>
     <Fact>
     Public Sub OneRealLaunchOnTheFixtureOverStdioAndAGateRefusalOverStdio()
-        Using server As BridgeProcess = BridgeProcess.Serve(_scenario.Config(_scenario.Registry, True, True))
+        Using server As BridgeProcess = BridgeProcess.Serve(_scenario.Config(True, True))
             server.Initialize()
             Dim reply As ToolReply = server.CallTool("extract", "{""solutionKey"":""Sample""}")
             Assert.False(reply.IsError, reply.Text)
@@ -393,7 +398,7 @@ Public Class B05_ExtractGateTests
             Assert.True(root.GetProperty("elapsedMs").GetInt64() > 0)
             Assert.Equal(0, server.Close())
         End Using
-        Using server As BridgeProcess = BridgeProcess.Serve(_scenario.Config(_scenario.Registry, False, False))
+        Using server As BridgeProcess = BridgeProcess.Serve(_scenario.Config(False, False))
             server.Initialize()
             Dim refused As ToolReply = server.CallTool("extract", "{""solutionKey"":""Sample""}")
             Assert.True(refused.IsError, "the gate did not refuse over stdio")
@@ -444,23 +449,6 @@ Public Class B05_ExtractGateTests
         Assert.Equal(1, host.Launcher.Requests.Count)
     End Sub
 
-    ''' <summary>
-    ''' (17) An empty registry refuses every target: the key is not registered, no root contains the path, stale considers nothing; no launch.
-    ''' </summary>
-    <Fact>
-    Public Sub AnEmptyRegistryRefusesEveryTarget()
-        Using empty As RegistryFixture = New RegistryFixture()
-            Dim host As BridgeHost = New BridgeHost(_scenario.Config(empty, True, True))
-            Expect("key", host.Invoke("extract", Args("solutionKey", "Sample")), "No code_map_solutions row")
-            Expect("path", host.Invoke("extract", Args("repoPath", _scenario.Root)), "No registered solution's repository root contains")
-            Dim stale As BridgeReply = host.Invoke("extract", Args("stale", True))
-            Assert.False(stale.IsError, stale.Text)
-            Assert.Equal(0, stale.Root().GetProperty("considered").GetArrayLength())
-            Assert.Equal(0, stale.Root().GetProperty("extractedCount").GetInt32())
-            Assert.Equal(0, host.Launcher.Requests.Count)
-        End Using
-    End Sub
-
     Private Shared Sub Expect(caseName As String, reply As BridgeReply, phrase As String)
         Assert.True(reply.IsError, caseName & ": not refused; got " & reply.Text)
         Assert.True(reply.Text.Contains(phrase, StringComparison.Ordinal), caseName & ": expected '" & phrase & "' in: " & reply.Text)
@@ -480,7 +468,8 @@ Public Class B05_ExtractGateTests
         Using sample As JsonDocument = JsonDocument.Parse(File.ReadAllText(samplePath))
             Dim root As JsonElement = sample.RootElement
             Assert.Equal("C:\_DB\codemem.sqlite", root.GetProperty("mapPath").GetString())
-            Assert.Equal("C:\_DB\memos.sqlite", root.GetProperty("storePath").GetString())
+            Dim retired As JsonElement
+            Assert.False(root.TryGetProperty("storePath", retired), "the shipped sample still carries storePath (005 FR-403)")
             Assert.Equal(JsonValueKind.Null, root.GetProperty("extractorPath").ValueKind)
             Assert.False(root.GetProperty("extract").GetProperty("enabled").GetBoolean())
             Assert.False(root.GetProperty("extract").GetProperty("onGreenBuild").GetBoolean())

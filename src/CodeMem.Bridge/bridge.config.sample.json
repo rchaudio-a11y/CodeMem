@@ -1,6 +1,5 @@
 {
   "mapPath": "C:\\_DB\\codemem.sqlite",
-  "storePath": "C:\\_DB\\memos.sqlite",
   "extractorPath": null,
   "extract": { "enabled": false, "onGreenBuild": false }
 }

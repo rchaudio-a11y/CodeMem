@@ -16,6 +16,10 @@
 '        first of two candidates taken - (3e) red (no "more than one target"); (h) HookEntry retried the door with the payload's cwd on
 '        PathNotRegistered - (3f) red (the answer resolved Sample instead of naming the path; G1). After the last revert: B05 + B06
 '        33 passed / 0 failed in 26 s.
+'
+' 2026-09-17 (feature 005, T019): RED - every fact that reaches the door red while the door consulted a store no configuration names; (3f)
+' red on its phrase; (3g) added - the .slnx token - red (the token was not a solution file, so cwd was tried and refused). Amended: the
+' registry seeds are gone (Seed extracts into the scenario's map only), (3f) expects the not-in-map answer with the command. Green at T021.
 
 Imports System.Diagnostics
 Imports System.IO
@@ -54,7 +58,7 @@ Public Class B06_HookEntryTests
     Public Sub GreenPayloadResolvesAndAnswers()
         Dim marker As String = _scenario.Copy.Directory
         Dim before As Integer = LogLines.Containing(marker).Count
-        Dim reply As ProcessReply = Hook(_scenario.Config(_scenario.Registry, True, True), Payload("posttooluse-green.json", "dotnet build """ & _scenario.Copy.SolutionPath & """ -c Debug --nologo -v q"))
+        Dim reply As ProcessReply = Hook(_scenario.Config(True, True), Payload("posttooluse-green.json", "dotnet build """ & _scenario.Copy.SolutionPath & """ -c Debug --nologo -v q"))
         Assert.Equal(0, reply.ExitCode)
         Dim context As String = ContextOf(reply)
         Assert.StartsWith("codemem extract (green build,", context)
@@ -72,7 +76,7 @@ Public Class B06_HookEntryTests
     Public Sub FailurePayloadDoesNothing()
         Dim before As Integer = LogLines.Containing("").Count
         Dim hash As String = MapSnapshot.FileBytesHash(_scenario.Map.Path)
-        Dim reply As ProcessReply = Hook(_scenario.Config(_scenario.Registry, True, True), File.ReadAllText(Fixture("posttoolusefailure-red.json")))
+        Dim reply As ProcessReply = Hook(_scenario.Config(True, True), File.ReadAllText(Fixture("posttoolusefailure-red.json")))
         Assert.Equal(0, reply.ExitCode)
         Assert.Contains("is not a Bash PostToolUse", ContextOf(reply))
         Assert.Equal(before, LogLines.Containing("").Count)
@@ -85,7 +89,7 @@ Public Class B06_HookEntryTests
     ''' </summary>
     <Fact>
     Public Sub CdPrefixAndProjectPathResolveTheProjectDirectory()
-        Dim reply As ProcessReply = Hook(NoExtractorConfig(_scenario.Registry), Payload("posttooluse-cd-and-test.json", "cd " & _scenario.Copy.Directory & " && dotnet test Sample.Lib\Sample.Lib.vbproj --nologo"))
+        Dim reply As ProcessReply = Hook(NoExtractorConfig(), Payload("posttooluse-cd-and-test.json", "cd " & _scenario.Copy.Directory & " && dotnet test Sample.Lib\Sample.Lib.vbproj --nologo"))
         Assert.Equal(0, reply.ExitCode)
         Assert.Contains(": Sample:", ContextOf(reply))
     End Sub
@@ -95,7 +99,7 @@ Public Class B06_HookEntryTests
     ''' </summary>
     <Fact>
     Public Sub OptionsBeforeThePathStillNameIt()
-        Dim reply As ProcessReply = Hook(NoExtractorConfig(_scenario.Registry), Payload("posttooluse-green.json", "dotnet build -c Debug """ & _scenario.Copy.SolutionPath & """ --nologo"))
+        Dim reply As ProcessReply = Hook(NoExtractorConfig(), Payload("posttooluse-green.json", "dotnet build -c Debug """ & _scenario.Copy.SolutionPath & """ --nologo"))
         Assert.Equal(0, reply.ExitCode)
         Assert.Contains(": Sample:", ContextOf(reply))
     End Sub
@@ -106,18 +110,16 @@ Public Class B06_HookEntryTests
     <Fact>
     Public Sub QuotedPathsAreOneToken()
         Dim spaced As String = Path.Combine(Path.GetTempPath(), "codemem-tests", "with space " & Guid.NewGuid().ToString("N"))
-        Using registry As RegistryFixture = New RegistryFixture()
-            Try
-                Dim key As String = Seed(registry, spaced, "Spaced")
-                Dim solutionPath As String = Path.Combine(spaced, "Sample", "Sample.sln")
-                Dim reply As ProcessReply = Hook(NoExtractorConfig(registry), Payload("posttooluse-green.json", "dotnet build """ & solutionPath & """ --nologo"))
-                Assert.Equal(0, reply.ExitCode)
-                Assert.Contains(": " & key & ":", ContextOf(reply))
-            Finally
-                If Directory.Exists(spaced) Then GitFixture.RemoveGitDirectory(spaced)
-                If Directory.Exists(spaced) Then Directory.Delete(spaced, True)
-            End Try
-        End Using
+        Try
+            Dim key As String = Seed(spaced, "Spaced")
+            Dim solutionPath As String = Path.Combine(spaced, "Sample", "Sample.sln")
+            Dim reply As ProcessReply = Hook(NoExtractorConfig(), Payload("posttooluse-green.json", "dotnet build """ & solutionPath & """ --nologo"))
+            Assert.Equal(0, reply.ExitCode)
+            Assert.Contains(": " & key & ":", ContextOf(reply))
+        Finally
+            If Directory.Exists(spaced) Then GitFixture.RemoveGitDirectory(spaced)
+            If Directory.Exists(spaced) Then Directory.Delete(spaced, True)
+        End Try
     End Sub
 
     ''' <summary>
@@ -127,14 +129,12 @@ Public Class B06_HookEntryTests
     <Fact>
     Public Sub ACrossRepositoryPathResolvesToItsOwnRoot()
         Using other As FixtureCopy = New FixtureCopy()
-            Using registry As RegistryFixture = New RegistryFixture()
-                Dim key As String = Seed(registry, other.ParentDirectory, "Other")
-                Dim reply As ProcessReply = Hook(NoExtractorConfig(registry), Payload("posttooluse-green.json", "dotnet build """ & other.SolutionPath & """", _scenario.Root))
-                Assert.Equal(0, reply.ExitCode)
-                Dim context As String = ContextOf(reply)
-                Assert.Contains(": " & key & ":", context)
-                Assert.DoesNotContain(": Sample:", context)
-            End Using
+            Dim key As String = Seed(other.ParentDirectory, "Other")
+            Dim reply As ProcessReply = Hook(NoExtractorConfig(), Payload("posttooluse-green.json", "dotnet build """ & other.SolutionPath & """", _scenario.Root))
+            Assert.Equal(0, reply.ExitCode)
+            Dim context As String = ContextOf(reply)
+            Assert.Contains(": " & key & ":", context)
+            Assert.DoesNotContain(": Sample:", context)
         End Using
     End Sub
 
@@ -144,7 +144,7 @@ Public Class B06_HookEntryTests
     <Fact>
     Public Sub TwoCandidatesAreAmbiguousNeverFallback()
         Dim before As Integer = LogLines.Containing("").Count
-        Dim reply As ProcessReply = Hook(_scenario.Config(_scenario.Registry, True, True), Payload("posttooluse-green.json", "dotnet build A.sln B.sln", _scenario.Root))
+        Dim reply As ProcessReply = Hook(_scenario.Config(True, True), Payload("posttooluse-green.json", "dotnet build A.sln B.sln", _scenario.Root))
         Assert.Equal(0, reply.ExitCode)
         Dim context As String = ContextOf(reply)
         Assert.Contains("more than one target", context)
@@ -155,24 +155,36 @@ Public Class B06_HookEntryTests
     End Sub
 
     ''' <summary>
-    ''' (3f) A named path under no registered root is refused naming that path and the session directory is never tried in its place
-    ''' (Q6 as ruled, G1): cwd is the registered root, no new run row, the hash unchanged, one log line resolved as PathNotRegistered.
+    ''' (3f) A named path under no mapped root is answered not in the map, naming that path and the command that adds it, and the session
+    ''' directory is never tried in its place (Q6 as ruled, G1; 005 FR-411, FR-413): cwd is the mapped root, no new run row, the hash
+    ''' unchanged, one log line resolved as PathNotInMap.
     ''' </summary>
     <Fact>
     Public Sub ANamedPathUnderNoRootIsRefusedNeverTheSessionDirectory()
         Dim nowhere As String = Path.Combine(Path.GetTempPath(), "codemem-tests", "nowhere-" & Guid.NewGuid().ToString("N"))
         Dim runsBefore As Integer = MapQueries.ReadRuns(_scenario.Map.Path).Count
         Dim hash As String = MapSnapshot.FileBytesHash(_scenario.Map.Path)
-        Dim reply As ProcessReply = Hook(_scenario.Config(_scenario.Registry, True, True), Payload("posttooluse-green.json", "dotnet build """ & Path.Combine(nowhere, "Nowhere.sln") & """", _scenario.Root))
+        Dim reply As ProcessReply = Hook(_scenario.Config(True, True), Payload("posttooluse-green.json", "dotnet build """ & Path.Combine(nowhere, "Nowhere.sln") & """", _scenario.Root))
         Assert.Equal(0, reply.ExitCode)
         Dim context As String = ContextOf(reply)
-        Assert.Contains("No registered solution's repository root contains", context)
+        Assert.Contains("not in the map", context)
+        Assert.Contains("extract --solution-key <key> --solution", context)
         Assert.Contains(nowhere, context)
         Assert.DoesNotContain("Sample", context)
         Assert.Equal(runsBefore, MapQueries.ReadRuns(_scenario.Map.Path).Count)
         Assert.Equal(hash, MapSnapshot.FileBytesHash(_scenario.Map.Path))
         Dim line As String() = Assert.Single(LogLines.Containing(nowhere))
-        Assert.Equal("PathNotRegistered", line(3))
+        Assert.Equal("PathNotInMap", line(3))
+    End Sub
+
+    ''' <summary>
+    ''' (3g) A .slnx token names its directory exactly as a .sln token does (005 FR-412): the copy's Sample.slnx resolves to Sample.
+    ''' </summary>
+    <Fact>
+    Public Sub ASlnxTokenNamesItsDirectory()
+        Dim reply As ProcessReply = Hook(NoExtractorConfig(), Payload("posttooluse-green.json", "dotnet build """ & Path.Combine(_scenario.Copy.Directory, "Sample.slnx") & """ -c Debug"))
+        Assert.Equal(0, reply.ExitCode)
+        Assert.Contains(": Sample:", ContextOf(reply))
     End Sub
 
     ''' <summary>
@@ -180,7 +192,7 @@ Public Class B06_HookEntryTests
     ''' </summary>
     <Fact>
     Public Sub InterruptedPayloadDoesNothing()
-        Dim reply As ProcessReply = Hook(_scenario.Config(_scenario.Registry, True, True), Payload("posttooluse-green.json", "dotnet build """ & _scenario.Copy.SolutionPath & """", Nothing, True))
+        Dim reply As ProcessReply = Hook(_scenario.Config(True, True), Payload("posttooluse-green.json", "dotnet build """ & _scenario.Copy.SolutionPath & """", Nothing, True))
         Assert.Equal(0, reply.ExitCode)
         Assert.Contains("interrupted; nothing ran", ContextOf(reply))
         Print("(4)", reply)
@@ -192,7 +204,7 @@ Public Class B06_HookEntryTests
     <Fact>
     Public Sub GateOffIsReportedNotThrown()
         Dim marker As String = "gateoff-" & Guid.NewGuid().ToString("N")
-        Dim reply As ProcessReply = Hook(_scenario.Config(_scenario.Registry, False, False), Payload("posttooluse-green.json", "dotnet build """ & Path.Combine(_scenario.Root, marker, "Any.sln") & """"))
+        Dim reply As ProcessReply = Hook(_scenario.Config(False, False), Payload("posttooluse-green.json", "dotnet build """ & Path.Combine(_scenario.Root, marker, "Any.sln") & """"))
         Assert.Equal(0, reply.ExitCode)
         Dim context As String = ContextOf(reply)
         Assert.Contains("refused", context)
@@ -205,7 +217,7 @@ Public Class B06_HookEntryTests
     ''' </summary>
     <Fact>
     Public Sub NotJsonIsReported()
-        Dim reply As ProcessReply = Hook(_scenario.Config(_scenario.Registry, True, True), "not json")
+        Dim reply As ProcessReply = Hook(_scenario.Config(True, True), "not json")
         Assert.Equal(0, reply.ExitCode)
         Assert.Contains("payload not JSON", ContextOf(reply))
         Print("(6)", reply)
@@ -217,7 +229,7 @@ Public Class B06_HookEntryTests
     <Fact>
     Public Sub NotADotnetCommandDoesNothing()
         Dim before As Integer = LogLines.Containing("").Count
-        Dim reply As ProcessReply = Hook(_scenario.Config(_scenario.Registry, True, True), Payload("posttooluse-green.json", "ls -la"))
+        Dim reply As ProcessReply = Hook(_scenario.Config(True, True), Payload("posttooluse-green.json", "ls -la"))
         Assert.Equal(0, reply.ExitCode)
         Assert.Contains("not a dotnet build or test", ContextOf(reply))
         Assert.Equal(before, LogLines.Containing("").Count)
@@ -229,7 +241,7 @@ Public Class B06_HookEntryTests
     ''' </summary>
     <Fact>
     Public Sub TheEntryIsFast()
-        Dim config As String = _scenario.Config(_scenario.Registry, True, True)
+        Dim config As String = _scenario.Config(True, True)
         Dim inputs As Dictionary(Of String, String) = New Dictionary(Of String, String)(StringComparer.Ordinal) From {
             {"(2) failure payload", File.ReadAllText(Fixture("posttoolusefailure-red.json"))},
             {"(4) interrupted", Payload("posttooluse-green.json", "dotnet build x.sln", Nothing, True)},
@@ -242,7 +254,7 @@ Public Class B06_HookEntryTests
         Next
     End Sub
 
-    Private Function Seed(registry As RegistryFixture, root As String, key As String) As String
+    Private Function Seed(root As String, key As String) As String
         Directory.CreateDirectory(root)
         If Not File.Exists(Path.Combine(root, "Sample", "Sample.sln")) Then CopyTree(_scenario.Copy.Directory, Path.Combine(root, "Sample"))
         Using repo As Repository = GitFixture.Init(root)
@@ -251,8 +263,6 @@ Public Class B06_HookEntryTests
         Dim solutionPath As String = Path.Combine(root, "Sample", "Sample.sln")
         DotnetCli.Run("restore """ & solutionPath & """", Path.Combine(root, "Sample"))
         Assert.Equal(ExitCode.Success, ExtractionRun.Execute(New ExtractionOptions With {.SolutionPath = solutionPath, .DbPath = _scenario.Map.Path, .SolutionKey = key}, Nothing))
-        registry.Seed(131373, "Sample", _scenario.SampleId, "active", _scenario.Copy.SolutionPath)
-        registry.Seed(131373, key, MapQueries.ReadSolutions(_scenario.Map.Path).Find(Function(s As SolutionRow) s.Key = key).Id, "active", solutionPath)
         Return key
     End Function
 
@@ -268,7 +278,7 @@ Public Class B06_HookEntryTests
         Next
     End Sub
 
-    Private Function NoExtractorConfig(registry As RegistryFixture) As String
+    Private Function NoExtractorConfig() As String
         Return BridgeHost.WriteConfig(_scenario.Map.Path, Path.Combine(Path.GetTempPath(), "codemem-tests", "no-extractor-" & Guid.NewGuid().ToString("N") & ".dll"), True, True)
     End Function
 

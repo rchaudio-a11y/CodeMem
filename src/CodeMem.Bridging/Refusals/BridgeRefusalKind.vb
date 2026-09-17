@@ -7,6 +7,7 @@
 ' 2026-09-17 (feature 005, T013): ProjectIdRemoved, ConfigKeyRetired, PathNotInMap and AmbiguousSolutionFile added; ScopeConflict retired
 ' (one scope argument remains). The registry-side kinds leave in two steps as their callers do: KeyNotRegistered, KeyUnbound, KeyInactive,
 ' MapMissingSolution and PathNotRegistered at T021 with the resolver; RegistryAbsent at T024 with the archive. The count is 29 at T024.
+' 2026-09-17 (T021): the five resolver kinds gone with TargetResolver's rewrite; 30 remain until RegistryAbsent leaves at T024.
 
 ''' <summary>
 ''' Every way a tool refuses. The wording of each lives in <see cref="BridgeRefusal"/>; facts assert each kind's distinguishing phrase.
@@ -56,22 +57,12 @@ Public Enum BridgeRefusalKind
     NotAType
     ''' <summary>extract refused by a gate.</summary>
     GateOff
-    ''' <summary>No registered root contains repoPath (004; retired at T021 with the resolver).</summary>
-    PathNotRegistered
     ''' <summary>No mapped solution's root contains the directory; the answer names the command that adds it (feature 005).</summary>
     PathNotInMap
     ''' <summary>The directory is not in the map and holds more than one solution file; no key is suggested (feature 005).</summary>
     AmbiguousSolutionFile
     ''' <summary>repoPath lies under a root shared by more than one mapped solution.</summary>
     AmbiguousRoot
-    ''' <summary>No registry row has that key (004; retired at T021).</summary>
-    KeyNotRegistered
-    ''' <summary>The registry row has no codemem_solution_id (004; retired at T021).</summary>
-    KeyUnbound
-    ''' <summary>The registry row is not active (004; retired at T021).</summary>
-    KeyInactive
-    ''' <summary>The registry binds an id the map does not hold (004; retired at T021).</summary>
-    MapMissingSolution
     ''' <summary>An extraction launched by this bridge is still running.</summary>
     ExtractionRunning
     ''' <summary>The extractor was not found.</summary>
