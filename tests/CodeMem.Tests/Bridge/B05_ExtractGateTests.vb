@@ -34,6 +34,9 @@
 ' _Archive/004-store/tests/B05_RetiredFacts.vb; (11)'s registry seed is gone. Green at T021 with the resolver.
 ' GREEN: 2026-09-17 (T021) 17 of 18 with B10 9 of 9 and B06 14 of 14 once TargetResolver read the map's rows; (18) red on ConfigKeyRetired -
 '        the shipped sample still carried storePath (the T022 Red). (18) amended to assert the key absent; the sample rewritten -> green.
+' 2026-09-17 (feature 005, T035): the plan named (2) as a Red when warnings=<n> joined the summary line; it was not red - the line (2)
+'        asserts is scripted into the launcher and echoed verbatim, never the extractor's. The scripted line now carries warnings=0 so
+'        it keeps the current shape; the extractor's own line is asserted by RefusalTests (d) and X02 (1).
 
 Imports System.IO
 Imports System.Text.Json
@@ -103,7 +106,7 @@ Public Class B05_ExtractGateTests
         Assert.Contains("extract.onGreenBuild is false", hook.Refusal.Text)
         Assert.Equal(0, host.Launcher.Requests.Count)
         Dim row As RunRow = MapQueries.ReadRuns(_scenario.Map.Path).Find(Function(r As RunRow) r.Id = _scenario.FirstRunId)
-        Dim summary As String = "solution=Sample run_id=" & row.Id & " observed=" & row.SymbolsObserved & " matched=" & row.SymbolsMatched & " new=" & row.SymbolsNew & " sha=null"
+        Dim summary As String = "solution=Sample run_id=" & row.Id & " observed=" & row.SymbolsObserved & " matched=" & row.SymbolsMatched & " new=" & row.SymbolsNew & " sha=null warnings=0"
         host.Launcher.Script(0, summary & vbLf, "")
         Dim tool As BridgeReply = host.Invoke("extract", Args("solutionKey", "Sample"))
         Assert.False(tool.IsError, tool.Text)

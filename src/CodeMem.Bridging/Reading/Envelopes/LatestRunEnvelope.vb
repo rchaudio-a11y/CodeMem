@@ -3,6 +3,8 @@
 ' Description: The latest run of a solution (056 §1.1 latestRun).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-15
+'
+' 2026-09-17 (feature 005, T036): Warnings - the count of the run's extract_run_warnings rows.
 
 ''' <summary>
 ''' The stamp, the outcome, the dirty state and the ten counts.
@@ -65,5 +67,8 @@ Public Class LatestRunEnvelope
 
     ''' <summary>Unaccounted registry.</summary>
     Public Property UnaccountedRegistry As Integer
+
+    ''' <summary>The number of NuGet restore warnings recorded on the run (005 FR-430).</summary>
+    Public Property Warnings As Integer
 
 End Class

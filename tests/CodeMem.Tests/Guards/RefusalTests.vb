@@ -11,6 +11,8 @@
 ' than 2" now that Current is 2 and version 1 is upgraded rather than refused). Still exit 1, still one run row.
 ' 2026-09-17 (feature 005, T010; a Red the plan did not name - the same shape as S02 (3)): red once Current became 3 - the map stamped 3 is
 ' now current, proceeds, and the assertions no longer describe a refusal. Stamps 4 now (greater than Current = 3). Re-run -> green.
+' RED:   2026-09-17 (feature 005, T035, the named Red - analyze G2): (d) red the moment warnings=<n> joined the summary line ("Pattern not
+'        found in value": the anchored regex ended at sha=). Amended: the pattern gains warnings=\d+ before its anchor (contracts/extractor.md §4).
 
 Imports CodeMem.Extraction
 Imports Xunit
@@ -77,7 +79,7 @@ Public Class RefusalTests
             Assert.Equal(0, run.ExitCode)
             Dim lines As String() = run.StandardOutput.Split(New String() {vbCrLf, vbLf}, StringSplitOptions.RemoveEmptyEntries)
             Assert.Single(lines)
-            Assert.Matches("^solution=\S+ run_id=\d+ observed=\d+ matched=\d+ reactivated=\d+ new=\d+ retired=\d+ registry_before=\d+ notes_orphaned=\d+ candidates=\d+ unaccounted_observed=-?\d+ unaccounted_registry=-?\d+ digest=[0-9a-f]{64} sha=([0-9a-f]{40}|null)$", lines(0))
+            Assert.Matches("^solution=\S+ run_id=\d+ observed=\d+ matched=\d+ reactivated=\d+ new=\d+ retired=\d+ registry_before=\d+ notes_orphaned=\d+ candidates=\d+ unaccounted_observed=-?\d+ unaccounted_registry=-?\d+ digest=[0-9a-f]{64} sha=([0-9a-f]{40}|null) warnings=\d+$", lines(0))
         End Using
     End Sub
 

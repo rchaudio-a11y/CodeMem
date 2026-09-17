@@ -3,6 +3,8 @@
 ' Description: The published run an extract read back: id and the ten counts (contracts/tools.md §3.8; Article VIII).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-15
+'
+' 2026-09-17 (feature 005, T036): Warnings - the extract_run_warnings rows of the run, read back with the ten counts.
 
 ''' <summary>
 ''' Present only when a completed run was published.
@@ -41,5 +43,8 @@ Public Class ExtractRunEnvelope
 
     ''' <summary>Unaccounted registry.</summary>
     Public Property UnaccountedRegistry As Integer
+
+    ''' <summary>The run's NuGet restore warnings, in insertion order; empty when none (005 FR-430).</summary>
+    Public Property Warnings As List(Of RunWarningEnvelope)
 
 End Class

@@ -4,7 +4,7 @@
 ' Author: RCH Automation LLC
 ' Created: 2026-09-09
 '
-' 2026-09-17 (feature 005, T031): the usage names the three inputs (contracts/extractor.md §4).
+' 2026-09-17 (feature 005, T031): the usage names the three inputs (contracts/extractor.md §4). (T035): the failure classes, warnings among them.
 '
 ' 2026-09-10 (fixpack 002): usage documents CODEMEM_TEST_NONCE and the both-required rule (FR-117).
 
@@ -39,6 +39,9 @@ Public Class CommandLine
                 "exit codes: 0 completed; 1 usage, load, schema or database failure; 2 compile errors; 3 lock held; 4 residual mismatch" & Environment.NewLine &
                 Environment.NewLine &
                 "inputs: a .sln, a .slnx (opened by CodeMem's own parse; folders and configurations are not read) or a .vbproj" & Environment.NewLine &
+                "failure classes: ""workspace load failed"" - the solution could not be opened or restored (exit 1); ""errors=N"" - the compiler found" & Environment.NewLine &
+                "                 errors (exit 2). A NuGet restore WARNING (NU17xx and the like) is recorded on the run and does not fail the load;" & Environment.NewLine &
+                "                 a restore ERROR (NU11xx, NU13xx) does." & Environment.NewLine &
                 Environment.NewLine &
                 "test-only environment variables:" & Environment.NewLine &
                 "  CODEMEM_TEST_ABORT_AT=<phase>:<nonce>   phase: DuringInitialize, DuringUpgrade, AfterStaging or DuringPublish (invariants I9, F6, upgrade)" & Environment.NewLine &

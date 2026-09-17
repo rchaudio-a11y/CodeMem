@@ -15,6 +15,9 @@
 '        one edge at 5,20, found 0" ...), the three field facts still found; (2), (3) green; reverted -> green.
 ' FIRE:  2026-09-13 (T017 ii) the rows-only check replaced by "any bound target" -> (2) red (Assert.DoesNotContain: an edge to
 '        F:Microsoft.VisualBasic.Constants.vbCrLf appeared); (1), (3) green; reverted -> green.
+' 2026-09-17 (feature 005, T035/T037; a Red the plan did not name - the same shape as 003's): red - Assert.Equal expected "0.2.0", actual
+' "0.3.0" after the extraction assembly's version moved to 0.3.0 (a .slnx opens through CodeMem's own parse; a restore warning no longer
+' fails the load and is recorded on the run). The literal is amended; the fact - the run stamps the assembly's version - is unchanged.
 
 Imports System.IO
 Imports System.Text.RegularExpressions
@@ -107,7 +110,7 @@ Public Class R02_BareNameTests
             Assert.Equal(0, run2.UnaccountedObserved)
             Assert.Equal(0, run2.UnaccountedRegistry)
             Assert.Equal(candidatesBefore, MapQueries.CountRows(map.Path, "rename_candidates", solutionId))
-            Assert.Equal("0.2.0", run2.ExtractorVersion)
+            Assert.Equal("0.3.0", run2.ExtractorVersion)
         End Using
     End Sub
 

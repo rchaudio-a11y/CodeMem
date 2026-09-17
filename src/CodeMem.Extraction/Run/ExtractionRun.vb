@@ -11,6 +11,8 @@
 ' rules over in-scope projects only (FR-201, FR-203); the green gate of step 6 still covers every compiled project.
 ' 2026-09-17 (feature 005, T009): step 4 gains the 2 -> 3 migration on every path (Fresh: 1 -> 2 -> 3; Version1: 2 -> 3; Version2: 3), the
 ' DuringUpgrade seam after the last migration statement of whichever path ran (research R63).
+' 2026-09-17 (feature 005, T035): the loader's warnings are written beside the run row, completed or failed, their project paths made
+' solution-relative; the summary line carries warnings=<n> (FR-429).
 
 Imports System.IO
 Imports System.Text.RegularExpressions
@@ -179,14 +181,16 @@ Public Class ExtractionRun
             If counts.UnaccountedObserved <> 0 OrElse counts.UnaccountedRegistry <> 0 Then
                 stamp.FinishedUtc = Timestamps.NowUtc()
                 Dim failedRunId As Long = ExtractRunsRepository.InsertFailed(db, stamp, counts)
+                ExtractRunWarningsRepository.InsertAll(db, failedRunId, RelativeWarnings(loader.Warnings, basePath))
                 db.Commit()
-                Console.Error.WriteLine("outcome=failed " & SummaryLine.Format(key, failedRunId, counts, digest, git.CommitSha))
+                Console.Error.WriteLine("outcome=failed " & SummaryLine.Format(key, failedRunId, counts, digest, git.CommitSha, loader.Warnings.Count))
                 Return ExitCode.ResidualMismatch
             End If
 
             ' Step 12: publish inside the open transaction. The run row is the first fact-table write.
             stamp.FinishedUtc = Timestamps.NowUtc()
             Dim runId As Long = ExtractRunsRepository.InsertCompleted(db, stamp, counts)
+            ExtractRunWarningsRepository.InsertAll(db, runId, RelativeWarnings(loader.Warnings, basePath))
             Dim ids As Dictionary(Of String, Long) = New Dictionary(Of String, Long)(result.ExistingIds, StringComparer.Ordinal)
             Dim inserts As List(Of ObservedSymbol) = New List(Of ObservedSymbol)(result.Inserts)
             inserts.Sort(Function(a As ObservedSymbol, b As ObservedSymbol)
@@ -230,7 +234,7 @@ Public Class ExtractionRun
 
             ' Step 13.
             db.Commit()
-            Console.Out.WriteLine(SummaryLine.Format(key, runId, counts, digest, git.CommitSha))
+            Console.Out.WriteLine(SummaryLine.Format(key, runId, counts, digest, git.CommitSha, loader.Warnings.Count))
             Return ExitCode.Success
         End Using
     End Function
@@ -285,6 +289,23 @@ Public Class ExtractionRun
             Case "DuringPublish" : Return RunPhase.DuringPublish
             Case Else : Return RunPhase.None
         End Select
+    End Function
+
+    ''' <summary>
+    ''' The loader's warnings with their project paths made solution-relative, as every other path in the map is (005 FR-429).
+    ''' </summary>
+    ''' <param name="warnings">The loader's warnings, full project paths.</param>
+    ''' <param name="basePath">The solution's base directory.</param>
+    ''' <returns>New records, in order.</returns>
+    Private Shared Function RelativeWarnings(warnings As List(Of RunWarningRecord), basePath As String) As List(Of RunWarningRecord)
+        Dim result As List(Of RunWarningRecord) = New List(Of RunWarningRecord)()
+        For Each warning As RunWarningRecord In warnings
+            result.Add(New RunWarningRecord With {
+                .Code = warning.Code,
+                .ProjectPath = If(warning.ProjectPath Is Nothing, Nothing, SolutionPaths.Relative(basePath, warning.ProjectPath)),
+                .Message = warning.Message})
+        Next
+        Return result
     End Function
 
     Private Shared Sub AbortIf(configured As RunPhase, here As RunPhase)

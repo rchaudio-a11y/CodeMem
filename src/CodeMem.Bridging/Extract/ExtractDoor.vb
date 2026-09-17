@@ -14,6 +14,7 @@
 ' 2026-09-17 (feature 005, T027): solutionPath beside solutionKey (R67) - cardinality names it, the log's target column reads
 ' solutionKey=<key> solution=<path>, the launch line is unchanged in shape.
 ' 2026-09-17 (feature 005, T028): RunStale carries map_status's notInMap list and never launches for an entry of it (FR-420).
+' 2026-09-17 (feature 005, T036): the run read back carries its warning rows (FR-430).
 
 Imports System.Diagnostics
 Imports System.IO
@@ -204,6 +205,12 @@ Public Class ExtractDoor
         Try
             Using map As MapDatabase = MapAccess.OpenRead(config)
                 Dim run As RunRecord = ExtractRunsRepository.ReadById(map, runId)
+                Dim warnings As List(Of RunWarningEnvelope) = New List(Of RunWarningEnvelope)()
+                If run IsNot Nothing Then
+                    For Each warning As RunWarningRecord In ExtractRunWarningsRepository.ReadByRun(map, runId)
+                        warnings.Add(New RunWarningEnvelope With {.Code = warning.Code, .ProjectPath = warning.ProjectPath, .Message = warning.Message})
+                    Next
+                End If
                 map.EndRead()
                 If run Is Nothing Then Return Nothing
                 Return New ExtractRunEnvelope With {
@@ -217,7 +224,8 @@ Public Class ExtractDoor
                     .NotesOrphaned = run.Counts.NotesOrphaned,
                     .RenameCandidates = run.Counts.RenameCandidates,
                     .UnaccountedObserved = run.Counts.UnaccountedObserved,
-                    .UnaccountedRegistry = run.Counts.UnaccountedRegistry}
+                    .UnaccountedRegistry = run.Counts.UnaccountedRegistry,
+                    .Warnings = warnings}
             End Using
         Catch ex As BridgeRefusalException
             Return Nothing

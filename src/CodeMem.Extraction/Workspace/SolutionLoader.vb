@@ -7,9 +7,13 @@
 ' 2026-09-17 (feature 005, T031): the three-way extension door sits before MSBuildWorkspace.Create - .sln through OpenSolutionAsync as
 ' before, .slnx through SlnxReader then OpenProjectAsync per project in document order (a path the workspace already holds is not
 ' opened again), .vbproj through OpenProjectAsync as before, anything else refused by name before a workspace exists (R61, route b).
+' 2026-09-17 (feature 005, T034): the warning rule (R62, Q8 as ruled) - each Failure collected while opening is classified through the named
+' project's assets log: a Warning-level entry is recorded on Warnings and the load continues; an Error-level entry aborts naming the code
+' and the project; no entry aborts as before. No NoWarn is read, set or passed.
 
 Imports System.IO
 Imports System.Xml.Linq
+Imports CodeMem.Core
 Imports Microsoft.CodeAnalysis
 Imports Microsoft.CodeAnalysis.MSBuild
 
@@ -27,14 +31,19 @@ Public Class SolutionLoader
     ''' <summary>The absolute path of the .sln, .slnx or .vbproj that was opened.</summary>
     Public ReadOnly Property OpenedPath As String
 
-    Private Sub New(workspace As MSBuildWorkspace, solution As Solution, openedPath As String)
+    ''' <summary>The NuGet restore warnings the load carried (Warning-level assets-log entries); ProjectPath is the project's full path here (005 FR-427).</summary>
+    Public ReadOnly Property Warnings As List(Of RunWarningRecord)
+
+    Private Sub New(workspace As MSBuildWorkspace, solution As Solution, openedPath As String, warnings As List(Of RunWarningRecord))
         _workspace = workspace
         Me.Solution = solution
         Me.OpenedPath = openedPath
+        Me.Warnings = warnings
     End Sub
 
     ''' <summary>
-    ''' Opens a .sln, a .slnx or a .vbproj. Workspace diagnostics of kind Failure become <see cref="WorkspaceLoadException"/>.
+    ''' Opens a .sln, a .slnx or a .vbproj. Workspace diagnostics of kind Failure become <see cref="WorkspaceLoadException"/> unless NuGet's
+    ''' record classes them as warnings, which are kept on <see cref="Warnings"/> (005 FR-427).
     ''' </summary>
     ''' <param name="path">The solution or project path.</param>
     ''' <param name="configuration">The build configuration.</param>
@@ -77,10 +86,22 @@ Public Class SolutionLoader
                 Dim project As Project = workspace.OpenProjectAsync(fullPath).GetAwaiter().GetResult()
                 solution = project.Solution
             End If
-            If failures.Count > 0 Then
-                Throw New WorkspaceLoadException(failures)
+            Dim warnings As List(Of RunWarningRecord) = New List(Of RunWarningRecord)()
+            Dim remaining As List(Of String) = New List(Of String)()
+            For Each failure As String In failures
+                Dim classified As AssetsLogMatch = AssetsLog.Classify(failure)
+                If classified IsNot Nothing AndAlso String.Equals(classified.Level, "Warning", StringComparison.OrdinalIgnoreCase) Then
+                    warnings.Add(New RunWarningRecord With {.Code = classified.Code, .ProjectPath = classified.ProjectPath, .Message = classified.Message})
+                ElseIf classified IsNot Nothing AndAlso String.Equals(classified.Level, "Error", StringComparison.OrdinalIgnoreCase) Then
+                    remaining.Add("restore error " & classified.Code & " in " & IO.Path.GetFileName(classified.ProjectPath) & ": " & classified.Message)
+                Else
+                    remaining.Add(failure)
+                End If
+            Next
+            If remaining.Count > 0 Then
+                Throw New WorkspaceLoadException(remaining)
             End If
-            Return New SolutionLoader(workspace, solution, fullPath)
+            Return New SolutionLoader(workspace, solution, fullPath, warnings)
         Catch
             workspace.Dispose()
             Throw

@@ -8,7 +8,9 @@
     <OptionInfer>Off</OptionInfer>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!-- Fixpack 003 (research R38, FR-217): the fact set for one digest changed (out-of-scope rows leave, bare-name edges arrive). -->
-    <Version>0.2.0</Version>
+    <!-- Feature 005 (FR-421, FR-427): two input changes - a .slnx opens through CodeMem's own parse, and a NuGet restore warning no longer
+         fails the load (it is recorded on the run); the summary line gains warnings=<n>. -->
+    <Version>0.3.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

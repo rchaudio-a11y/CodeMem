@@ -3,6 +3,8 @@
 ' Description: The solutions envelope, 056 §1.1: the map identity and every solution with its latest run of any outcome (FR-309, INC4).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-15
+'
+' 2026-09-17 (feature 005, T036): latestRun.warnings counted through ReadByRun inside the same read (FR-430).
 
 Imports CodeMem.Core
 
@@ -26,12 +28,17 @@ Public Module SolutionsReader
             .Solutions = New List(Of SolutionEnvelope)()}
         For Each solution As SolutionRecord In SolutionsRepository.ReadAll(map)
             Dim run As RunRecord = ExtractRunsRepository.ReadLatest(map, solution.Id)
+            Dim latest As LatestRunEnvelope = Nothing
+            If run IsNot Nothing Then
+                latest = LatestRunOf(run)
+                latest.Warnings = ExtractRunWarningsRepository.ReadByRun(map, run.Id).Count
+            End If
             envelope.Solutions.Add(New SolutionEnvelope With {
                 .Key = solution.Key,
                 .Name = solution.Name,
                 .RepoRoot = solution.RepoRoot,
                 .LastSeenPath = solution.LastSeenPath,
-                .LatestRun = If(run Is Nothing, Nothing, LatestRunOf(run))})
+                .LatestRun = latest})
         Next
         Return envelope
     End Function

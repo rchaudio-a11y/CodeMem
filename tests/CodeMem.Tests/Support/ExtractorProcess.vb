@@ -3,6 +3,8 @@
 ' Description: Runs the real CodeMem.Extractor executable and captures its exit code, output and elapsed time (Article XIII).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-09
+'
+' 2026-09-17 (feature 005, T033): a variable mapped to Nothing is removed from the child's environment (X02: the NoWarn* keys).
 
 Imports System.Diagnostics
 Imports System.IO
@@ -51,7 +53,11 @@ Public Class ExtractorProcess
             .CreateNoWindow = True}
         If environmentVariables IsNot Nothing Then
             For Each pair As KeyValuePair(Of String, String) In environmentVariables
-                psi.Environment(pair.Key) = pair.Value
+                If pair.Value Is Nothing Then
+                    psi.Environment.Remove(pair.Key)
+                Else
+                    psi.Environment(pair.Key) = pair.Value
+                End If
             Next
         End If
         Dim watch As Stopwatch = Stopwatch.StartNew()
