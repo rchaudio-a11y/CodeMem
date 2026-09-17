@@ -269,7 +269,7 @@ Public Class B06_HookEntryTests
     End Sub
 
     Private Function NoExtractorConfig(registry As RegistryFixture) As String
-        Return BridgeHost.WriteConfig(_scenario.Map.Path, registry.Path, Path.Combine(Path.GetTempPath(), "codemem-tests", "no-extractor-" & Guid.NewGuid().ToString("N") & ".dll"), True, True)
+        Return BridgeHost.WriteConfig(_scenario.Map.Path, Path.Combine(Path.GetTempPath(), "codemem-tests", "no-extractor-" & Guid.NewGuid().ToString("N") & ".dll"), True, True)
     End Function
 
     Private Shared Function Hook(configPath As String, stdin As String) As ProcessReply

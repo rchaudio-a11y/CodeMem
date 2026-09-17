@@ -1,6 +1,6 @@
 ' File: B04_MapStatusTests.vb
 ' Project: CodeMem.Tests
-' Description: map_status on a repository fixture: the six verdicts in the ruled order, nothing guessed, unbound and inactive rows listed, the latest completed run compared, the description (FR-320..FR-324, FR-345, spec Q4, INC4).
+' Description: map_status on a repository fixture: the five verdicts in the ruled order, nothing guessed, the latest completed run compared, the description (FR-320..FR-324, FR-345, spec Q4, INC4; 005 FR-418).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-15
 '
@@ -10,6 +10,13 @@
 '        seven tools.
 ' FIRE:  2026-09-15 (T034) behind evaluated before dirty in MapStatusReader.EntryOf -> (3) red (verdict "behind" where "dirty" was asserted);
 '        restored from a byte copy -> green.
+'
+' 2026-09-17 (feature 005, T015/T017): RED - (1) red (entry carries no projectId / codememSolutionId), (6) red (no map_missing_solution, bound,
+' unbound, inactive), (8) red ("map_missing_solution" no longer in the description), (9) red (bound gone). Amended: (1) asserts solutionId and
+' no registry field; (6) and (9) are retired - a registry row bound to nothing, an unbound row, an inactive row and an empty registry cannot
+' exist without a registry - and are cut into _Archive/004-store/tests/B04_RetiredFacts.vb; (8) names the five verdicts and not_in_map;
+' (7)'s registry seed is gone (it is also the fact the tasks called (6') - a solution with no repository root reads no_git with "no commit
+' recorded"; its path resolution half is B10 (4)).
 
 Imports System.IO
 Imports System.Text.Json
@@ -35,12 +42,15 @@ Public Class B04_MapStatusTests
     End Sub
 
     ''' <summary>
-    ''' (1) HEAD equal to the run's commit and a clean tree: current, behindBy 0, treeDirty false, every property present.
+    ''' (1) HEAD equal to the run's commit and a clean tree: current, behindBy 0, treeDirty false, every property present and no registry field.
     ''' </summary>
     <Fact>
     Public Sub CurrentWhenHeadEqualsTheRunAndTheTreeIsClean()
         Dim entry As JsonElement = MapStatusScenario.Entry(_scenario.AtC1, "Sample")
-        AssertHas(entry, "solutionKey", "projectId", "codememSolutionId", "run", "repoRoot", "head", "verdict", "reason")
+        AssertHas(entry, "solutionKey", "solutionId", "run", "repoRoot", "head", "verdict", "reason")
+        Dim unused As JsonElement
+        Assert.False(entry.TryGetProperty("projectId", unused), "entry still carries projectId")
+        Assert.False(entry.TryGetProperty("codememSolutionId", unused), "entry still carries codememSolutionId")
         AssertHas(entry.GetProperty("head"), "sha", "treeDirty", "behindBy", "note")
         AssertHas(entry.GetProperty("run"), "runId", "commitSha", "isDirty", "finishedUtc")
         Assert.Equal("current", entry.GetProperty("verdict").GetString())
@@ -90,7 +100,7 @@ Public Class B04_MapStatusTests
     End Sub
 
     ''' <summary>
-    ''' (5) The .git directory removed: no_git with the reason; a registered root that is a subdirectory of a repository: no_git, not a
+    ''' (5) The .git directory removed: no_git with the reason; a mapped root that is a subdirectory of a repository: no_git, not a
     ''' repository working directory, and the other entries unaffected.
     ''' </summary>
     <Fact>
@@ -106,43 +116,21 @@ Public Class B04_MapStatusTests
     End Sub
 
     ''' <summary>
-    ''' (6) A row bound to an id the map lacks is map_missing_solution naming key and id; unbound and inactive rows are listed with no
-    ''' verdict; bound counts the active bound rows.
-    ''' </summary>
-    <Fact>
-    Public Sub MapMissingSolutionUnboundAndInactiveAreListed()
-        Dim root As JsonElement = _scenario.AtC1.RootElement
-        Dim ghost As JsonElement = MapStatusScenario.Entry(_scenario.AtC1, "Ghost")
-        Assert.Equal("map_missing_solution", ghost.GetProperty("verdict").GetString())
-        Assert.Contains("Ghost", ghost.GetProperty("reason").GetString())
-        Assert.Contains("99", ghost.GetProperty("reason").GetString())
-        Assert.Equal(JsonValueKind.Null, ghost.GetProperty("run").ValueKind)
-        Assert.Equal(2, root.GetProperty("bound").GetInt32())
-        Assert.Equal(1, root.GetProperty("unbound").GetArrayLength())
-        Assert.Equal("Unbound", root.GetProperty("unbound")(0).GetProperty("solutionKey").GetString())
-        Assert.Equal(1, root.GetProperty("inactive").GetArrayLength())
-        Assert.Equal("Retired", root.GetProperty("inactive")(0).GetProperty("solutionKey").GetString())
-        Assert.Equal("inactive", root.GetProperty("inactive")(0).GetProperty("state").GetString())
-    End Sub
-
-    ''' <summary>
-    ''' (7) A map extracted from a copy outside any repository (no .git above it): no_git with the reason "no commit recorded".
+    ''' (7) A map extracted from a copy outside any repository (no .git above it): no_git with the reason "no commit recorded", repoRoot null.
     ''' </summary>
     <Fact>
     Public Sub NoCommitRecordedIsNoGit()
         Using copy As FixtureCopy = New FixtureCopy()
             Using map As TempMap = New TempMap()
-                Using registry As RegistryFixture = New RegistryFixture()
-                    Assert.Equal(ExitCode.Success, ExtractionRun.Execute(New ExtractionOptions With {.SolutionPath = copy.SolutionPath, .DbPath = map.Path, .SolutionKey = "Sample"}, Nothing))
-                    Dim runs As List(Of RunRow) = MapQueries.ReadRuns(map.Path)
-                    Assert.Null(runs(runs.Count - 1).CommitSha)
-                    registry.Seed(1, "Sample", MapQueries.ReadSolutions(map.Path)(0).Id, "active", copy.SolutionPath)
-                    Dim reply As BridgeReply = New BridgeHost(BridgeHost.WriteConfig(map.Path, registry.Path, Nothing, False, False)).Invoke("map_status", New Dictionary(Of String, Object)())
-                    Assert.False(reply.IsError, reply.Text)
-                    Dim entry As JsonElement = MapStatusScenario.Entry(reply.Json, "Sample")
-                    Assert.Equal("no_git", entry.GetProperty("verdict").GetString())
-                    Assert.Contains("no commit recorded", entry.GetProperty("head").GetProperty("note").GetString())
-                End Using
+                Assert.Equal(ExitCode.Success, ExtractionRun.Execute(New ExtractionOptions With {.SolutionPath = copy.SolutionPath, .DbPath = map.Path, .SolutionKey = "Sample"}, Nothing))
+                Dim runs As List(Of RunRow) = MapQueries.ReadRuns(map.Path)
+                Assert.Null(runs(runs.Count - 1).CommitSha)
+                Dim reply As BridgeReply = New BridgeHost(BridgeHost.WriteConfig(map.Path, Nothing, False, False)).Invoke("map_status", New Dictionary(Of String, Object)())
+                Assert.False(reply.IsError, reply.Text)
+                Dim entry As JsonElement = MapStatusScenario.Entry(reply.Json, "Sample")
+                Assert.Equal("no_git", entry.GetProperty("verdict").GetString())
+                Assert.Equal(JsonValueKind.Null, entry.GetProperty("repoRoot").ValueKind)
+                Assert.Contains("no commit recorded", entry.GetProperty("head").GetProperty("note").GetString())
             End Using
         End Using
     End Sub
@@ -161,30 +149,15 @@ Public Class B04_MapStatusTests
     End Sub
 
     ''' <summary>
-    ''' (8) The registered description names the six verdicts and says one verdict by name.
+    ''' (8) The registered description names the five verdicts, not_in_map, and says one verdict by name (005 FR-407).
     ''' </summary>
     <Fact>
-    Public Sub TheDescriptionNamesTheSixVerdicts()
+    Public Sub TheDescriptionNamesTheFiveVerdictsAndNotInMap()
         Dim description As String = BridgeTools.RegisteredToolDescriptions("map_status")
-        For Each phrase As String In New String() {"current", "behind", "dirty", "no_git", "map_missing_solution", "diverged", "one verdict by name"}
+        For Each phrase As String In New String() {"current", "behind", "dirty", "no_git", "diverged", "not_in_map", "one verdict by name"}
             Assert.Contains(phrase, description)
         Next
-    End Sub
-
-    ''' <summary>
-    ''' (9) An empty registry is a state, not a refusal: no entries, bound 0, unbound and inactive empty.
-    ''' </summary>
-    <Fact>
-    Public Sub AnEmptyRegistryIsAStateNotARefusal()
-        Using registry As RegistryFixture = New RegistryFixture()
-            Dim reply As BridgeReply = New BridgeHost(BridgeHost.WriteConfig(_scenario.Map.Path, registry.Path, Nothing, False, False)).Invoke("map_status", New Dictionary(Of String, Object)())
-            Assert.False(reply.IsError, reply.Text)
-            Dim root As JsonElement = reply.Root()
-            Assert.Equal(0, root.GetProperty("entries").GetArrayLength())
-            Assert.Equal(0, root.GetProperty("bound").GetInt32())
-            Assert.Equal(0, root.GetProperty("unbound").GetArrayLength())
-            Assert.Equal(0, root.GetProperty("inactive").GetArrayLength())
-        End Using
+        Assert.DoesNotContain("map_missing_solution", description, StringComparison.Ordinal)
     End Sub
 
     Private Shared Sub AssertHas(element As JsonElement, ParamArray names As String())

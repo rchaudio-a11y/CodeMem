@@ -1,79 +1,70 @@
 ' File: MapStatusReader.vb
 ' Project: CodeMem.Bridging
-' Description: map_status: one entry per active, bound registry row with every fact and one verdict in the ruled order; unbound and inactive rows listed (FR-320..FR-324, spec Q4; research R52, INC4).
+' Description: map_status: one entry per map solution with every fact and one verdict in the ruled order; the observed-but-unmapped directories from the extract log (005 FR-418-FR-420, Q5, Q6; research R52, R64).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-15
+'
+' 2026-09-17 (feature 005, T015): entries come from solutions rows, not registry rows; map_missing_solution cannot arise and is gone; the
+' root asked is the extractor's own answer - repo_root, else the solution file's directory (SolutionScope.Resolve, Q6). notInMap is filled
+' by NotInMapReader from T028; until then the list is empty and the error null.
 
+Imports System.IO
 Imports CodeMem.Core
+Imports CodeMem.Extraction
 
 ''' <summary>
-''' Verdict order: map_missing_solution, no_git, dirty, diverged, behind, current. The latest completed run is the one compared (INC4).
-''' Also the door extract(stale) consults.
+''' Verdict order: no_git, dirty, diverged, behind, current. The latest completed run is the one compared (INC4). Also the door
+''' extract(stale) consults.
 ''' </summary>
 Public Module MapStatusReader
 
     ''' <summary>
-    ''' Builds the envelope on the call's open map from the registry rows read at the store stage.
+    ''' Builds the envelope on the call's open map.
     ''' </summary>
     ''' <param name="config">The configuration read for this call.</param>
-    ''' <param name="registry">The registry rows.</param>
     ''' <param name="map">The call's open map.</param>
     ''' <returns>The envelope.</returns>
-    Public Function Read(config As BridgeConfig, registry As List(Of RegistryRecord), map As MapDatabase) As MapStatusEnvelope
+    Public Function Read(config As BridgeConfig, map As MapDatabase) As MapStatusEnvelope
         Dim envelope As MapStatusEnvelope = New MapStatusEnvelope With {
             .ReadAtUtc = BridgeJson.NowUtc(),
             .MapPath = config.MapPath,
-            .StorePath = config.StorePath,
             .Entries = New List(Of MapStatusEntryEnvelope)(),
-            .Unbound = New List(Of UnboundEntryEnvelope)(),
-            .Inactive = New List(Of InactiveEntryEnvelope)()}
-        Dim bound As List(Of RegistryRecord) = New List(Of RegistryRecord)()
-        For Each row As RegistryRecord In registry
-            If Not String.Equals(row.State, "active", StringComparison.Ordinal) Then
-                envelope.Inactive.Add(New InactiveEntryEnvelope With {.SolutionKey = row.SolutionKey, .ProjectId = row.ProjectId, .State = row.State})
-                Continue For
-            End If
-            If Not row.CodememSolutionId.HasValue Then
-                envelope.Unbound.Add(New UnboundEntryEnvelope With {.SolutionKey = row.SolutionKey, .ProjectId = row.ProjectId})
-                Continue For
-            End If
-            bound.Add(row)
-        Next
-        envelope.Bound = bound.Count
+            .NotInMap = New List(Of NotInMapEntryEnvelope)(),
+            .NotInMapError = Nothing}
         ' The map facts first, every row's, then the repositories: the repository is never asked while a map read is pending.
-        Dim solutions As Dictionary(Of Long, SolutionRecord) = New Dictionary(Of Long, SolutionRecord)()
+        Dim solutions As List(Of SolutionRecord) = SolutionsRepository.ReadAll(map)
         Dim runs As Dictionary(Of Long, RunRecord) = New Dictionary(Of Long, RunRecord)()
-        For Each row As RegistryRecord In bound
-            Dim solution As SolutionRecord = SolutionsRepository.ReadById(map, row.CodememSolutionId.Value)
-            solutions(row.Id) = solution
-            runs(row.Id) = If(solution Is Nothing, Nothing, ExtractRunsRepository.ReadLatestCompleted(map, solution.Id))
+        For Each solution As SolutionRecord In solutions
+            runs(solution.Id) = ExtractRunsRepository.ReadLatestCompleted(map, solution.Id)
         Next
-        For Each row As RegistryRecord In bound
-            envelope.Entries.Add(EntryOf(row, solutions(row.Id), runs(row.Id)))
+        For Each solution As SolutionRecord In solutions
+            envelope.Entries.Add(EntryOf(solution, runs(solution.Id)))
         Next
         Return envelope
     End Function
 
     ''' <summary>
-    ''' One bound row's entry from the map facts already read: the repository's answers, the verdict in the ruled order and its reason.
+    ''' The root map_status asks and the resolver resolves against: the repository root the run recorded, else the solution file's
+    ''' directory - the extractor's own scope rule, one door (SolutionScope.Resolve; spec Q6 as ruled).
     ''' </summary>
-    ''' <param name="row">An active, bound registry row.</param>
-    ''' <param name="solution">The map's solution, or Nothing when the map lacks it.</param>
+    ''' <param name="solution">The map solution.</param>
+    ''' <returns>The normalised root with one trailing separator.</returns>
+    Public Function RootOf(solution As SolutionRecord) As String
+        Return SolutionScope.Resolve(solution.RepoRoot, Path.GetDirectoryName(Path.GetFullPath(solution.LastSeenPath))).Root
+    End Function
+
+    ''' <summary>
+    ''' One solution's entry from the map facts already read: the repository's answers, the verdict in the ruled order and its reason.
+    ''' </summary>
+    ''' <param name="solution">The map solution.</param>
     ''' <param name="run">The latest completed run, or Nothing.</param>
     ''' <returns>The entry.</returns>
-    Public Function EntryOf(row As RegistryRecord, solution As SolutionRecord, run As RunRecord) As MapStatusEntryEnvelope
+    Public Function EntryOf(solution As SolutionRecord, run As RunRecord) As MapStatusEntryEnvelope
         Dim entry As MapStatusEntryEnvelope = New MapStatusEntryEnvelope With {
-            .SolutionKey = row.SolutionKey,
-            .ProjectId = row.ProjectId,
-            .CodememSolutionId = row.CodememSolutionId.Value,
+            .SolutionKey = solution.Key,
+            .SolutionId = solution.Id,
+            .RepoRoot = solution.RepoRoot,
             .Head = New HeadEnvelope()}
-        Dim id As String = row.CodememSolutionId.Value.ToString(Globalization.CultureInfo.InvariantCulture)
-        If solution Is Nothing Then
-            entry.Verdict = "map_missing_solution"
-            entry.Reason = "registry row '" & row.SolutionKey & "' binds map solution " & id & ", but the map holds no solution " & id & "."
-            Return entry
-        End If
-        entry.RepoRoot = solution.RepoRoot
         If run Is Nothing Then
             entry.Verdict = "no_git"
             entry.Reason = "no completed run: the solution has never been published, so there is nothing to compare."
@@ -86,20 +77,14 @@ Public Module MapStatusReader
             entry.Reason = "run " & run.Id & " recorded no commit: the extractor found no repository with a commit at extraction time."
             Return entry
         End If
-        If solution.RepoRoot Is Nothing Then
-            entry.Verdict = "no_git"
-            entry.Head.Note = "no repository root recorded"
-            entry.Reason = "run " & run.Id & " recorded commit " & Short8(run.CommitSha) & " but the map holds no repository root for the solution."
-            Return entry
-        End If
-        Dim facts As RepositoryFacts = RepositoryFacts.Read(solution.RepoRoot, run.CommitSha)
+        Dim facts As RepositoryFacts = RepositoryFacts.Read(RootOf(solution), run.CommitSha)
         entry.Head.Sha = facts.HeadSha
         entry.Head.TreeDirty = facts.TreeDirty
         entry.Head.BehindBy = facts.BehindBy
         entry.Head.Note = facts.Note
         If Not facts.Available Then
             entry.Verdict = "no_git"
-            entry.Reason = "the repository at '" & solution.RepoRoot & "' could not be read: " & facts.Note & "."
+            entry.Reason = "the repository at '" & RootOf(solution) & "' could not be read: " & facts.Note & "."
         ElseIf facts.TreeDirty.HasValue AndAlso facts.TreeDirty.Value Then
             entry.Verdict = "dirty"
             entry.Reason = If(facts.IsAncestor AndAlso facts.BehindBy.HasValue AndAlso facts.BehindBy.Value > 0,

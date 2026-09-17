@@ -1,14 +1,16 @@
 ' File: FixtureMapScenario.vb
 ' Project: CodeMem.Tests
-' Description: Class fixture for the bridge's read facts: the committed fixture solution extracted once into a temp map, a registry bound to it, a configuration and an in-process host (feature 004).
+' Description: Class fixture for the bridge's read facts: the committed fixture solution extracted once into a temp map, a configuration and an in-process host (feature 004).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-15
+'
+' 2026-09-17 (feature 005, T017): no registry and no store path - the map is the only file the configuration names (FR-403, FR-433).
 
 Imports System.IO
 Imports CodeMem.Extraction
 
 ''' <summary>
-''' One extraction per test class instead of one per fact. The committed fixture is never edited; the map and the store are throwaway.
+''' One extraction per test class instead of one per fact. The committed fixture is never edited; the map is throwaway.
 ''' </summary>
 Public Class FixtureMapScenario
     Implements IDisposable
@@ -16,10 +18,7 @@ Public Class FixtureMapScenario
     ''' <summary>The temp map holding one completed run of the fixture solution.</summary>
     Public ReadOnly Property Map As TempMap
 
-    ''' <summary>A registry with one active row, Sample, bound to the map's solution under project 131373.</summary>
-    Public ReadOnly Property Registry As RegistryFixture
-
-    ''' <summary>A configuration file naming the map and the registry, both gates off.</summary>
+    ''' <summary>A configuration file naming the map, both gates off.</summary>
     Public ReadOnly Property ConfigPath As String
 
     ''' <summary>The map's solution id.</summary>
@@ -32,7 +31,7 @@ Public Class FixtureMapScenario
     Public ReadOnly Property Host As BridgeHost
 
     ''' <summary>
-    ''' Restores and extracts the fixture, seeds the registry, writes the configuration.
+    ''' Restores and extracts the fixture, writes the configuration.
     ''' </summary>
     Public Sub New()
         SolutionPath = Path.Combine(RepoPaths.FixtureDirectory(), "Sample.sln")
@@ -41,9 +40,7 @@ Public Class FixtureMapScenario
         Dim code As ExitCode = ExtractionRun.Execute(New ExtractionOptions With {.SolutionPath = SolutionPath, .DbPath = Map.Path}, Nothing)
         If code <> ExitCode.Success Then Throw New InvalidOperationException("fixture extraction failed: " & code.ToString())
         SolutionId = MapQueries.ReadSolutions(Map.Path)(0).Id
-        Registry = New RegistryFixture()
-        Registry.Seed(131373, "Sample", SolutionId, "active", SolutionPath)
-        ConfigPath = BridgeHost.WriteConfig(Map.Path, Registry.Path, Nothing, False, False)
+        ConfigPath = BridgeHost.WriteConfig(Map.Path, Nothing, False, False)
         Host = New BridgeHost(ConfigPath)
     End Sub
 
@@ -59,10 +56,9 @@ Public Class FixtureMapScenario
     End Function
 
     ''' <summary>
-    ''' Deletes the registry and the map.
+    ''' Deletes the map.
     ''' </summary>
     Public Sub Dispose() Implements IDisposable.Dispose
-        Registry.Dispose()
         Map.Dispose()
     End Sub
 

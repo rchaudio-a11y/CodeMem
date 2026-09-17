@@ -1,17 +1,23 @@
 ' File: BridgeConfigFile.vb
 ' Project: CodeMem.Bridging
-' Description: Reads bridge.config.json on every call, never caches it, and refuses a missing file or key by name (FR-307, spec Q8, research R49).
+' Description: Reads bridge.config.json on every call, never caches it, refuses a missing file or key by name and a retired key by name (FR-307; 005 FR-403; spec Q8, research R49).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-15
+'
+' 2026-09-17 (feature 005, T013): storePath is a retired key - present, it is refused as ConfigKeyRetired before mapPath is checked; the
+' bridge opens no store (Article IX at v1.4.0).
 
 Imports System.IO
 Imports System.Text.Json
 
 ''' <summary>
-''' The one door for configuration. Unknown keys are ignored; a file that is not JSON is Unconfigured naming the file; the two gates
-''' default to false when absent.
+''' The one door for configuration. Unknown keys are ignored; a retired key is refused by name; a file that is not JSON is Unconfigured
+''' naming the file; the two gates default to false when absent.
 ''' </summary>
 Public Module BridgeConfigFile
+
+    ''' <summary>The one key the bridge no longer reads (feature 005).</summary>
+    Private Const RetiredKey As String = "storePath"
 
     ''' <summary>
     ''' The default file: bridge.config.json beside the executable.
@@ -26,7 +32,7 @@ Public Module BridgeConfigFile
     ''' </summary>
     ''' <param name="path">The file, or Nothing for <see cref="DefaultPath"/>.</param>
     ''' <returns>The configuration.</returns>
-    ''' <exception cref="BridgeRefusalException">Unconfigured: the file is missing or not JSON, or mapPath or storePath is missing.</exception>
+    ''' <exception cref="BridgeRefusalException">Unconfigured: the file is missing or not JSON, or mapPath is missing; ConfigKeyRetired: storePath is present.</exception>
     Public Function Load(path As String) As BridgeConfig
         Dim file As String = If(String.IsNullOrWhiteSpace(path), DefaultPath(), IO.Path.GetFullPath(path))
         If Not IO.File.Exists(file) Then Throw Unconfigured("file", file)
@@ -39,9 +45,12 @@ Public Module BridgeConfigFile
             Throw Unconfigured("json", file)
         End Try
         If root.ValueKind <> JsonValueKind.Object Then Throw Unconfigured("json", file)
+        Dim retired As JsonElement
+        If root.TryGetProperty(RetiredKey, retired) Then
+            Throw New BridgeRefusalException(BridgeRefusal.Named(BridgeRefusalKind.ConfigKeyRetired, New Dictionary(Of String, String)(StringComparer.Ordinal) From {{"key", RetiredKey}, {"configPath", file}}))
+        End If
         Dim config As BridgeConfig = New BridgeConfig With {.SourcePath = file}
         config.MapPath = RequiredString(root, "mapPath", file)
-        config.StorePath = RequiredString(root, "storePath", file)
         config.ExtractorPath = OptionalString(root, "extractorPath")
         Dim extract As JsonElement
         If root.TryGetProperty("extract", extract) AndAlso extract.ValueKind = JsonValueKind.Object Then

@@ -1,6 +1,6 @@
 ' File: BridgeTools.vb
 ' Project: CodeMem.Bridging
-' Description: The eight tool methods the MCP server registers and the in-process host calls; each returns the envelope or a refusal as a CallToolResult (contracts/tools.md).
+' Description: The eight tool methods the bindings and the in-process host call; each takes the call's raw arguments and its typed ones and returns the envelope or a refusal as a CallToolResult (005 contracts/tools.md).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-15
 '
@@ -11,7 +11,12 @@
 ' 2026-09-15 (T029): type_usages registered, the same shape. (T033): map_status registered; the registry read at the store stage, the
 ' map facts inside the read transaction, the repositories asked after them. (T043): extract registered - origin Tool, the door's result as
 ' the text block, IsError when refused, failed or timed out.
+' 2026-09-17 (feature 005, T014): projectId and the store stage are gone (FR-405, FR-406). Every method's first parameter is the call's raw
+' argument dictionary, which ScopeResolver.RefuseProjectId reads (research R68: the protocol layer ignores an argument no parameter names);
+' BridgeToolBindings hands it the SDK's request context, BridgeHost a dictionary of its own. The shape is now arguments -> configuration ->
+' the map -> scope -> the seam -> the reader -> serialise -> EndRead -> answer.
 
+Imports System.Text.Json
 Imports CodeMem.Core
 Imports Microsoft.Data.Sqlite
 Imports ModelContextProtocol.Protocol
@@ -67,39 +72,39 @@ Public Class BridgeTools
     ''' <summary>
     ''' Every solution with its latest run of any outcome (056 §1.1).
     ''' </summary>
+    ''' <param name="rawArguments">The call's arguments as received, or Nothing.</param>
     ''' <returns>The envelope or a refusal.</returns>
-    Public Function Solutions() As CallToolResult
+    Public Function Solutions(rawArguments As IReadOnlyDictionary(Of String, JsonElement)) As CallToolResult
         Return RunRead(Of SolutionsEnvelope)(
             Sub()
+                ScopeResolver.RefuseProjectId(rawArguments)
             End Sub,
-            False,
-            Function(config As BridgeConfig, registry As List(Of RegistryRecord), map As MapDatabase)
+            Function(config As BridgeConfig, map As MapDatabase)
                 Seam()
                 Return SolutionsReader.Read(config, map)
             End Function)
     End Function
 
     ''' <summary>
-    ''' Active symbols by name and/or kind in a scope, twins folded (058 §3.2, FR-340).
+    ''' Active symbols by name and/or kind in one solution, twins folded (058 §3.2, FR-340).
     ''' </summary>
-    ''' <param name="projectId">A MemOS project id, or Nothing.</param>
-    ''' <param name="solutionKey">A map solution key, or Nothing.</param>
+    ''' <param name="rawArguments">The call's arguments as received, or Nothing.</param>
+    ''' <param name="solutionKey">A map solution key.</param>
     ''' <param name="name">The name filter, or Nothing.</param>
     ''' <param name="kind">The kind filter, or Nothing.</param>
     ''' <param name="projectSymbolId">A project row to narrow to, or Nothing.</param>
     ''' <returns>The envelope or a refusal.</returns>
-    Public Function SymbolSearch(Optional projectId As Long? = Nothing, Optional solutionKey As String = Nothing, Optional name As String = Nothing, Optional kind As String = Nothing, Optional projectSymbolId As Long? = Nothing) As CallToolResult
+    Public Function SymbolSearch(rawArguments As IReadOnlyDictionary(Of String, JsonElement), Optional solutionKey As String = Nothing, Optional name As String = Nothing, Optional kind As String = Nothing, Optional projectSymbolId As Long? = Nothing) As CallToolResult
         Dim key As String = Normalise(solutionKey)
         Dim nameFilter As String = Normalise(name)
         Dim kindFilter As String = Normalise(kind)
         Return RunRead(Of SymbolSearchEnvelope)(
             Sub()
-                ScopeResolver.ValidateArguments(projectId, key)
+                ScopeResolver.ValidateArguments(rawArguments, key)
                 SymbolSearchReader.ValidateFilters(nameFilter, kindFilter)
             End Sub,
-            projectId.HasValue,
-            Function(config As BridgeConfig, registry As List(Of RegistryRecord), map As MapDatabase)
-                Dim scope As ResolvedScope = ScopeResolver.Resolve(projectId, key, registry, config, map)
+            Function(config As BridgeConfig, map As MapDatabase)
+                Dim scope As ResolvedScope = ScopeResolver.Resolve(key, config, map)
                 Seam()
                 Return SymbolSearchReader.Read(map, scope, config, nameFilter, kindFilter, projectSymbolId)
             End Function)
@@ -108,20 +113,19 @@ Public Class BridgeTools
     ''' <summary>
     ''' One symbol whole: parts and edges under the eight verbs (058 §3.3).
     ''' </summary>
+    ''' <param name="rawArguments">The call's arguments as received, or Nothing.</param>
     ''' <param name="symbolId">The mapped symbol id.</param>
-    ''' <param name="projectId">A MemOS project id, or Nothing.</param>
-    ''' <param name="solutionKey">A map solution key, or Nothing.</param>
+    ''' <param name="solutionKey">A map solution key.</param>
     ''' <returns>The envelope or a refusal.</returns>
-    Public Function SymbolDetail(Optional symbolId As Long? = Nothing, Optional projectId As Long? = Nothing, Optional solutionKey As String = Nothing) As CallToolResult
+    Public Function SymbolDetail(rawArguments As IReadOnlyDictionary(Of String, JsonElement), Optional symbolId As Long? = Nothing, Optional solutionKey As String = Nothing) As CallToolResult
         Dim key As String = Normalise(solutionKey)
         Return RunRead(Of SymbolDetailEnvelope)(
             Sub()
-                ScopeResolver.ValidateArguments(projectId, key)
+                ScopeResolver.ValidateArguments(rawArguments, key)
                 SymbolResolver.RequireSymbolId(symbolId)
             End Sub,
-            projectId.HasValue,
-            Function(config As BridgeConfig, registry As List(Of RegistryRecord), map As MapDatabase)
-                Dim scope As ResolvedScope = ScopeResolver.Resolve(projectId, key, registry, config, map)
+            Function(config As BridgeConfig, map As MapDatabase)
+                Dim scope As ResolvedScope = ScopeResolver.Resolve(key, config, map)
                 Seam()
                 Return SymbolDetailReader.Read(map, scope, config, symbolId.Value)
             End Function)
@@ -130,20 +134,19 @@ Public Class BridgeTools
     ''' <summary>
     ''' Every occurrence targeting a symbol by identity (058 §3.4).
     ''' </summary>
+    ''' <param name="rawArguments">The call's arguments as received, or Nothing.</param>
     ''' <param name="symbolId">The mapped symbol id.</param>
-    ''' <param name="projectId">A MemOS project id, or Nothing.</param>
-    ''' <param name="solutionKey">A map solution key, or Nothing.</param>
+    ''' <param name="solutionKey">A map solution key.</param>
     ''' <returns>The envelope or a refusal.</returns>
-    Public Function References(Optional symbolId As Long? = Nothing, Optional projectId As Long? = Nothing, Optional solutionKey As String = Nothing) As CallToolResult
+    Public Function References(rawArguments As IReadOnlyDictionary(Of String, JsonElement), Optional symbolId As Long? = Nothing, Optional solutionKey As String = Nothing) As CallToolResult
         Dim key As String = Normalise(solutionKey)
         Return RunRead(Of ReferencesEnvelope)(
             Sub()
-                ScopeResolver.ValidateArguments(projectId, key)
+                ScopeResolver.ValidateArguments(rawArguments, key)
                 SymbolResolver.RequireSymbolId(symbolId)
             End Sub,
-            projectId.HasValue,
-            Function(config As BridgeConfig, registry As List(Of RegistryRecord), map As MapDatabase)
-                Dim scope As ResolvedScope = ScopeResolver.Resolve(projectId, key, registry, config, map)
+            Function(config As BridgeConfig, map As MapDatabase)
+                Dim scope As ResolvedScope = ScopeResolver.Resolve(key, config, map)
                 Seam()
                 Return ReferencesReader.Read(map, scope, config, symbolId.Value)
             End Function)
@@ -152,22 +155,21 @@ Public Class BridgeTools
     ''' <summary>
     ''' Active symbols no recorded reference reaches (060 §3.1).
     ''' </summary>
-    ''' <param name="projectId">A MemOS project id, or Nothing.</param>
-    ''' <param name="solutionKey">A map solution key, or Nothing.</param>
+    ''' <param name="rawArguments">The call's arguments as received, or Nothing.</param>
+    ''' <param name="solutionKey">A map solution key.</param>
     ''' <param name="kind">The kind filter, or Nothing.</param>
     ''' <param name="projectSymbolId">A project row to narrow to, or Nothing.</param>
     ''' <returns>The envelope or a refusal.</returns>
-    Public Function Orphans(Optional projectId As Long? = Nothing, Optional solutionKey As String = Nothing, Optional kind As String = Nothing, Optional projectSymbolId As Long? = Nothing) As CallToolResult
+    Public Function Orphans(rawArguments As IReadOnlyDictionary(Of String, JsonElement), Optional solutionKey As String = Nothing, Optional kind As String = Nothing, Optional projectSymbolId As Long? = Nothing) As CallToolResult
         Dim key As String = Normalise(solutionKey)
         Dim kindFilter As String = Normalise(kind)
         Return RunRead(Of OrphansEnvelope)(
             Sub()
-                ScopeResolver.ValidateArguments(projectId, key)
+                ScopeResolver.ValidateArguments(rawArguments, key)
                 OrphansReader.ValidateArguments(kindFilter)
             End Sub,
-            projectId.HasValue,
-            Function(config As BridgeConfig, registry As List(Of RegistryRecord), map As MapDatabase)
-                Dim scope As ResolvedScope = ScopeResolver.Resolve(projectId, key, registry, config, map)
+            Function(config As BridgeConfig, map As MapDatabase)
+                Dim scope As ResolvedScope = ScopeResolver.Resolve(key, config, map)
                 Seam()
                 Return OrphansReader.Read(map, scope, config, kindFilter, projectSymbolId)
             End Function)
@@ -176,48 +178,54 @@ Public Class BridgeTools
     ''' <summary>
     ''' Everything the map records against one type (contracts/tools.md §3.6).
     ''' </summary>
+    ''' <param name="rawArguments">The call's arguments as received, or Nothing.</param>
     ''' <param name="symbolId">The mapped symbol id of a type.</param>
-    ''' <param name="projectId">A MemOS project id, or Nothing.</param>
-    ''' <param name="solutionKey">A map solution key, or Nothing.</param>
+    ''' <param name="solutionKey">A map solution key.</param>
     ''' <returns>The envelope or a refusal.</returns>
-    Public Function TypeUsages(Optional symbolId As Long? = Nothing, Optional projectId As Long? = Nothing, Optional solutionKey As String = Nothing) As CallToolResult
+    Public Function TypeUsages(rawArguments As IReadOnlyDictionary(Of String, JsonElement), Optional symbolId As Long? = Nothing, Optional solutionKey As String = Nothing) As CallToolResult
         Dim key As String = Normalise(solutionKey)
         Return RunRead(Of TypeUsagesEnvelope)(
             Sub()
-                ScopeResolver.ValidateArguments(projectId, key)
+                ScopeResolver.ValidateArguments(rawArguments, key)
                 SymbolResolver.RequireSymbolId(symbolId)
             End Sub,
-            projectId.HasValue,
-            Function(config As BridgeConfig, registry As List(Of RegistryRecord), map As MapDatabase)
-                Dim scope As ResolvedScope = ScopeResolver.Resolve(projectId, key, registry, config, map)
+            Function(config As BridgeConfig, map As MapDatabase)
+                Dim scope As ResolvedScope = ScopeResolver.Resolve(key, config, map)
                 Seam()
                 Return TypeUsagesReader.Read(map, scope, config, symbolId.Value)
             End Function)
     End Function
 
     ''' <summary>
-    ''' One verdict per bound registry row (contracts/tools.md §3.7).
+    ''' One verdict per map solution, and the directories observed but not in the map (005 contracts/tools.md §3.7).
     ''' </summary>
+    ''' <param name="rawArguments">The call's arguments as received, or Nothing.</param>
     ''' <returns>The envelope or a refusal.</returns>
-    Public Function MapStatus() As CallToolResult
+    Public Function MapStatus(rawArguments As IReadOnlyDictionary(Of String, JsonElement)) As CallToolResult
         Return RunRead(Of MapStatusEnvelope)(
             Sub()
+                ScopeResolver.RefuseProjectId(rawArguments)
             End Sub,
-            True,
-            Function(config As BridgeConfig, registry As List(Of RegistryRecord), map As MapDatabase)
+            Function(config As BridgeConfig, map As MapDatabase)
                 Seam()
-                Return MapStatusReader.Read(config, registry, map)
+                Return MapStatusReader.Read(config, map)
             End Function)
     End Function
 
     ''' <summary>
-    ''' Runs the extractor for one registered solution, or for every stale one (contracts/tools.md §3.8).
+    ''' Runs the extractor for one mapped solution, or for every stale one (contracts/tools.md §3.8).
     ''' </summary>
-    ''' <param name="solutionKey">A registry key, or Nothing.</param>
-    ''' <param name="repoPath">A directory under a registered root, or Nothing.</param>
-    ''' <param name="stale">True to refresh every stale bound solution, or Nothing.</param>
+    ''' <param name="rawArguments">The call's arguments as received, or Nothing.</param>
+    ''' <param name="solutionKey">A map solution key, or Nothing.</param>
+    ''' <param name="repoPath">A directory under a mapped root, or Nothing.</param>
+    ''' <param name="stale">True to refresh every stale mapped solution, or Nothing.</param>
     ''' <returns>The result or a refusal.</returns>
-    Public Function Extract(Optional solutionKey As String = Nothing, Optional repoPath As String = Nothing, Optional stale As Boolean? = Nothing) As CallToolResult
+    Public Function Extract(rawArguments As IReadOnlyDictionary(Of String, JsonElement), Optional solutionKey As String = Nothing, Optional repoPath As String = Nothing, Optional stale As Boolean? = Nothing) As CallToolResult
+        Try
+            ScopeResolver.RefuseProjectId(rawArguments)
+        Catch ex As BridgeRefusalException
+            Return Refuse(ex.Refusal)
+        End Try
         Dim request As ExtractRequest = New ExtractRequest With {.Origin = ExtractOrigin.Tool, .SolutionKey = Normalise(solutionKey), .RepoPath = Normalise(repoPath), .Stale = stale.HasValue AndAlso stale.Value}
         If request.Stale Then
             Dim staleResult As StaleResult = _door.RunStale(request)
@@ -235,17 +243,16 @@ Public Class BridgeTools
     End Function
 
     ''' <summary>
-    ''' The one shape every read tool walks: arguments, configuration, store (when the scope is a project), map, question; a refusal at any
-    ''' stage is answered as text, and a driver failure during the reads is named through the map door.
+    ''' The one shape every read tool walks: arguments, configuration, map, question; a refusal at any stage is answered as text, and a
+    ''' driver failure during the reads is named through the map door.
     ''' </summary>
-    Private Function RunRead(Of T)(arguments As Action, needsRegistry As Boolean, body As Func(Of BridgeConfig, List(Of RegistryRecord), MapDatabase, T)) As CallToolResult
+    Private Function RunRead(Of T)(arguments As Action, body As Func(Of BridgeConfig, MapDatabase, T)) As CallToolResult
         Dim config As BridgeConfig = Nothing
         Try
             arguments()
             config = BridgeConfigFile.Load(_configPath)
-            Dim registry As List(Of RegistryRecord) = If(needsRegistry, StoreAccess.ReadRegistry(config), Nothing)
             Using map As MapDatabase = MapAccess.OpenRead(config)
-                Dim json As String = BridgeJson.Serialize(body(config, registry, map))
+                Dim json As String = BridgeJson.Serialize(body(config, map))
                 map.EndRead()
                 Return Answer(json)
             End Using

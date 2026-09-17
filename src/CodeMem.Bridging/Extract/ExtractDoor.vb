@@ -8,6 +8,7 @@
 ' configuration -> gates (before resolution, STOP 1 ruling 2) -> the store -> the map, read once and closed before the launch -> the
 ' semaphore (one extraction per process, FR-332 as scoped) -> the extractor's existence -> the launch under the 540 s budget (TIM1) -> the
 ' line -> the run read back on a fresh read-only open -> the log line -> the result.
+' 2026-09-17 (feature 005, T015): RunStale reads map_status from the map alone (no registry); Run's store stage leaves at T021 with the resolver.
 
 Imports System.Diagnostics
 Imports System.IO
@@ -136,10 +137,9 @@ Public Class ExtractDoor
                 Throw New BridgeRefusalException(gate)
             End If
             result.Gate = "passed"
-            Dim registry As List(Of RegistryRecord) = StoreAccess.ReadRegistry(config)
             Dim status As MapStatusEnvelope
             Using map As MapDatabase = MapAccess.OpenRead(config)
-                status = MapStatusReader.Read(config, registry, map)
+                status = MapStatusReader.Read(config, map)
                 map.EndRead()
             End Using
             For Each entry As MapStatusEntryEnvelope In status.Entries

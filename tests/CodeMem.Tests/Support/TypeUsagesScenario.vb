@@ -3,6 +3,8 @@
 ' Description: Class fixture for B03: a fixture copy with an explicit constructor, a sibling call and a cross-project user of AlphaService, extracted once into a temp map (feature 004, T027).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-15
+'
+' 2026-09-17 (feature 005, T017): no registry - the configuration names the map only (FR-403).
 
 Imports System.IO
 Imports CodeMem.Extraction
@@ -20,17 +22,14 @@ Public Class TypeUsagesScenario
     ''' <summary>The temp map.</summary>
     Public ReadOnly Property Map As TempMap
 
-    ''' <summary>A registry with one active row bound to the map's solution.</summary>
-    Public ReadOnly Property Registry As RegistryFixture
-
     ''' <summary>The map's solution id.</summary>
     Public ReadOnly Property SolutionId As Long
 
-    ''' <summary>An in-process host over the map and the registry, both gates off.</summary>
+    ''' <summary>An in-process host over the map, both gates off.</summary>
     Public ReadOnly Property Host As BridgeHost
 
     ''' <summary>
-    ''' Copies, edits, extracts, seeds.
+    ''' Copies, edits, extracts.
     ''' </summary>
     Public Sub New()
         Copy = New FixtureCopy()
@@ -44,9 +43,7 @@ Public Class TypeUsagesScenario
         Dim code As ExitCode = ExtractionRun.Execute(New ExtractionOptions With {.SolutionPath = Copy.SolutionPath, .DbPath = Map.Path, .SolutionKey = "Sample"}, Nothing)
         If code <> ExitCode.Success Then Throw New InvalidOperationException("fixture copy extraction failed: " & code.ToString())
         SolutionId = MapQueries.ReadSolutions(Map.Path)(0).Id
-        Registry = New RegistryFixture()
-        Registry.Seed(131373, "Sample", SolutionId, "active", Copy.SolutionPath)
-        Host = New BridgeHost(BridgeHost.WriteConfig(Map.Path, Registry.Path, Nothing, False, False))
+        Host = New BridgeHost(BridgeHost.WriteConfig(Map.Path, Nothing, False, False))
     End Sub
 
     ''' <summary>
@@ -61,10 +58,9 @@ Public Class TypeUsagesScenario
     End Function
 
     ''' <summary>
-    ''' Deletes the registry, the map and the copy.
+    ''' Deletes the map and the copy.
     ''' </summary>
     Public Sub Dispose() Implements IDisposable.Dispose
-        Registry.Dispose()
         Map.Dispose()
         Copy.Dispose()
     End Sub

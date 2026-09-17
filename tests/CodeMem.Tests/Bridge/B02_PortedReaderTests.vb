@@ -21,6 +21,12 @@
 ' (the fixture maps are version 3, the pin was 2): the named Red of FR-430. Amended with the pin: (7)'s hand-bump 3 -> 4 for "version above",
 ' and a version-2 map (Fixtures/Maps/version2.sqlite) added as a second "version below" case with the extractor remedy.
 ' (1)'s map.schemaVersion literal 2 -> 3 (observed red after the pin moved: expected 2, actual 3).
+'
+' 2026-09-17 (feature 005, T017): RED - (2) red (projectId refused: ProjectIdRemoved), (7) red ("exactly one of projectId" is no longer
+' ScopeMissing's phrase; the registry-absent, both-scopes and no-registry-row cases have no subject), (8) red (map_missing_solution gone
+' from map_status's text). Amended: (2) is now SymbolSearchByKeyHasOneScopeAndProjectSymbolIdNarrows; (7) asserts ScopeMissing's new
+' phrase and a projectId refused before the configuration is read (analyze G5); the retired cases are cut into
+' _Archive/004-store/tests/B02_RetiredFacts.vb; (8) names not_in_map; every registry seed is gone.
 
 Imports System.IO
 Imports System.Text.Json
@@ -98,51 +104,36 @@ Public Class B02_PortedReaderTests
     <Fact>
     Public Sub SolutionsReportsTheLatestRunOfAnyOutcome()
         Using map As TempMap = New TempMap()
-            Using registry As RegistryFixture = New RegistryFixture()
-                Dim options As ExtractionOptions = New ExtractionOptions With {.SolutionPath = _scenario.SolutionPath, .DbPath = map.Path}
-                Assert.Equal(ExitCode.Success, ExtractionRun.Execute(options, Nothing))
-                Dim seams As RunSeams = New RunSeams With {.CorruptStagedCounts = Sub(c As RunCounts) c.SymbolsMatched += 1}
-                Assert.Equal(ExitCode.ResidualMismatch, ExtractionRun.Execute(options, seams))
-                Dim rows As List(Of RunRow) = MapQueries.ReadRuns(map.Path)
-                Assert.Equal("failed", rows(rows.Count - 1).Outcome)
-                registry.Seed(131373, "Sample", MapQueries.ReadSolutions(map.Path)(0).Id, "active", _scenario.SolutionPath)
-                Dim host As BridgeHost = New BridgeHost(BridgeHost.WriteConfig(map.Path, registry.Path, Nothing, False, False))
-                Dim reply As BridgeReply = host.Invoke("solutions", Args())
-                Assert.False(reply.IsError, reply.Text)
-                Dim run As JsonElement = reply.Root().GetProperty("solutions")(0).GetProperty("latestRun")
-                Assert.Equal("failed", run.GetProperty("outcome").GetString())
-                Assert.Equal(rows(rows.Count - 1).Id, run.GetProperty("runId").GetInt64())
-            End Using
+            Dim options As ExtractionOptions = New ExtractionOptions With {.SolutionPath = _scenario.SolutionPath, .DbPath = map.Path}
+            Assert.Equal(ExitCode.Success, ExtractionRun.Execute(options, Nothing))
+            Dim seams As RunSeams = New RunSeams With {.CorruptStagedCounts = Sub(c As RunCounts) c.SymbolsMatched += 1}
+            Assert.Equal(ExitCode.ResidualMismatch, ExtractionRun.Execute(options, seams))
+            Dim rows As List(Of RunRow) = MapQueries.ReadRuns(map.Path)
+            Assert.Equal("failed", rows(rows.Count - 1).Outcome)
+            Dim host As BridgeHost = New BridgeHost(BridgeHost.WriteConfig(map.Path, Nothing, False, False))
+            Dim reply As BridgeReply = host.Invoke("solutions", Args())
+            Assert.False(reply.IsError, reply.Text)
+            Dim run As JsonElement = reply.Root().GetProperty("solutions")(0).GetProperty("latestRun")
+            Assert.Equal("failed", run.GetProperty("outcome").GetString())
+            Assert.Equal(rows(rows.Count - 1).Id, run.GetProperty("runId").GetInt64())
         End Using
     End Sub
 
     ''' <summary>
-    ''' (2) symbol_search by key and by project return the same rows and total; by project the registry counts are numbers, by key null;
+    ''' (2) symbol_search by key: the scope envelope carries by, solutionKey and the one solution and nothing else (005 FR-405);
     ''' projectSymbolId narrows the rows and never the total.
     ''' </summary>
     <Fact>
-    Public Sub SymbolSearchByKeyAndByProjectAgree()
+    Public Sub SymbolSearchByKeyHasOneScopeAndProjectSymbolIdNarrows()
         Dim byKey As BridgeReply = _scenario.Host.Invoke("symbol_search", Args("solutionKey", "Sample", "name", "Widget"))
-        Dim byProject As BridgeReply = _scenario.Host.Invoke("symbol_search", Args("projectId", 131373L, "name", "Widget"))
         Assert.False(byKey.IsError, byKey.Text)
-        Assert.False(byProject.IsError, byProject.Text)
-        Assert.Equal(Canonical(byKey.Root().GetProperty("symbols")), Canonical(byProject.Root().GetProperty("symbols")))
         Assert.True(byKey.Root().GetProperty("symbols").GetArrayLength() > 0, "no Widget rows")
-        Assert.Equal(byKey.Root().GetProperty("total").GetInt32(), byProject.Root().GetProperty("total").GetInt32())
         Assert.False(byKey.Root().GetProperty("truncated").GetBoolean())
-        Assert.False(byProject.Root().GetProperty("truncated").GetBoolean())
-        Dim projectScope As JsonElement = byProject.Root().GetProperty("scope")
-        Assert.Equal("projectId", projectScope.GetProperty("by").GetString())
-        For Each name As String In New String() {"activeRegistryRows", "unboundRegistryRows", "inactiveRegistryRows"}
-            Assert.Equal(JsonValueKind.Number, projectScope.GetProperty(name).ValueKind)
-        Next
-        Assert.Equal(JsonValueKind.Array, projectScope.GetProperty("danglingSolutionIds").ValueKind)
-        Assert.False(projectScope.GetProperty("hadNothingToSearch").GetBoolean())
         Dim keyScope As JsonElement = byKey.Root().GetProperty("scope")
         Assert.Equal("solutionKey", keyScope.GetProperty("by").GetString())
-        For Each name As String In New String() {"activeRegistryRows", "unboundRegistryRows", "inactiveRegistryRows", "danglingSolutionIds"}
-            Assert.Equal(JsonValueKind.Null, keyScope.GetProperty(name).ValueKind)
-        Next
+        Assert.Equal("Sample", keyScope.GetProperty("solutionKey").GetString())
+        Assert.Equal(1, keyScope.GetProperty("solutions").GetArrayLength())
+        Assert.Equal(3, CountProperties(keyScope))
         Dim libProject As Long = _scenario.SymbolId("Project:Sample.Lib")
         Dim narrowed As BridgeReply = _scenario.Host.Invoke("symbol_search", Args("solutionKey", "Sample", "name", "Widget", "projectSymbolId", libProject))
         Assert.False(narrowed.IsError, narrowed.Text)
@@ -264,43 +255,40 @@ Public Class B02_PortedReaderTests
     End Sub
 
     ''' <summary>
-    ''' (7) The refusal chain in order (arguments before configuration before store before map before question) and by name, each case's
-    ''' distinguishing phrase from contracts/tools.md §6; a projectId with no registry row is not an error.
+    ''' (7) The refusal chain in order (arguments before configuration before map before question) and by name, each case's
+    ''' distinguishing phrase from contracts/tools.md §6; a call carrying projectId is refused before the configuration is read (005 FR-406, FR-408).
     ''' </summary>
     <Fact>
     Public Sub RefusalsComeInOrderAndByName()
         Dim absentConfig As String = Path.Combine(Path.GetTempPath(), "codemem-tests", "absent-config-" & Guid.NewGuid().ToString("N") & ".json")
         Dim noConfig As BridgeHost = New BridgeHost(absentConfig)
-        Expect("no scope before configuration", noConfig.Invoke("symbol_search", Args("name", "x")), "exactly one of projectId")
+        Expect("no scope before configuration", noConfig.Invoke("symbol_search", Args("name", "x")), "Supply solutionKey")
+        Expect("projectId before configuration", noConfig.Invoke("symbol_search", Args("projectId", 131373L, "solutionKey", "Sample", "name", "x")), "projectId is not an argument")
         Expect("configuration absent", noConfig.Invoke("symbol_search", Args("solutionKey", "Sample", "name", "x")), "not configured")
 
         Dim absentMap As String = Path.Combine(Path.GetTempPath(), "codemem-tests", "absent-" & Guid.NewGuid().ToString("N") & ".sqlite")
-        Expect("map absent", New BridgeHost(BridgeHost.WriteConfig(absentMap, _scenario.Registry.Path, Nothing, False, False)).Invoke("solutions", Args()), "No CodeMem map exists")
+        Expect("map absent", New BridgeHost(BridgeHost.WriteConfig(absentMap, Nothing, False, False)).Invoke("solutions", Args()), "No CodeMem map exists")
         Assert.False(File.Exists(absentMap), "the refusal created the map")
 
         Using foreign As TempMap = New TempMap()
             MapQueries.CreateForeignDatabase(foreign.Path)
-            Expect("not a map", New BridgeHost(BridgeHost.WriteConfig(foreign.Path, _scenario.Registry.Path, Nothing, False, False)).Invoke("solutions", Args()), "not a CodeMem map")
+            Expect("not a map", New BridgeHost(BridgeHost.WriteConfig(foreign.Path, Nothing, False, False)).Invoke("solutions", Args()), "not a CodeMem map")
         End Using
         Using v1 As TempMap = New TempMap()
             V1MapFixture.CopyToTemp(v1)
-            Expect("version below", New BridgeHost(BridgeHost.WriteConfig(v1.Path, _scenario.Registry.Path, Nothing, False, False)).Invoke("solutions", Args()), "upgrades the map in place")
+            Expect("version below", New BridgeHost(BridgeHost.WriteConfig(v1.Path, Nothing, False, False)).Invoke("solutions", Args()), "upgrades the map in place")
         End Using
         Using v2 As TempMap = New TempMap()
             V2MapFixture.CopyToTemp(v2)
-            Expect("version below (a 004-era map)", New BridgeHost(BridgeHost.WriteConfig(v2.Path, _scenario.Registry.Path, Nothing, False, False)).Invoke("solutions", Args()), "upgrades the map in place")
+            Expect("version below (a 004-era map)", New BridgeHost(BridgeHost.WriteConfig(v2.Path, Nothing, False, False)).Invoke("solutions", Args()), "upgrades the map in place")
         End Using
         Using newer As TempMap = New TempMap()
             Assert.Equal(ExitCode.Success, ExtractionRun.Execute(New ExtractionOptions With {.SolutionPath = _scenario.SolutionPath, .DbPath = newer.Path}, Nothing))
             MapQueries.SetSchemaVersion(newer.Path, 4)
-            Expect("version above", New BridgeHost(BridgeHost.WriteConfig(newer.Path, _scenario.Registry.Path, Nothing, False, False)).Invoke("solutions", Args()), "newer contract")
-        End Using
-        Using noTable As RegistryFixture = RegistryFixture.WithoutTable()
-            Expect("registry absent", New BridgeHost(BridgeHost.WriteConfig(_scenario.Map.Path, noTable.Path, Nothing, False, False)).Invoke("symbol_search", Args("projectId", 131373L, "name", "x")), "no code_map_solutions table")
+            Expect("version above", New BridgeHost(BridgeHost.WriteConfig(newer.Path, Nothing, False, False)).Invoke("solutions", Args()), "newer contract")
         End Using
 
         Dim host As BridgeHost = _scenario.Host
-        Expect("both scopes", host.Invoke("symbol_search", Args("projectId", 131373L, "solutionKey", "Sample", "name", "x")), "Both")
         Expect("no filter", host.Invoke("symbol_search", Args("solutionKey", "Sample")), "name, a kind, or both")
         Dim kindUnknown As BridgeReply = host.Invoke("symbol_search", Args("solutionKey", "Sample", "kind", "widget"))
         Expect("kind unknown", kindUnknown, "not a symbol kind")
@@ -311,45 +299,32 @@ Public Class B02_PortedReaderTests
 
         Using copy As FixtureCopy = New FixtureCopy()
             Using map As TempMap = New TempMap()
-                Using registry As RegistryFixture = New RegistryFixture()
-                    Dim options As ExtractionOptions = New ExtractionOptions With {.SolutionPath = copy.SolutionPath, .DbPath = map.Path, .SolutionKey = "Sample"}
-                    Assert.Equal(ExitCode.Success, ExtractionRun.Execute(options, Nothing))
-                    File.Delete(Path.Combine(copy.Directory, "Sample.Lib", "Twins.vb"))
-                    Assert.Equal(ExitCode.Success, ExtractionRun.Execute(options, Nothing))
-                    Dim solutionId As Long = MapQueries.ReadSolutions(map.Path)(0).Id
-                    Dim retired As SymbolRow = MapQueries.ReadSymbols(map.Path, solutionId).Find(Function(s As SymbolRow) s.DocCommentId = "T:Sample.Widgets.Twins" AndAlso Not s.IsActive)
-                    Assert.True(retired IsNot Nothing, "Twins was not retired")
-                    registry.Seed(131373, "Sample", solutionId, "active", copy.SolutionPath)
-                    Dim retiredHost As BridgeHost = New BridgeHost(BridgeHost.WriteConfig(map.Path, registry.Path, Nothing, False, False))
-                    Expect("symbol retired", retiredHost.Invoke("symbol_detail", Args("solutionKey", "Sample", "symbolId", retired.Id)), "retired")
-                    Dim retiredSearch As BridgeReply = retiredHost.Invoke("symbol_search", Args("solutionKey", "Sample", "name", "Twins", "kind", "class"))
-                    Assert.False(retiredSearch.IsError, retiredSearch.Text)
-                    Assert.Equal(0, retiredSearch.Root().GetProperty("total").GetInt32())
-                End Using
+                Dim options As ExtractionOptions = New ExtractionOptions With {.SolutionPath = copy.SolutionPath, .DbPath = map.Path, .SolutionKey = "Sample"}
+                Assert.Equal(ExitCode.Success, ExtractionRun.Execute(options, Nothing))
+                File.Delete(Path.Combine(copy.Directory, "Sample.Lib", "Twins.vb"))
+                Assert.Equal(ExitCode.Success, ExtractionRun.Execute(options, Nothing))
+                Dim solutionId As Long = MapQueries.ReadSolutions(map.Path)(0).Id
+                Dim retired As SymbolRow = MapQueries.ReadSymbols(map.Path, solutionId).Find(Function(s As SymbolRow) s.DocCommentId = "T:Sample.Widgets.Twins" AndAlso Not s.IsActive)
+                Assert.True(retired IsNot Nothing, "Twins was not retired")
+                Dim retiredHost As BridgeHost = New BridgeHost(BridgeHost.WriteConfig(map.Path, Nothing, False, False))
+                Expect("symbol retired", retiredHost.Invoke("symbol_detail", Args("solutionKey", "Sample", "symbolId", retired.Id)), "retired")
+                Dim retiredSearch As BridgeReply = retiredHost.Invoke("symbol_search", Args("solutionKey", "Sample", "name", "Twins", "kind", "class"))
+                Assert.False(retiredSearch.IsError, retiredSearch.Text)
+                Assert.Equal(0, retiredSearch.Root().GetProperty("total").GetInt32())
             End Using
         End Using
 
         Using copy As FixtureCopy = New FixtureCopy()
             Using map As TempMap = New TempMap()
-                Using registry As RegistryFixture = New RegistryFixture()
-                    Assert.Equal(ExitCode.Success, ExtractionRun.Execute(New ExtractionOptions With {.SolutionPath = _scenario.SolutionPath, .DbPath = map.Path, .SolutionKey = "Sample"}, Nothing))
-                    Assert.Equal(ExitCode.Success, ExtractionRun.Execute(New ExtractionOptions With {.SolutionPath = copy.SolutionPath, .DbPath = map.Path, .SolutionKey = "Other"}, Nothing))
-                    Dim solutions As List(Of SolutionRow) = MapQueries.ReadSolutions(map.Path)
-                    Dim sample As SolutionRow = solutions.Find(Function(s As SolutionRow) s.Key = "Sample")
-                    Dim other As SolutionRow = solutions.Find(Function(s As SolutionRow) s.Key = "Other")
-                    Dim foreignId As Long = MapQueries.ReadSymbols(map.Path, other.Id).Find(Function(s As SymbolRow) s.DocCommentId = "T:Sample.Consumer" AndAlso s.IsActive).Id
-                    registry.Seed(131373, "Sample", sample.Id, "active", _scenario.SolutionPath)
-                    Expect("symbol out of scope", New BridgeHost(BridgeHost.WriteConfig(map.Path, registry.Path, Nothing, False, False)).Invoke("symbol_detail", Args("solutionKey", "Sample", "symbolId", foreignId)), "not in the requested scope")
-                End Using
+                Assert.Equal(ExitCode.Success, ExtractionRun.Execute(New ExtractionOptions With {.SolutionPath = _scenario.SolutionPath, .DbPath = map.Path, .SolutionKey = "Sample"}, Nothing))
+                Assert.Equal(ExitCode.Success, ExtractionRun.Execute(New ExtractionOptions With {.SolutionPath = copy.SolutionPath, .DbPath = map.Path, .SolutionKey = "Other"}, Nothing))
+                Dim solutions As List(Of SolutionRow) = MapQueries.ReadSolutions(map.Path)
+                Dim sample As SolutionRow = solutions.Find(Function(s As SolutionRow) s.Key = "Sample")
+                Dim other As SolutionRow = solutions.Find(Function(s As SolutionRow) s.Key = "Other")
+                Dim foreignId As Long = MapQueries.ReadSymbols(map.Path, other.Id).Find(Function(s As SymbolRow) s.DocCommentId = "T:Sample.Consumer" AndAlso s.IsActive).Id
+                Expect("symbol out of scope", New BridgeHost(BridgeHost.WriteConfig(map.Path, Nothing, False, False)).Invoke("symbol_detail", Args("solutionKey", "Sample", "symbolId", foreignId)), "not in the requested scope")
             End Using
         End Using
-
-        Dim nothingToSearch As BridgeReply = host.Invoke("symbol_search", Args("projectId", 424242L, "name", "x"))
-        Assert.False(nothingToSearch.IsError, nothingToSearch.Text)
-        Dim scope As JsonElement = nothingToSearch.Root().GetProperty("scope")
-        Assert.True(scope.GetProperty("hadNothingToSearch").GetBoolean())
-        Assert.Contains("424242", scope.GetProperty("reason").GetString())
-        Assert.Equal(0, nothingToSearch.Root().GetProperty("total").GetInt32())
     End Sub
 
     ''' <summary>
@@ -364,7 +339,7 @@ Public Class B02_PortedReaderTests
             {BridgeToolDescriptions.References, New String() {"Containment (part_of) is not a reference and is never included", "Does not show AddHandler … AddressOf wiring sites", "A field or property read or written by its bare name, and a method passed by a bare AddressOf, are recorded as calls occurrences and appear here (CodeMem 003). A bare-name use whose target lies outside the map (framework, package) is not recorded.", "Takes a mapped symbol id only"}},
             {BridgeToolDescriptions.Orphans, New String() {"used by its bare name", "no namespace rows", "unreferenced by construction", "not a verdict that it is dead", "Main", "reflection", "Overrides", "InitializeComponent", "prevent instantiation", "AddressOf", "outside the solution", "generated outside the solution tree", "referenced only by a sibling", "implemented but never called"}},
             {BridgeToolDescriptions.TypeUsages, New String() {"calls to each of its constructors", "from inside", "total", "fromOutside"}},
-            {BridgeToolDescriptions.MapStatus, New String() {"one verdict by name", "current", "behind", "dirty", "no_git", "map_missing_solution", "diverged"}},
+            {BridgeToolDescriptions.MapStatus, New String() {"one verdict by name", "current", "behind", "dirty", "no_git", "not_in_map", "diverged"}},
             {BridgeToolDescriptions.Extract, New String() {"Gated"}}}
         Dim missing As List(Of String) = New List(Of String)()
         For Each pair As KeyValuePair(Of String, String()) In phrases

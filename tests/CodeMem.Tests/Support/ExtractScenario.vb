@@ -85,7 +85,7 @@ Public Class ExtractScenario
     ''' <param name="onGreenBuild">extract.onGreenBuild.</param>
     ''' <returns>The config path.</returns>
     Public Function Config(registry As RegistryFixture, enabled As Boolean, onGreenBuild As Boolean) As String
-        Return BridgeHost.WriteConfig(Map.Path, registry.Path, Nothing, enabled, onGreenBuild)
+        Return BridgeHost.WriteConfig(Map.Path, Nothing, enabled, onGreenBuild)
     End Function
 
     ''' <summary>

@@ -1,18 +1,21 @@
 ' File: BridgeConfig.vb
 ' Project: CodeMem.Bridging
-' Description: The typed contents of bridge.config.json (contracts/cli-config-hook.md §2; spec Q8, research R49).
+' Description: The typed contents of bridge.config.json (005 contracts/cli-config-hook.md §2; spec Q8, research R49).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-15
+'
+' 2026-09-17 (feature 005, T013): storePath is no longer read - a file carrying it is refused naming the key (FR-403). The StorePath property
+' stays, never set, until T024 archives the last file that reads it (StoreAccess); it leaves with the archive.
 
 ''' <summary>
-''' One read of the configuration file: the two paths, the optional extractor path, the two gates and where it was read from. Never cached.
+''' One read of the configuration file: the map path, the optional extractor path, the two gates and where it was read from. Never cached.
 ''' </summary>
 Public Class BridgeConfig
 
     ''' <summary>The map file.</summary>
     Public Property MapPath As String
 
-    ''' <summary>memos.sqlite.</summary>
+    ''' <summary>Never set since feature 005 (the bridge opens no store); removed at T024 with its last reader.</summary>
     Public Property StorePath As String
 
     ''' <summary>The extractor executable or dll, or Nothing for the default beside the bridge.</summary>

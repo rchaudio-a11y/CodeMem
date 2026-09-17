@@ -28,7 +28,7 @@ Public Class LiveBridge
     ''' <param name="storePath">The live store.</param>
     Public Sub New(mapPath As String, storePath As String)
         Me.MapPath = mapPath
-        Host = New BridgeHost(BridgeHost.WriteConfig(mapPath, storePath, Nothing, False, False))
+        Host = New BridgeHost(BridgeHost.WriteConfig(mapPath, Nothing, False, False))
         _before = MapSnapshot.FileBytesHash(mapPath)
     End Sub
 

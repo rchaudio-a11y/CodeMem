@@ -6,6 +6,8 @@
 '
 ' The dispatch method is Invoke, not Call as the tasks named it: Call is a VB keyword.
 ' 2026-09-15 (T037): Launcher, Door and ConfigPath; WriteConfig takes an optional path so a fact can rewrite its own file.
+' 2026-09-17 (feature 005, T013/T014): WriteConfig writes no storePath (FR-403); Invoke hands BridgeTools the raw argument dictionary it
+' would receive from the SDK (research R68), so a projectId passed here is refused exactly as over stdio.
 
 Imports System.IO
 Imports System.Text.Json
@@ -41,30 +43,31 @@ Public Class BridgeHost
     End Sub
 
     ''' <summary>
-    ''' Calls one tool by name with named arguments (absent keys are Nothing).
+    ''' Calls one tool by name with named arguments (absent keys are Nothing); the whole dictionary also travels as the raw arguments.
     ''' </summary>
     ''' <param name="name">The tool name.</param>
     ''' <param name="args">The arguments.</param>
     ''' <returns>The reply.</returns>
     Public Function Invoke(name As String, args As IDictionary(Of String, Object)) As BridgeReply
+        Dim raw As IReadOnlyDictionary(Of String, JsonElement) = RawOf(args)
         Dim result As CallToolResult
         Select Case name
             Case "solutions"
-                result = _tools.Solutions()
+                result = _tools.Solutions(raw)
             Case "symbol_search"
-                result = _tools.SymbolSearch(GetLong(args, "projectId"), GetString(args, "solutionKey"), GetString(args, "name"), GetString(args, "kind"), GetLong(args, "projectSymbolId"))
+                result = _tools.SymbolSearch(raw, GetString(args, "solutionKey"), GetString(args, "name"), GetString(args, "kind"), GetLong(args, "projectSymbolId"))
             Case "symbol_detail"
-                result = _tools.SymbolDetail(GetLong(args, "symbolId"), GetLong(args, "projectId"), GetString(args, "solutionKey"))
+                result = _tools.SymbolDetail(raw, GetLong(args, "symbolId"), GetString(args, "solutionKey"))
             Case "references"
-                result = _tools.References(GetLong(args, "symbolId"), GetLong(args, "projectId"), GetString(args, "solutionKey"))
+                result = _tools.References(raw, GetLong(args, "symbolId"), GetString(args, "solutionKey"))
             Case "orphans"
-                result = _tools.Orphans(GetLong(args, "projectId"), GetString(args, "solutionKey"), GetString(args, "kind"), GetLong(args, "projectSymbolId"))
+                result = _tools.Orphans(raw, GetString(args, "solutionKey"), GetString(args, "kind"), GetLong(args, "projectSymbolId"))
             Case "type_usages"
-                result = _tools.TypeUsages(GetLong(args, "symbolId"), GetLong(args, "projectId"), GetString(args, "solutionKey"))
+                result = _tools.TypeUsages(raw, GetLong(args, "symbolId"), GetString(args, "solutionKey"))
             Case "map_status"
-                result = _tools.MapStatus()
+                result = _tools.MapStatus(raw)
             Case "extract"
-                result = _tools.Extract(GetString(args, "solutionKey"), GetString(args, "repoPath"), GetBoolean(args, "stale"))
+                result = _tools.Extract(raw, GetString(args, "solutionKey"), GetString(args, "repoPath"), GetBoolean(args, "stale"))
             Case Else
                 Throw New ArgumentOutOfRangeException(NameOf(name), name, "unknown tool")
         End Select
@@ -72,26 +75,33 @@ Public Class BridgeHost
     End Function
 
     ''' <summary>
-    ''' Writes a configuration file at a fresh temp path.
+    ''' Writes a configuration file at a fresh temp path: the map, the optional extractor and the two gates; no store (feature 005).
     ''' </summary>
     ''' <param name="mapPath">The map.</param>
-    ''' <param name="storePath">The store.</param>
     ''' <param name="extractorPath">The extractor, or Nothing for the default beside the bridge.</param>
     ''' <param name="enabled">extract.enabled.</param>
     ''' <param name="onGreenBuild">extract.onGreenBuild.</param>
     ''' <param name="path">The file to write, or Nothing for a fresh temp path (a fact rewrites its own file to prove the per-call read).</param>
     ''' <returns>The file's path.</returns>
-    Public Shared Function WriteConfig(mapPath As String, storePath As String, extractorPath As String, enabled As Boolean, onGreenBuild As Boolean, Optional path As String = Nothing) As String
+    Public Shared Function WriteConfig(mapPath As String, extractorPath As String, enabled As Boolean, onGreenBuild As Boolean, Optional path As String = Nothing) As String
         Dim dir As String = IO.Path.Combine(IO.Path.GetTempPath(), "codemem-tests")
         Directory.CreateDirectory(dir)
         Dim file As String = If(path, IO.Path.Combine(dir, "bridge-config-" & Guid.NewGuid().ToString("N") & ".json"))
         Dim document As Dictionary(Of String, Object) = New Dictionary(Of String, Object)(StringComparer.Ordinal) From {
             {"mapPath", mapPath},
-            {"storePath", storePath},
             {"extractorPath", extractorPath},
             {"extract", New Dictionary(Of String, Object)(StringComparer.Ordinal) From {{"enabled", enabled}, {"onGreenBuild", onGreenBuild}}}}
         IO.File.WriteAllText(file, JsonSerializer.Serialize(document))
         Return file
+    End Function
+
+    Private Shared Function RawOf(args As IDictionary(Of String, Object)) As IReadOnlyDictionary(Of String, JsonElement)
+        If args Is Nothing Then Return Nothing
+        Dim raw As Dictionary(Of String, JsonElement) = New Dictionary(Of String, JsonElement)(StringComparer.Ordinal)
+        For Each pair As KeyValuePair(Of String, Object) In args
+            raw(pair.Key) = JsonSerializer.SerializeToElement(pair.Value)
+        Next
+        Return raw
     End Function
 
     Private Shared Function GetLong(args As IDictionary(Of String, Object), key As String) As Long?

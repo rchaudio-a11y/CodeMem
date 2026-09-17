@@ -1,8 +1,11 @@
 ' File: MapStatusScenario.vb
 ' Project: CodeMem.Tests
-' Description: Class fixture for B04: a fixture copy inside a repository walked through the six repository states, map_status captured at each (feature 004, T032; research R54).
+' Description: Class fixture for B04: a fixture copy inside a repository walked through the repository states, map_status captured at each (feature 004, T032; research R54).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-15
+'
+' 2026-09-17 (feature 005, T015/T017): no registry - the entries are the map's own solutions (FR-418). The Ghost, Unbound and Retired rows
+' were registry rows and are gone with it; Nested stays: a second map solution whose root is a subdirectory of the repository (no_git).
 
 Imports System.IO
 Imports System.Text.Json
@@ -12,8 +15,8 @@ Imports LibGit2Sharp
 
 ''' <summary>
 ''' Commit c1 and extract (current); commit c2 (behind 1); modify a tracked file (dirty); discard and extract at c2; a branch from c1 with
-''' commit c3 (diverged, the recorded c2 off HEAD's history); a failed run newer than the completed one (INC4); a fifth row whose root is a
-''' subdirectory of the repository (no_git); the .git directory removed (no_git). Each status is a captured document.
+''' commit c3 (diverged, the recorded c2 off HEAD's history); a failed run newer than the completed one (INC4); a second solution whose root
+''' is a subdirectory of the repository (no_git); the .git directory removed (no_git). Each status is a captured document.
 ''' </summary>
 Public Class MapStatusScenario
     Implements IDisposable
@@ -24,10 +27,7 @@ Public Class MapStatusScenario
     ''' <summary>The temp map.</summary>
     Public ReadOnly Property Map As TempMap
 
-    ''' <summary>The registry: Sample bound, Unbound, Retired (inactive, 77), Ghost (99), later Nested.</summary>
-    Public ReadOnly Property Registry As RegistryFixture
-
-    ''' <summary>The host over the map and the registry.</summary>
+    ''' <summary>The host over the map.</summary>
     Public ReadOnly Property Host As BridgeHost
 
     ''' <summary>The repository root (the copy's parent directory).</summary>
@@ -54,7 +54,7 @@ Public Class MapStatusScenario
     ''' <summary>map_status at c2 with a modified tracked file.</summary>
     Public ReadOnly Property AtC2Dirty As JsonDocument
 
-    ''' <summary>map_status on the side branch at c3 after a run at c2, with the Nested row seeded.</summary>
+    ''' <summary>map_status on the side branch at c3 after a run at c2, with the Nested solution mapped.</summary>
     Public ReadOnly Property AtC3 As JsonDocument
 
     ''' <summary>map_status at c3 after a failed run newer than the completed one.</summary>
@@ -70,17 +70,11 @@ Public Class MapStatusScenario
         Copy = New FixtureCopy()
         Root = Copy.ParentDirectory
         Map = New TempMap()
-        Registry = New RegistryFixture()
         Dim repo As Repository = GitFixture.Init(Root)
         Try
             C1 = GitFixture.CommitAll(repo, "c1")
             Extract(Nothing)
-            Dim solutionId As Long = MapQueries.ReadSolutions(Map.Path)(0).Id
-            Registry.Seed(1, "Sample", solutionId, "active", Copy.SolutionPath)
-            Registry.Seed(2, "Unbound", Nothing, "active", Copy.SolutionPath)
-            Registry.Seed(3, "Retired", 77, "inactive", Copy.SolutionPath)
-            Registry.Seed(4, "Ghost", 99, "active", Copy.SolutionPath)
-            Host = New BridgeHost(BridgeHost.WriteConfig(Map.Path, Registry.Path, Nothing, False, False))
+            Host = New BridgeHost(BridgeHost.WriteConfig(Map.Path, Nothing, False, False))
             AtC1 = Status()
             GitFixture.Touch(Root, "Sample/Sample.Lib/Extra.vb", "Public Class Extra" & vbLf & "End Class" & vbLf)
             C2 = GitFixture.CommitAll(repo, "c2")
@@ -96,7 +90,6 @@ Public Class MapStatusScenario
             C3 = GitFixture.CommitAll(repo, "c3")
             Dim nestedId As Long = ExtractAs("Nested")
             MapQueries.SetRepoRoot(Map.Path, nestedId, Path.Combine(Copy.Directory, "Sample.Lib") & Path.DirectorySeparatorChar)
-            Registry.Seed(5, "Nested", nestedId, "active", Copy.SolutionPath)
             AtC3 = Status()
             Extract(New RunSeams With {.CorruptStagedCounts = Sub(c As RunCounts) c.SymbolsMatched += 1})
             AtC3AfterFailedRun = Status()
@@ -108,10 +101,10 @@ Public Class MapStatusScenario
     End Sub
 
     ''' <summary>
-    ''' The Sample entry of a captured status.
+    ''' The entry of a captured status for a key.
     ''' </summary>
     ''' <param name="status">The document.</param>
-    ''' <param name="key">The registry key.</param>
+    ''' <param name="key">The solution key.</param>
     ''' <returns>The entry element.</returns>
     Public Shared Function Entry(status As JsonDocument, key As String) As JsonElement
         For Each candidate As JsonElement In status.RootElement.GetProperty("entries").EnumerateArray()
@@ -121,10 +114,9 @@ Public Class MapStatusScenario
     End Function
 
     ''' <summary>
-    ''' Deletes the registry, the map and the copy.
+    ''' Deletes the map and the copy.
     ''' </summary>
     Public Sub Dispose() Implements IDisposable.Dispose
-        Registry.Dispose()
         Map.Dispose()
         Copy.Dispose()
     End Sub

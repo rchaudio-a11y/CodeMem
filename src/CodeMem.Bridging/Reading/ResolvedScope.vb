@@ -3,6 +3,8 @@
 ' Description: What a resolved scope gives a reader: the envelope for the result and the solution ids to query (058 §3.1; data-model §3).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-15
+'
+' 2026-09-17 (feature 005, T014): Describe names the key only; the projectId branch is gone with the registry.
 
 ''' <summary>
 ''' Produced once per call by <see cref="ScopeResolver"/>.
@@ -16,16 +18,11 @@ Public Class ResolvedScope
     Public Property SolutionIds As List(Of Long)
 
     ''' <summary>
-    ''' The one-line description a refusal names: "projectId N, resolving to: keys" or "solutionKey 'X'".
+    ''' The one-line description a refusal names: "solutionKey 'X'" (feature 005: the scope is always by key).
     ''' </summary>
     ''' <returns>The description.</returns>
     Public Function Describe() As String
-        If Envelope.By = "solutionKey" Then Return "solutionKey '" & Envelope.SolutionKey & "'"
-        Dim keys As List(Of String) = New List(Of String)()
-        For Each solution As ScopeSolutionEnvelope In Envelope.Solutions
-            keys.Add(solution.Key)
-        Next
-        Return "projectId " & Envelope.ProjectId.Value.ToString(Globalization.CultureInfo.InvariantCulture) & ", resolving to: " & If(keys.Count = 0, "no solution", String.Join(", ", keys))
+        Return "solutionKey '" & Envelope.SolutionKey & "'"
     End Function
 
     ''' <summary>

@@ -1,8 +1,12 @@
 ' File: BridgeRefusal.vb
 ' Project: CodeMem.Bridging
-' Description: The one wording owner: every refusal text of contracts/tools.md §6, built from a kind and the facts it names (FR-306, Article XII).
+' Description: The one wording owner: every refusal text of contracts/tools.md §6 (004 and 005), built from a kind and the facts it names (FR-306, FR-409, Article XII).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-15
+'
+' 2026-09-17 (feature 005, T013): the four new texts (ProjectIdRemoved, ConfigKeyRetired, PathNotInMap in its two shapes, AmbiguousSolutionFile);
+' ScopeMissing, SolutionKeyUnknown, TargetMissing and AmbiguousRoot revised to 005 contracts/tools.md §6; Unopenable's store variant gone;
+' ScopeConflict gone. The 004 texts of the kinds that leave at T021 and T024 stay until their kind leaves.
 
 ''' <summary>
 ''' A refusal is text on the wire, never an exception (058's rule). <see cref="Named"/> is the only place a sentence is composed; facts assert
@@ -38,6 +42,8 @@ Public Class BridgeRefusal
                 If key = "file" Then Return "The bridge is not configured: no file at '" & F(facts, "configPath") & "'. Create it and call again; nothing was opened."
                 If key = "json" Then Return "The bridge is not configured: '" & F(facts, "configPath") & "' is not JSON. Fix it and call again; nothing was opened."
                 Return "The bridge is not configured: '" & key & "' is missing from '" & F(facts, "configPath") & "'. Set it and call again; nothing was opened."
+            Case BridgeRefusalKind.ConfigKeyRetired
+                Return "'" & F(facts, "key") & "' is no longer a key of '" & F(facts, "configPath") & "': the bridge opens no store. Remove it and call again; nothing was opened."
             Case BridgeRefusalKind.MapAbsent
                 Return "No CodeMem map exists at '" & F(facts, "mapPath") & "'. Fix mapPath in '" & F(facts, "configPath") & "', or run the CodeMem extractor to create the map. Nothing was created."
             Case BridgeRefusalKind.NotAMap
@@ -49,14 +55,13 @@ Public Class BridgeRefusal
             Case BridgeRefusalKind.Busy
                 Return "An extraction is in progress on '" & F(facts, "mapPath") & "'; the map was not readable within " & F(facts, "seconds") & " seconds. Retry when it finishes; this is normal for a large solution."
             Case BridgeRefusalKind.Unopenable
-                If F(facts, "role") = "store" Then Return "The MemOS store at '" & F(facts, "path") & "' could not be opened: " & F(facts, "driver") & ". Check the path and its permissions."
                 Return "The CodeMem map at '" & F(facts, "path") & "' could not be opened: " & F(facts, "driver") & ". Check the path and its permissions."
             Case BridgeRefusalKind.RegistryAbsent
-                Return "The MemOS store at '" & F(facts, "storePath") & "' holds no code_map_solutions table. Nothing is wrong with the map; the registry migration has not gone live on that store."
+                Return "The store at '" & F(facts, "storePath") & "' holds no code_map_solutions table. Nothing is wrong with the map; the registry migration has not gone live on that store."
             Case BridgeRefusalKind.ScopeMissing
-                Return "Supply exactly one of projectId (a MemOS project, resolved through the code_map_solutions registry) or solutionKey (one map solution). Neither was supplied."
-            Case BridgeRefusalKind.ScopeConflict
-                Return "Supply exactly one of projectId or solutionKey. Both were supplied; they can disagree, so neither is chosen for you."
+                Return "Supply solutionKey — one map solution, exact; solutions lists the keys. Nothing was opened."
+            Case BridgeRefusalKind.ProjectIdRemoved
+                Return "projectId is not an argument of this bridge: scope by solutionKey (solutions lists the keys). MemOS's own codemem tools take a project id. Nothing was opened."
             Case BridgeRefusalKind.FilterMissing
                 Return "Supply a name, a kind, or both. A search with no filter is not run."
             Case BridgeRefusalKind.KindUnknown
@@ -66,11 +71,11 @@ Public Class BridgeRefusal
             Case BridgeRefusalKind.KindNotExamined
                 Return "'" & F(facts, "given") & "' is a symbol kind orphans does not examine: " & F(facts, "reason") & ". Filter by an examined kind, or omit kind."
             Case BridgeRefusalKind.SolutionKeyUnknown
-                Return "The CodeMem map at '" & F(facts, "mapPath") & "' holds no solution with key '" & F(facts, "key") & "'. Keys are exact; solutions lists them."
+                Return "The CodeMem map at '" & F(facts, "mapPath") & "' holds no solution with key '" & F(facts, "key") & "'. Keys are exact; solutions lists them. To add a solution, run: extract --solution-key " & F(facts, "key") & " --solution <path to its .sln or .slnx>."
             Case BridgeRefusalKind.SymbolNotFound
                 Return "The CodeMem map at '" & F(facts, "mapPath") & "' holds no symbol with id " & F(facts, "symbolId") & ". Find the id with symbol_search."
             Case BridgeRefusalKind.SymbolOutOfScope
-                Return "Symbol " & F(facts, "id") & " ('" & F(facts, "name") & "') belongs to solution '" & F(facts, "solutionKey") & "', which is not in the requested scope (" & F(facts, "scope") & "). Ask with that solution's key, or with a project bound to it."
+                Return "Symbol " & F(facts, "id") & " ('" & F(facts, "name") & "') belongs to solution '" & F(facts, "solutionKey") & "', which is not in the requested scope (" & F(facts, "scope") & "). Ask with that solution's key."
             Case BridgeRefusalKind.SymbolRetired
                 Return "Symbol " & F(facts, "id") & " ('" & F(facts, "name") & "', " & F(facts, "kind") & ", " & F(facts, "path") & ") in solution '" & F(facts, "solutionKey") & "' is retired; it was last seen in extract run " & F(facts, "lastSeenRunId") & ". Search again for the current symbol, or consult the rename candidates whose retired symbol is " & F(facts, "id") & "."
             Case BridgeRefusalKind.NotAProjectRow
@@ -80,15 +85,22 @@ Public Class BridgeRefusal
             Case BridgeRefusalKind.GateOff
                 Return "extract is refused: " & F(facts, "gate") & " is false in '" & F(facts, "configPath") & "'. The Architect flips it; nothing ran and the map is unchanged."
             Case BridgeRefusalKind.TargetMissing
-                Return "Supply exactly one of solutionKey, repoPath or stale. Nothing ran."
+                Return "Supply exactly one of solutionKey, repoPath or stale; solutionPath only beside solutionKey. Nothing ran."
             Case BridgeRefusalKind.PathNotRegistered
                 Return "No registered solution's repository root contains '" & F(facts, "path") & "'. Registered roots: " & F(facts, "roots") & ". Nothing ran."
+            Case BridgeRefusalKind.PathNotInMap
+                If facts IsNot Nothing AndAlso facts.ContainsKey("file") Then
+                    Return "'" & F(facts, "path") & "' is not in the map: no mapped solution's root contains it. Mapped roots: " & F(facts, "roots") & ". It holds " & F(facts, "file") & "; to add it, run: " & F(facts, "command") & " (the extract tool: solutionKey and solutionPath). Nothing ran and nothing was added."
+                End If
+                Return "'" & F(facts, "path") & "' is not in the map: no mapped solution's root contains it, and it holds no solution file. Mapped roots: " & F(facts, "roots") & ". To add a solution, run: extract --solution-key <key> --solution <path to its .sln or .slnx>. Nothing ran and nothing was added."
+            Case BridgeRefusalKind.AmbiguousSolutionFile
+                Return "'" & F(facts, "path") & "' is not in the map and holds more than one solution file (" & F(facts, "files") & "); no key is suggested. Choose one and run: extract --solution-key <key> --solution <that file>. Nothing ran and nothing was added."
             Case BridgeRefusalKind.AmbiguousRoot
-                Return "'" & F(facts, "path") & "' lies under a root bound to more than one registered solution (" & F(facts, "keys") & "); name the solutionKey. Nothing ran."
+                Return "'" & F(facts, "path") & "' lies under a root shared by more than one mapped solution (" & F(facts, "keys") & "); name the solutionKey. Nothing ran."
             Case BridgeRefusalKind.KeyNotRegistered
                 Return "No code_map_solutions row has solution_key '" & F(facts, "key") & "'. Keys are exact; solutions lists the map's, map_status the registry's. Nothing ran."
             Case BridgeRefusalKind.KeyUnbound
-                Return "Registry row '" & F(facts, "key") & "' has no codemem_solution_id: it has never been published. Run the extractor by hand once with --solution-key " & F(facts, "key") & " and bind the row in MemOS; the bridge does not extract an unbound solution."
+                Return "Registry row '" & F(facts, "key") & "' has no codemem_solution_id: it has never been published. Run the extractor by hand once with --solution-key " & F(facts, "key") & " and bind the row; the bridge does not extract an unbound solution."
             Case BridgeRefusalKind.KeyInactive
                 Return "Registry row '" & F(facts, "key") & "' is " & F(facts, "state") & ", not active. Nothing ran."
             Case BridgeRefusalKind.MapMissingSolution

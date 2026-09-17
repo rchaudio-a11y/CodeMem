@@ -3,6 +3,8 @@
 ' Description: Class fixture for B07: two fixture copies of one edited tree - a file linked into both projects (distinct doc-comment ids under one root namespace, one path, one line) and two overloads on one physical line under one project - extracted into one map as Sample and as Other (feature 004, T048).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-15
+'
+' 2026-09-17 (feature 005, T017): no registry - the configuration names the map only (FR-403).
 
 Imports System.IO
 Imports CodeMem.Extraction
@@ -25,9 +27,6 @@ Public Class TwinScenario
     ''' <summary>The temp map holding both extractions.</summary>
     Public ReadOnly Property Map As TempMap
 
-    ''' <summary>A registry binding Sample under project 131373.</summary>
-    Public ReadOnly Property Registry As RegistryFixture
-
     ''' <summary>The Sample solution id.</summary>
     Public ReadOnly Property SolutionId As Long
 
@@ -35,7 +34,7 @@ Public Class TwinScenario
     Public ReadOnly Property Host As BridgeHost
 
     ''' <summary>
-    ''' Edits both copies, extracts each, seeds the registry, writes the configuration.
+    ''' Edits both copies, extracts each, writes the configuration.
     ''' </summary>
     Public Sub New()
         Copy = New FixtureCopy()
@@ -47,9 +46,7 @@ Public Class TwinScenario
         Extract(Other, "Other")
         SolutionId = MapQueries.ReadSolutions(Map.Path).Find(Function(s As SolutionRow) s.Key = "Sample").Id
         MoveSecondOverloadOntoTheFirst()
-        Registry = New RegistryFixture()
-        Registry.Seed(131373, "Sample", SolutionId, "active", Copy.SolutionPath)
-        Host = New BridgeHost(BridgeHost.WriteConfig(Map.Path, Registry.Path, Nothing, False, False))
+        Host = New BridgeHost(BridgeHost.WriteConfig(Map.Path, Nothing, False, False))
     End Sub
 
     ''' <summary>
@@ -64,10 +61,9 @@ Public Class TwinScenario
     End Function
 
     ''' <summary>
-    ''' Deletes the registry, the map and both copies.
+    ''' Deletes the map and both copies.
     ''' </summary>
     Public Sub Dispose() Implements IDisposable.Dispose
-        Registry.Dispose()
         Map.Dispose()
         Other.Dispose()
         Copy.Dispose()

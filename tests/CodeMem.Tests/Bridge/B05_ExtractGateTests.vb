@@ -297,7 +297,7 @@ Public Class B05_ExtractGateTests
                         End Using
                         registry.Seed(131373, key, MapQueries.ReadSolutions(map.Path).Find(Function(s As SolutionRow) s.Key = key).Id, "active", copy.SolutionPath)
                     Next
-                    Dim host As BridgeHost = New BridgeHost(BridgeHost.WriteConfig(map.Path, registry.Path, Nothing, True, True))
+                    Dim host As BridgeHost = New BridgeHost(BridgeHost.WriteConfig(map.Path, Nothing, True, True))
                     Dim reply As BridgeReply = host.Invoke("extract", Args("stale", True))
                     Assert.False(reply.IsError, reply.Text)
                     Dim root As JsonElement = reply.Root()
@@ -437,7 +437,7 @@ Public Class B05_ExtractGateTests
         Dim host As BridgeHost = _scenario.Host(True, True)
         Assert.False(host.Invoke("extract", Args("solutionKey", "Sample")).IsError)
         Assert.Equal(1, host.Launcher.Requests.Count)
-        BridgeHost.WriteConfig(_scenario.Map.Path, _scenario.Registry.Path, Nothing, False, True, host.ConfigPath)
+        BridgeHost.WriteConfig(_scenario.Map.Path, Nothing, False, True, host.ConfigPath)
         Dim refused As BridgeReply = host.Invoke("extract", Args("solutionKey", "Sample"))
         Assert.True(refused.IsError)
         Assert.Contains("extract.enabled", refused.Text)

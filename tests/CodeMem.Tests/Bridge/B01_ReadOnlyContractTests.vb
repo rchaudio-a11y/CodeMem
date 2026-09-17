@@ -25,6 +25,8 @@
 '        SHARED lock is taken inside the read transaction (a deferred BEGIN alone held nothing: the first run recorded 0, not 5).
 ' FIRE:  2026-09-15 (T024 d) BridgeTools.RunRead ended the read (EndRead) before the reader instead of after serialisation -> (6) red (the
 '        rename succeeded mid-call: expected 5, actual 0); restored from a byte copy -> green.
+' 2026-09-17 (feature 005, T017): the registry fixture and its seed leave (4), (5) and (6) - the configuration names the map only
+' (FR-403); the facts are otherwise unchanged and stayed green through T014-T016 (no fact of this file named projectId).
 
 Imports System.IO
 Imports System.Text.Json
@@ -92,25 +94,22 @@ Public Class B01_ReadOnlyContractTests
     <Fact>
     Public Sub EveryReadToolLeavesTheMapByteIdenticalOverStdio()
         Using map As TempMap = New TempMap()
-            Using registry As RegistryFixture = New RegistryFixture()
-                Dim solutionId As Long = Extract(map)
-                registry.Seed(131373, "Sample", solutionId, "active", _fixture.SolutionPath)
-                Dim config As String = BridgeHost.WriteConfig(map.Path, registry.Path, Nothing, False, False)
-                Dim consumerId As Long = SymbolId(map, "T:Sample.Consumer")
-                Dim before As String = MapSnapshot.FileBytesHash(map.Path)
-                Dim called As Integer = 0
-                Using server As BridgeProcess = BridgeProcess.Serve(config)
-                    server.Initialize()
-                    For Each name As String In server.ListTools()
-                        If name = "extract" Then Continue For
-                        Dim reply As ToolReply = server.CallTool(name, ArgumentsFor(name, consumerId))
-                        Assert.False(reply.IsError, name & ": " & reply.Text)
-                        Assert.Equal(before, MapSnapshot.FileBytesHash(map.Path))
-                        called += 1
-                    Next
-                    Assert.True(called > 0, "no tools listed: the scan is vacuous")
-                    Assert.Equal(0, server.Close())
-                End Using
+            Dim solutionId As Long = Extract(map)
+            Dim config As String = BridgeHost.WriteConfig(map.Path, Nothing, False, False)
+            Dim consumerId As Long = SymbolId(map, "T:Sample.Consumer")
+            Dim before As String = MapSnapshot.FileBytesHash(map.Path)
+            Dim called As Integer = 0
+            Using server As BridgeProcess = BridgeProcess.Serve(config)
+                server.Initialize()
+                For Each name As String In server.ListTools()
+                    If name = "extract" Then Continue For
+                    Dim reply As ToolReply = server.CallTool(name, ArgumentsFor(name, consumerId))
+                    Assert.False(reply.IsError, name & ": " & reply.Text)
+                    Assert.Equal(before, MapSnapshot.FileBytesHash(map.Path))
+                    called += 1
+                Next
+                Assert.True(called > 0, "no tools listed: the scan is vacuous")
+                Assert.Equal(0, server.Close())
             End Using
         End Using
     End Sub
@@ -122,26 +121,23 @@ Public Class B01_ReadOnlyContractTests
     <Fact>
     Public Sub TheExecutableServesOverStdio()
         Using map As TempMap = New TempMap()
-            Using registry As RegistryFixture = New RegistryFixture()
-                Dim solutionId As Long = Extract(map)
-                registry.Seed(131373, "Sample", solutionId, "active", _fixture.SolutionPath)
-                Dim config As String = BridgeHost.WriteConfig(map.Path, registry.Path, Nothing, False, False)
-                Using server As BridgeProcess = BridgeProcess.Serve(config)
-                    Dim info As JsonElement = server.Initialize()
-                    Assert.Equal("codemem", info.GetProperty("name").GetString())
-                    Dim expectedNames As List(Of String) = New List(Of String)(BridgeTools.RegisteredToolNames)
-                    Dim listedNames As List(Of String) = server.ListTools()
-                    expectedNames.Sort(StringComparer.Ordinal)
-                    listedNames.Sort(StringComparer.Ordinal)
-                    Assert.Equal(expectedNames, listedNames)
-                    Dim descriptions As Dictionary(Of String, String) = server.ListToolDescriptions()
-                    For Each name As String In BridgeTools.RegisteredToolNames
-                        Assert.Equal(BridgeTools.RegisteredToolDescriptions(name), descriptions(name))
-                    Next
-                    Assert.Equal(0, server.Close())
-                End Using
-                Assert.False(File.Exists(map.Path & "-journal"), "a journal appeared beside the map")
+            Dim solutionId As Long = Extract(map)
+            Dim config As String = BridgeHost.WriteConfig(map.Path, Nothing, False, False)
+            Using server As BridgeProcess = BridgeProcess.Serve(config)
+                Dim info As JsonElement = server.Initialize()
+                Assert.Equal("codemem", info.GetProperty("name").GetString())
+                Dim expectedNames As List(Of String) = New List(Of String)(BridgeTools.RegisteredToolNames)
+                Dim listedNames As List(Of String) = server.ListTools()
+                expectedNames.Sort(StringComparer.Ordinal)
+                listedNames.Sort(StringComparer.Ordinal)
+                Assert.Equal(expectedNames, listedNames)
+                Dim descriptions As Dictionary(Of String, String) = server.ListToolDescriptions()
+                For Each name As String In BridgeTools.RegisteredToolNames
+                    Assert.Equal(BridgeTools.RegisteredToolDescriptions(name), descriptions(name))
+                Next
+                Assert.Equal(0, server.Close())
             End Using
+            Assert.False(File.Exists(map.Path & "-journal"), "a journal appeared beside the map")
         End Using
     End Sub
 
@@ -153,19 +149,16 @@ Public Class B01_ReadOnlyContractTests
     <Fact>
     Public Sub APublicationCannotStraddleAToolsReads()
         Using map As TempMap = New TempMap()
-            Using registry As RegistryFixture = New RegistryFixture()
-                Dim solutionId As Long = Extract(map)
-                registry.Seed(131373, "Sample", solutionId, "active", _fixture.SolutionPath)
-                Dim config As String = BridgeHost.WriteConfig(map.Path, registry.Path, Nothing, False, False)
-                Dim recorded As Integer = -1
-                Dim seams As ReadSeams = New ReadSeams With {.AfterScopeResolved = Sub() recorded = MapQueries.TryRenameSolution(map.Path, solutionId, "changed", 1)}
-                Dim host As BridgeHost = New BridgeHost(config, seams)
-                Dim reply As BridgeReply = host.Invoke("solutions", New Dictionary(Of String, Object)())
-                Assert.False(reply.IsError, reply.Text)
-                Assert.Equal(5, recorded)
-                Assert.Equal("Sample", reply.Root().GetProperty("solutions")(0).GetProperty("name").GetString())
-                Assert.Equal(0, MapQueries.TryRenameSolution(map.Path, solutionId, "changed", 1))
-            End Using
+            Dim solutionId As Long = Extract(map)
+            Dim config As String = BridgeHost.WriteConfig(map.Path, Nothing, False, False)
+            Dim recorded As Integer = -1
+            Dim seams As ReadSeams = New ReadSeams With {.AfterScopeResolved = Sub() recorded = MapQueries.TryRenameSolution(map.Path, solutionId, "changed", 1)}
+            Dim host As BridgeHost = New BridgeHost(config, seams)
+            Dim reply As BridgeReply = host.Invoke("solutions", New Dictionary(Of String, Object)())
+            Assert.False(reply.IsError, reply.Text)
+            Assert.Equal(5, recorded)
+            Assert.Equal("Sample", reply.Root().GetProperty("solutions")(0).GetProperty("name").GetString())
+            Assert.Equal(0, MapQueries.TryRenameSolution(map.Path, solutionId, "changed", 1))
         End Using
     End Sub
 
