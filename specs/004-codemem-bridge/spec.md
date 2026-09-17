@@ -8,9 +8,10 @@
 proven ([spike.md](spike.md)); plan written ([plan.md](plan.md)); **STOP 1 ruled 2026-09-15** (all eleven as
 proposed; constitution amended to v1.3.0); tasks written; analyze passes 1 and 2 ruled the same day (Clarifications
 below). **Implemented 2026-09-16** (plan.md "Implementation record"): T001–T059 and T061 done, every Red and FIRE
-recorded, the live steps run through the Release executable read-only and on a copy of the map. Open: T060 (the
-live MemOS run 7, at the Architect's request after a backup), the Operator steps the record lists, and the commits;
-the 299-orphan figure was ruled the accepted baseline on 2026-09-16.
+recorded, the live steps run through the Release executable read-only and on a copy of the map; committed as
+`fe59871` (implementation) and `043598a` (records). **T060 run 2026-09-16** at the Architect's request after a backup:
+MemOS run 7 on the live map, `map_status` `current` (finding 152646 closed). Open: the Operator steps the record
+lists; the 299-orphan figure was ruled the accepted baseline on 2026-09-16.
 
 **Input**: User description: "CodeMem 004: the bridge. PM: task 131384 and children 152646–152648 — read their
 details. Decisions 142362, 137077, 132115, 152658 are binding. Parent: 003, shipped. Build one process,

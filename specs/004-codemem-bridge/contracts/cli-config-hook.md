@@ -86,7 +86,8 @@ the `Pending approval` status) and launches the command with the repository root
 relative path resolves (spike 1d) and the file is portable across checkouts. For a session in another repository,
 the process document gives the user-scope registration with the absolute path:
 `claude mcp add --scope user --transport stdio codemem -- "C:/Users/rchau/source/repos/CodeMem/src/CodeMem.Bridge/bin/Release/net8.0/CodeMem.Bridge.exe" serve`
-— that line and the fragment's command (§4) are the two this machine's paths appear in.
+(or the same entry merged by hand into the top-level `mcpServers` of `~/.claude.json` when `claude` is not on PATH; the
+process document shows the JSON) — that line and the fragment's command (§4) are the two this machine's paths appear in.
 
 ## 4. The settings fragment (`src/CodeMem.Bridge/hooks/settings.fragment.json`; R42)
 

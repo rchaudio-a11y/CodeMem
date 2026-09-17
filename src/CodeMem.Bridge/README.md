@@ -47,6 +47,19 @@ document.
    claude mcp add --scope user --transport stdio codemem -- "C:/Users/rchau/source/repos/CodeMem/src/CodeMem.Bridge/bin/Release/net8.0/CodeMem.Bridge.exe" serve
    ```
 
+   The same entry written by hand, for when `claude` is not on PATH (it is not on this machine): merge it into the
+   top-level `mcpServers` of `~/.claude.json`, the user-scope store, not `~/.claude/settings.json`:
+
+   ```json
+   "mcpServers": {
+     "codemem": {
+       "type": "stdio",
+       "command": "C:/Users/rchau/source/repos/CodeMem/src/CodeMem.Bridge/bin/Release/net8.0/CodeMem.Bridge.exe",
+       "args": ["serve"]
+     }
+   }
+   ```
+
 5. **The hook**: merge `src/CodeMem.Bridge/hooks/settings.fragment.json` into `~/.claude/settings.json` by hand
    (user scope, so a build in any registered repository's session reaches it). Nothing in this feature installs
    it.

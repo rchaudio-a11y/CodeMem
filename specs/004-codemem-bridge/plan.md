@@ -547,8 +547,13 @@ stayed clean.
 - The MemOS Shell column of the side-by-side table (SC-302).
 - Merge `hooks/settings.fragment.json` into `~/.claude/settings.json` and watch a real `dotnet build` in a session
   produce the line (T059's mechanism was exercised by hand; the merge is the Operator's).
-- **T060**, the live MemOS run 7, only at the Architect's request and after a backup; both gates stay off in the
-  config beside the executable until the Architect flips them.
+- ~~T060~~ — run 2026-09-16 at the Architect's request, after the backup `codemem.sqlite.bak-2026-09-16`: run 7 on
+  the live map through `extract --solution-key MemOS` in 24.6 s with the ten counts balanced, `map_status` MemOS
+  `behind` → `current`, the store's hash and the MemOS tree unchanged (quickstart Record, row 7). Both gates are
+  off again in the config beside the executable; finding 152646 is closed with live evidence. B08 (5), (6), (7) went red
+  on the changed map as the rule requires, were diagnosed read-only (a test added after run 6 names CodeMemMapReader
+  once; MemOS at the run's commit; 55 twin pairs added, 277 in all) and re-pinned; B08 7 of 7 armed afterwards. The
+  T060 records and the re-pinned facts follow the two commits and are uncommitted.
 - ~~Accept 299 orphans on GameRoom~~ — ruled 2026-09-16: 299 is the accepted baseline (deviation 13).
 - The commits.
 

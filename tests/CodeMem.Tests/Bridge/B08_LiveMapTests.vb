@@ -21,8 +21,14 @@
 ' RED:   2026-09-16 (T054) the armed whole-suite run: (6) red - map_status took 4108 ms under the parallel load of the extraction
 '        scenarios (154 ms alone, T035). The class now sits in the LiveMap collection (DisableParallelization), so SC-301 measures the
 '        bridge, not the suite.
+' RED:   2026-09-16 (T060) after run 7 published on the live map (the Architect's request, backup taken first): (5), (6), (7) red -
+'        references(3023) 1 where 0 was asserted, MemOS "current" where behind/dirty was, presented 15515 where 15570 was. Each diagnosed
+'        read-only against the map and the answers: a test added after run 6 names CodeMemMapReader once (uses, never constructed;
+'        type_usages 25 against references 1); MemOS is at the run's commit; the eleven commits added 55 twin pairs (277, all pairs).
+'        Each fact re-pinned to the live state with the diagnosis in its comment (the rule: a changed live number is a Red to diagnose).
 
 Imports System.Diagnostics
+Imports System.Linq
 Imports System.Text.Json
 Imports CodeMem.Bridging
 Imports Xunit
@@ -124,8 +130,10 @@ Public Class B08_LiveMapTests
     End Sub
 
     ''' <summary>
-    ''' (5) type_usages on MemOS symbol 3023 (CodeMemMapReader): at least 16 constructor calls naming 6661, references(3023) 0, total at
-    ''' least 20, fromOutside at least 16, no edgeId repeated (SC-303, FR-344, DUP1).
+    ''' (5) type_usages on MemOS symbol 3023 (CodeMemMapReader): at least 16 constructor calls naming 6661, total at least 20, fromOutside
+    ''' at least 16, no edgeId repeated; references(3023) exactly 1 since run 7 - one uses occurrence in
+    ''' CodeMemRepoRootMatcherTests.vb, a test added to the tree after run 6 that names the type and never constructs it (SC-303, FR-344,
+    ''' DUP1: type_usages 25 against references 1 is finding 152647 on the live map).
     ''' </summary>
     <SkippableFact>
     Public Sub LiveTypeUsagesOnCodeMemMapReader()
@@ -144,13 +152,17 @@ Public Class B08_LiveMapTests
         Assert.True(root.GetProperty("total").GetInt32() >= 20, "total " & root.GetProperty("total").GetInt32())
         Assert.True(root.GetProperty("fromOutside").GetInt32() >= 16, "fromOutside " & root.GetProperty("fromOutside").GetInt32())
         Dim references As BridgeReply = Timed(live, "references", Args("solutionKey", "MemOS", "symbolId", 3023L))
-        Assert.Equal(0, references.Root().GetProperty("count").GetInt32())
+        Assert.Equal(1, references.Root().GetProperty("count").GetInt32())
+        Dim only As JsonElement = Assert.Single(references.Root().GetProperty("occurrences").EnumerateArray().ToList())
+        Assert.Equal("uses", only.GetProperty("verb").GetString())
+        Assert.EndsWith("CodeMemRepoRootMatcherTests.vb", only.GetProperty("path").GetString())
         live.AssertUnchanged()
     End Sub
 
     ''' <summary>
-    ''' (6) map_status on the live registry: the MemOS entry behind or dirty (whichever git status says that minute) with HEAD named, not the
-    ''' run's commit, and behindBy at least 1; the GameRoom and CodeMem entries present with non-null heads; unbound empty (SC-304, FR-345).
+    ''' (6) map_status on the live registry after run 7 (T060): the MemOS entry current, HEAD equal to the run's commit, behindBy 0; the
+    ''' GameRoom and CodeMem entries present with non-null heads; unbound empty (SC-304, FR-345). Before run 7 it asserted behind or dirty
+    ''' with HEAD past the recorded commit - the state finding 152646 named; the next MemOS commit turns this red, to diagnose.
     ''' </summary>
     <SkippableFact>
     Public Sub LiveMapStatusReportsMemOsBehind()
@@ -163,10 +175,10 @@ Public Class B08_LiveMapTests
             _output.WriteLine(entry.GetProperty("solutionKey").GetString() & ": " & entry.GetProperty("verdict").GetString() & " - " & entry.GetProperty("reason").GetString())
         Next
         Dim memos As JsonElement = entries("MemOS")
-        Assert.Contains(memos.GetProperty("verdict").GetString(), New String() {"behind", "dirty"})
+        Assert.Equal("current", memos.GetProperty("verdict").GetString())
         Assert.Equal(JsonValueKind.String, memos.GetProperty("head").GetProperty("sha").ValueKind)
-        Assert.NotEqual(memos.GetProperty("run").GetProperty("commitSha").GetString(), memos.GetProperty("head").GetProperty("sha").GetString())
-        Assert.True(memos.GetProperty("head").GetProperty("behindBy").GetInt32() >= 1, "behindBy " & memos.GetProperty("head").GetProperty("behindBy").GetRawText())
+        Assert.Equal(memos.GetProperty("run").GetProperty("commitSha").GetString(), memos.GetProperty("head").GetProperty("sha").GetString())
+        Assert.Equal(0, memos.GetProperty("head").GetProperty("behindBy").GetInt32())
         For Each key As String In New String() {"GameRoom", "CodeMem"}
             Assert.Equal(JsonValueKind.String, entries(key).GetProperty("head").GetProperty("sha").ValueKind)
         Next
@@ -176,7 +188,8 @@ Public Class B08_LiveMapTests
 
     ''' <summary>
     ''' (7) Twins on the live MemOS map (SC-309): CodeMemMapFixture presents once with compiledInto 3556 and 4200 (total 2: the contains
-    ''' filter also finds CodeMemMapFixtureTests); the declarations presented across every kind number the active rows minus 222; every
+    ''' filter also finds CodeMemMapFixtureTests); the declarations presented across every kind number the active rows minus 277 (222
+    ''' before run 7; the eleven commits since run 6 added 55 twin pairs, every group still a pair - read-only diagnosis, T060); every
     ''' call under 3 s, timed and printed (SC-301, G3).
     ''' </summary>
     <SkippableFact>
@@ -201,7 +214,7 @@ Public Class B08_LiveMapTests
         Next
         Dim active As Integer = live.ActiveSymbolCount("MemOS")
         _output.WriteLine("MemOS active rows " & active & ", presented " & presented & ", absorbed " & (active - presented))
-        Assert.Equal(active - 222, presented)
+        Assert.Equal(active - 277, presented)
         live.AssertUnchanged()
     End Sub
 
