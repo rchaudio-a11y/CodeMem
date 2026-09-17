@@ -280,7 +280,7 @@ Public Class B10_MapResolutionTests
     End Sub
 
     ''' <summary>
-    ''' (15) One log line per call, the target column in the new form solutionKey=Fresh solution=<path>, resolved as Fresh (FR-414).
+    ''' (15) One log line per call, the target column in the new form solutionKey=Fresh solution=(the path), resolved as Fresh (FR-414).
     ''' </summary>
     <Fact>
     Public Sub OneLogLinePerCallWithTheNewTargetForm()
@@ -295,7 +295,7 @@ Public Class B10_MapResolutionTests
 
     ''' <summary>
     ''' (16) Adding through the command line reaches the door (CON3; T029): over a map seeded with Sample from one copy, a second copy is
-    ''' refused by --repo-path (exit 2) and listed by map_status over stdio; extract --solution-key Fresh --solution <its .sln> exits 0 with
+    ''' refused by --repo-path (exit 2) and listed by map_status over stdio; extract --solution-key Fresh --solution (its .sln) exits 0 with
     ''' run.runId; map_status over stdio no longer lists the directory. --solution alone is a usage error (exit 1) naming the rule.
     ''' </summary>
     <Fact>

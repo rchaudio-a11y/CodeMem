@@ -26,6 +26,8 @@ in `tasks.md` and the code.
 
 **T040 (2026-09-17, partial)**: after T038 (the process document) and T039 (bridge 0.2.0; B01 (5) reads `serverInfo.version` 0.2.0 over stdio): `dotnet test` on the Debug build **197 passed / 0 failed / 9 skipped (2 m 53 s)**; every new test file carries at least one `' FIRE:` line (B09, B10, B11, X01, X02, S03 one each; BridgeStandaloneGateTests two). `dotnet build CodeMem.sln -c Release` **did not complete**: MSB3021/MSB3027 copying `CodeMem.Bridging.dll`, `CodeMem.Core.dll` and `CodeMem.Extraction.dll` into `src/CodeMem.Bridge/bin/Release/net8.0/` — the files are held by PID 86044, `CodeMem.Bridge.exe serve`, the session's own `codemem` MCP server running from that folder since 2026-09-16 21:24. The Release build, the Release suite and the live steps (T041–T044) wait for that server to be stopped or reconnected; nothing else is outstanding before them.
 
+**T040 (2026-09-17, complete)**: the Architect said "stop the process"; PID 86044 stopped; `dotnet build CodeMem.sln -c Release` **0 errors / 0 warnings** (two B10 summaries that quoted `<path>` and `<its .sln>` literally were reworded first — ten BC42304 XML-doc warnings); `dotnet test -c Release` **197 passed / 0 failed / 9 skipped (3 m 1 s)**, under the five-minute bound.
+
 ```powershell
 dotnet build CodeMem.sln -c Release --nologo -v q
 dotnet test --nologo -v q                                   # the whole suite; baseline 145 passed / 8 skipped / 2 m 33 s before 005
@@ -73,14 +75,16 @@ $env:CODEMEM_LIVE_MAP = "C:\_DB\codemem.sqlite"; dotnet test --nologo -v q --fil
 7. **MemOS**: `git status --porcelain` in `rchaudio-a11y\MemOS` before step 1 and after step 6 — empty both times; nothing in this feature
    opened `memos.sqlite`.
 
+**T041 (2026-09-17)**: steps 1–3 done on a copy. One deviation from step 3's wording: the bridge's `extract` refuses a version-2 map with `VersionBelow` for every target shape, the by-key-with-path one included, because the door opens the map (and checks the pin) before it resolves — the order contracts/tools.md §6 gives. So the copy's first upgrade ran through `CodeMem.Extractor.dll` directly (`--solution …DSP_Processor.slnx --db <copy> --solution-key DSP_Processor`), which is exactly the refusal's remedy; the second extraction (RicksLife) then went through the bridge. Step 4 on the live map will have the same shape: the extractor first, then the bridge. Also worth the Architect's eye: `map_status` over five repositories took 3.6 s on the copy (004's SC-301 measured 3 s for one call; the working trees are dirty and MemOS is behind), while `solutions` took 62 ms.
+
 ### Record (filled at implementation)
 
 | Step | Expected | Observed (date, figures) |
 |---|---|---|
-| 1. backup + hash | equal hashes | |
-| 2. `solutions` at pin 3 vs a version-2 map | `VersionBelow` | |
-| 3. copy: DSP_Processor from `.slnx` | exit 0, schema 3, `.slnx` recorded | |
-| 3. copy: RicksLife from `.slnx`, no NoWarn | exit 0, `warnings=3` | |
+| 1. backup + hash | equal hashes | 2026-09-17: `C:\_DB\codemem.sqlite.bak-2026-09-17-pre-005`; SHA-256 `fdac5897…c5404a` for both (80,982,016 bytes) |
+| 2. `solutions` at pin 3 vs a version-2 map | `VersionBelow` | 2026-09-17: `storePath` removed from the Release `bridge.config.json` (gates off); `solutions` over stdio: `isError` true, "…is at schema version 2; this bridge requires 3. Run the CodeMem extractor once: it upgrades the map in place; the bridge is read-only and cannot." (47 ms) |
+| 3. copy: DSP_Processor from `.slnx` | exit 0, schema 3, `.slnx` recorded | 2026-09-17: **through the bridge first: exit 2, `VersionBelow`** (the door's pin check precedes resolution for every shape — see the T041 note); then the extractor directly on the copy: exit 0 in 8 s, `run_id=10 observed=2811 matched=2811 new=0 … sha=d07d341b… warnings=0`; the copy at schema 3; `last_seen_path` `…\DSP_Processor.slnx` |
+| 3. copy: RicksLife from `.slnx`, no NoWarn | exit 0, `warnings=3` | 2026-09-17: through the bridge on the upgraded copy (no `NoWarn*` in the launching environment): exit 0 in 9 s, `run_id=11 observed=1644 matched=1644 new=0 … sha=6aa2b895… warnings=3`; the three rows NU1701 on `RicksLife/RicksLife.vbproj`: OpenTK 3.1.0, OpenTK.GLControl 3.1.0, SkiaSharp.Views.WindowsForms 3.119.4; `last_seen_path` `…\RicksLife.slnx`. `solutions` on the copy: five entries, RicksLife `latestRun.warnings` 3, no registry field; `map_status`: five entries with `solutionId` (DSP_Processor `current`, MemOS `behind`, the other three `dirty`), `notInMap` empty, no `storePath`/`bound`/`unbound`/`inactive` — 3,577 ms on five repositories |
 | 4. live: the two runs | as 3 | |
 | 5. `--repo-path` DSP_Processor, store renamed | key `DSP_Processor` | |
 | 5. `--repo-path` unmapped + `map_status` | `PathNotInMap` with the command; listed | |
