@@ -13,7 +13,7 @@ fixture; Q6 ruled A (one root rule, the extractor's). Q4, Q5, Q7, Q9 and Q10 sta
 accepted by the Architect and applied (FR-401's gate narrowed to the path-shaped, case-sensitive `memos` — I1; the `.slnx`
 open time is measured, not asserted — A1; SC-406's 5 s is the one bound — I4). **STOP 1 ruled 2026-09-17: all ten plan decisions
 as proposed** (Q4, Q5, Q7, Q9, Q10 thereby ruled as proposed). **Implemented 2026-09-17** (plan.md
-"Implementation record"): T001–T043 done, every Red and FIRE recorded in the test headers, the suite 197 passed / 0 failed /
+"Implementation record"): T001–T044 done, every Red and FIRE recorded in the test headers, the suite 197 passed / 0 failed /
 9 skipped on the Debug and the Release build; the live steps run read-only against the live map and in full on a copy of it
 (the copy at schema 3, both `.slnx` re-points, `warnings=3` on RicksLife, `PathNotInMap` with its command on vbCalc).
 **T042 and T043 done 2026-09-17**, at the Architect's request and after the T041 backup was re-verified byte-identical:
@@ -22,9 +22,11 @@ extracted through the bridge (run 11, `warnings=3`); the from-the-map checks run
 closed — `DSP_Processor` resolved from the map alone, `vbCalc` refused `PathNotInMap` with the map byte-identical across the
 refusal — and the store restored byte-identical, never opened. MemOS re-extracted at the same request (run 13). B08 armed
 **8/8**: its `map_status` verdict fact was reworked to recompute each entry's inputs from git, because asserting `current`
-was asserting a transient, and (7)'s absorbed-twin count re-pinned 277 → 279 with the arithmetic recorded. Open at the
-Architect's hand: T044 (the Operator's two steps outside this repository), T045's remaining close-out (the memory note) and
-the merge to main.
+was asserting a transient, and (7)'s absorbed-twin count re-pinned 277 → 279 with the arithmetic recorded. **T044 done 2026-09-17**: `DSP_Processor.sln` deleted and committed in its own repository (`98c81d0`), the two MemOS
+registry rows re-pointed at their `.slnx` files by the Operator through the Shell, and `extract --repo-path` run once more at
+that commit — run 16, launched from `DSP_Processor.slnx`, 2,811 balanced, the source digest unchanged from every run
+before it; MemOS `git status --porcelain` empty before the live steps and empty again after. Open at the Architect's hand:
+the merge to main (T045's last line).
 
 **Input**: User description: "CodeMem 005: the bridge stands alone. PM: 152687, 152688, 152705. Parent: 004. ### Remove
 StoreDatabase, CodeMapSolutionsRepository, storePath, the projectId parameter on every tool, ScopeResolver's registry

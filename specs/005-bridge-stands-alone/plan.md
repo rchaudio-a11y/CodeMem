@@ -478,10 +478,21 @@ facts call `BridgeTools` directly; `BridgeServer` binds `BridgeToolBindings`.
   exit 0, run 12, 2811 balanced. The log's resolution column carries `PathNotInMap` and `DSP_Processor` on those two
   lines.
 
-**What is not done here** and waits for the Architect: T042 (the two extractions against `C:\_DB\codemem.sqlite`, which
-upgrade it to version 3, and B08 armed), the live half of T043 (`memos.sqlite` renamed with the Shell closed), T044 (the
-Operator's steps outside this repository: delete `DSP_Processor.sln`, re-point the two MemOS registry rows), and T045's
-merge to main. `git -C rchaudio-a11y\MemOS status --porcelain` was empty on 2026-09-17 before any of this ran.
+**T042–T044 followed the same day**, at the Architect's word and in the order T041 predicted — the extractor first, the
+bridge after. The figures, the one Red and its resolution, and the map's whole hash chain are in
+[quickstart.md](quickstart.md)'s Record, rows 4–7. In short: the live map upgraded to version 3 by the extractor
+(DSP_Processor run 10, both version-2 triggers still present — the change is additive), RicksLife re-extracted through the
+bridge (run 11, `warnings=3`); **B08 8/8 against the live map**, after one fact was reworked off a transient (it now
+recomputes each entry's inputs from git and asserts the verdict they imply) and one live figure re-pinned with its
+arithmetic closing exactly; `memos.sqlite` renamed with the Shell closed, `--repo-path` resolving `DSP_Processor` from the
+map alone with no store on disk at all, and `vbCalc` refused `PathNotInMap` with the map byte-identical across the
+refusal. On the Operator's side: `DSP_Processor.sln` deleted and committed (`98c81d0`), the two MemOS registry rows
+re-pointed at their `.slnx` files, and `extract --repo-path` run once more at that commit — run 16, launched from
+`DSP_Processor.slnx`, 2811 balanced, source digest `80199c40…` **unchanged from every run before it**, so the `.slnx`
+presents exactly the source set the `.sln` did. `git -C rchaudio-a11y\MemOS status --porcelain` was empty on 2026-09-17
+before any of this ran and empty again after the last step; nothing in this feature opened `memos.sqlite`.
+
+**What is left**: T045's merge to `main`, at the Architect's direction.
 
 ## Phase 0 / Phase 1 outputs
 
