@@ -21,6 +21,13 @@
 ' the map's history; "every table keeps its rows" was and remains the fact for the identity and run tables. Amended in place: the upgraded map
 ' must hold exactly the edges a fresh map of the same fixture gets from the same executable. code_symbols, code_parts and rename_candidates
 ' equality stand (the fixture has no out-of-scope declaration). Re-run -> green.
+'
+' 2026-09-17 (feature 005, T008; Reds named in plan 005 §Test design): (1) and (4) assert 2 and (3) hand-bumps to 3 to provoke the newer-version
+' refusal; all three go red at T009 when Current becomes 3 - (1), (4): 2 -> 3; (3): the bump -> 4 - and are amended in that task after the Red
+' is observed.
+' RED:   2026-09-17 (T009) (1) and (4) observed as named (expected 2, actual 3). (3) stayed green for the wrong reason: a version-1 map bumped to
+'        3 now reads as Current, proceeds, and fails on the missing sdk_version column (exit 1) - the assertions held by accident, not by the
+'        FR-114 refusal. Amended: (1), (4) to 3; (3) bumps to 4 so the refusal, not a column, is what exits 1. Re-run -> green.
 
 Imports CodeMem.Extraction
 Imports Xunit
@@ -57,7 +64,7 @@ Public Class S02_SchemaUpgradeTests
 
             Assert.Equal(ExitCode.Success, ExtractionRun.Execute(New ExtractionOptions With {.SolutionPath = _fixture.SolutionPath, .DbPath = map.Path}, Nothing))
 
-            Assert.Equal(2, MapQueries.ReadSchemaVersion(map.Path))
+            Assert.Equal(3, MapQueries.ReadSchemaVersion(map.Path))
             Assert.Equal(guidBefore, MapQueries.ReadMapGuid(map.Path))
             Dim after As Dictionary(Of String, Long) = Counts(map.Path, solutionId)
             Assert.Equal(before("map_identity"), after("map_identity"))
@@ -81,7 +88,7 @@ Public Class S02_SchemaUpgradeTests
             Next
             Dim newest As RunRow = runs(runs.Count - 1)
             Assert.Equal("completed", newest.Outcome)
-            Assert.Equal(2, newest.SchemaVersion)
+            Assert.Equal(3, newest.SchemaVersion)
             Assert.False(String.IsNullOrEmpty(newest.SdkVersion), "sdk_version is empty on the upgrading run")
             Assert.Equal(before("code_symbols"), CLng(newest.SymbolsMatched))
         End Using
@@ -107,18 +114,18 @@ Public Class S02_SchemaUpgradeTests
     End Sub
 
     ''' <summary>
-    ''' (3) a map at version 3 is refused with exit 1 and nothing written: no run row, no schema object added (FR-114).
+    ''' (3) a map at version 4 is refused with exit 1 and nothing written: no run row, no schema object added (FR-114).
     ''' </summary>
     <Fact>
     Public Sub NewerMapIsRefusedUntouched()
         Using map As TempMap = New TempMap()
             V1MapFixture.CopyToTemp(map)
-            MapQueries.SetSchemaVersion(map.Path, 3)
+            MapQueries.SetSchemaVersion(map.Path, 4)
             Dim solutionId As Long = MapQueries.ReadSolutions(map.Path)(0).Id
             Dim runsBefore As Long = MapQueries.CountRows(map.Path, "extract_runs", solutionId)
             Dim objectsBefore As List(Of String) = MapQueries.ReadSchemaObjects(map.Path)
             Assert.Equal(ExitCode.Failure, ExtractionRun.Execute(New ExtractionOptions With {.SolutionPath = _fixture.SolutionPath, .DbPath = map.Path}, Nothing))
-            Assert.Equal(3, MapQueries.ReadSchemaVersion(map.Path))
+            Assert.Equal(4, MapQueries.ReadSchemaVersion(map.Path))
             Assert.Equal(runsBefore, MapQueries.CountRows(map.Path, "extract_runs", solutionId))
             Assert.Equal(objectsBefore, MapQueries.ReadSchemaObjects(map.Path))
         End Using
@@ -150,7 +157,7 @@ Public Class S02_SchemaUpgradeTests
             Next
 
             Assert.Equal(ExitCode.Success, ExtractionRun.Execute(New ExtractionOptions With {.SolutionPath = _fixture.SolutionPath, .DbPath = map.Path}, Nothing))
-            Assert.Equal(2, MapQueries.ReadSchemaVersion(map.Path))
+            Assert.Equal(3, MapQueries.ReadSchemaVersion(map.Path))
             Assert.Equal(before("extract_runs") + 1, MapQueries.CountRows(map.Path, "extract_runs", solutionId))
         End Using
     End Sub

@@ -9,6 +9,8 @@
 ' the nonce (F8); the stamp carries sdk_version (FR-109); refreshes and reactivations pass the observed kind (F2).
 ' 2026-09-13 (fixpack 003, rule 1): step 8 resolves the SolutionScope from the git facts and stages, adds project rows for and runs the tree
 ' rules over in-scope projects only (FR-201, FR-203); the green gate of step 6 still covers every compiled project.
+' 2026-09-17 (feature 005, T009): step 4 gains the 2 -> 3 migration on every path (Fresh: 1 -> 2 -> 3; Version1: 2 -> 3; Version2: 3), the
+' DuringUpgrade seam after the last migration statement of whichever path ran (research R63).
 
 Imports System.IO
 Imports System.Text.RegularExpressions
@@ -47,7 +49,7 @@ Public Class ExtractionRun
                 db.BeginImmediate()
                 Dim abortAt As RunPhase = ReadAbortPhase()
 
-                ' Step 4: one door decides fresh / version 1 / current / foreign / newer (FR-105, FR-112, FR-114).
+                ' Step 4: one door decides fresh / version 1 / version 2 / current / foreign / newer (FR-105, FR-112, FR-114; 005 FR-429).
                 Dim found As Integer
                 Select Case db.InspectSchema(found)
                     Case SchemaState.Fresh
@@ -55,10 +57,16 @@ Public Class ExtractionRun
                         MapIdentityRepository.Insert(db, Guid.NewGuid().ToString(), 1, Timestamps.NowUtc())
                         AbortIf(abortAt, RunPhase.DuringInitialize)
                         SchemaRepository.UpgradeToVersion2(db)
+                        SchemaRepository.UpgradeToVersion3(db)
                         AbortIf(abortAt, RunPhase.DuringUpgrade)
                         SchemaRepository.SetSchemaVersion(db, SchemaVersion.Current)
                     Case SchemaState.Version1
                         SchemaRepository.UpgradeToVersion2(db)
+                        SchemaRepository.UpgradeToVersion3(db)
+                        AbortIf(abortAt, RunPhase.DuringUpgrade)
+                        SchemaRepository.SetSchemaVersion(db, SchemaVersion.Current)
+                    Case SchemaState.Version2
+                        SchemaRepository.UpgradeToVersion3(db)
                         AbortIf(abortAt, RunPhase.DuringUpgrade)
                         SchemaRepository.SetSchemaVersion(db, SchemaVersion.Current)
                     Case SchemaState.Current

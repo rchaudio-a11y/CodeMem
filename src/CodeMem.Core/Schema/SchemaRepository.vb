@@ -9,14 +9,19 @@
 '
 ' 2026-09-15 (feature 004): this file keeps LF line endings. The newlines inside the two DDL constants are part of the text SQLite stores in
 ' sqlite_master, and S02 compares a fresh map's objects with the version-1 fixture map's; a tool that rewrites the file as CRLF turns that
-' comparison red (observed 2026-09-15 and restored the same day).
+' comparison red (observed 2026-09-15 and restored the same day; observed again at the 004 merge checkout on 2026-09-17 and pinned by
+' .gitattributes, feature 005 T001).
+'
+' 2026-09-17 (feature 005, T009): MigrationToVersion3 and UpgradeToVersion3 - extract_run_warnings and its index (contracts/extractor.md §5,
+' research R63); the version-1 and version-2 texts are frozen.
 
 Imports Microsoft.Data.Sqlite
 
 ''' <summary>
 ''' The one place CREATE TABLE, ALTER TABLE and CREATE TRIGGER appear in Core. Article XII: the schema owns structural invariants.
-''' A fresh map runs <see cref="CreateVersion1"/>, gets its identity row at version 1, then runs <see cref="UpgradeToVersion2"/> exactly
-''' as a version-1 map does, so sqlite_master is identical on every map (spec 002 Clarifications Q2).
+''' A fresh map runs <see cref="CreateVersion1"/>, gets its identity row at version 1, then runs <see cref="UpgradeToVersion2"/> and
+''' <see cref="UpgradeToVersion3"/> exactly as an older map does, so sqlite_master is identical on every map (spec 002 Clarifications Q2;
+''' feature 005 research R63).
 ''' </summary>
 Public Module SchemaRepository
 
@@ -174,6 +179,20 @@ BEGIN
 END;
 "
 
+    ' The MIGRATION 2 -> 3 section of contracts/extractor.md §5 (feature 005) minus its final UPDATE (SetSchemaVersion is the last statement,
+    ' after the DuringUpgrade seam). Byte-identical on the fresh path and both upgrade paths (S03 (5)).
+    Private Const MigrationToVersion3 As String = "-- MIGRATION 2 -> 3 (feature 005, FR-429): restore warnings the load tolerated, one typed row each (Article X).
+-- A row is written right after its run row, completed or failed; never for a run that wrote no row (exit 1, exit 2).
+CREATE TABLE extract_run_warnings (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id          INTEGER NOT NULL REFERENCES extract_runs(id),
+    code            TEXT    NOT NULL,               -- NuGet's code, e.g. NU1701
+    project_path    TEXT    NULL,                   -- solution-relative path of the project file the warning names; NULL when it names none
+    message         TEXT    NOT NULL
+);
+CREATE INDEX ix_extract_run_warnings_run_id ON extract_run_warnings(run_id);
+"
+
     ''' <summary>
     ''' Executes the version-1 DDL (tables and indexes; no PRAGMA) inside the open transaction of a fresh map.
     ''' </summary>
@@ -194,6 +213,19 @@ END;
     Public Sub UpgradeToVersion2(db As MapDatabase)
         Using command As SqliteCommand = db.CreateCommand()
             command.CommandText = MigrationToVersion2
+            command.ExecuteNonQuery()
+        End Using
+    End Sub
+
+    ''' <summary>
+    ''' Executes the migration statements 2 -> 3: CREATE TABLE extract_run_warnings and its index (feature 005, FR-429). Does not set
+    ''' map_identity.schema_version; the caller does that with <see cref="SetSchemaVersion"/> after the DuringUpgrade seam. Nothing is
+    ''' dropped, rebuilt or deleted (Article XIV).
+    ''' </summary>
+    ''' <param name="db">The open map at version 2 (just upgraded from 1, or a 004-era map), with BEGIN IMMEDIATE taken.</param>
+    Public Sub UpgradeToVersion3(db As MapDatabase)
+        Using command As SqliteCommand = db.CreateCommand()
+            command.CommandText = MigrationToVersion3
             command.ExecuteNonQuery()
         End Using
     End Sub

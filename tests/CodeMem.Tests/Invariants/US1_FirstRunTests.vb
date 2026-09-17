@@ -11,6 +11,9 @@
 ' 2026-09-13 (fixpack 003, FR-217; a Red named in plan 003 §Test design): red - Assert.Equal expected "0.1.0", actual "0.2.0" after the
 ' extraction assembly's version moved to 0.2.0 (the fact set for one digest changed). The literal is amended; the fact - the run stamps the
 ' assembly's version - is unchanged. Re-run -> green.
+' 2026-09-17 (feature 005, T008; a Red named in plan 005 §Test design): Assert.Equal(2, ReadSchemaVersion) goes red at T009 when Current
+' becomes 3; amended to 3 in that task after the Red is observed.
+' RED:   2026-09-17 (T009) observed as named (expected 2, actual 3); amended in place; re-run -> green.
 
 Imports System.Diagnostics
 Imports System.Text.RegularExpressions
@@ -47,7 +50,7 @@ Public Class US1_FirstRunTests
 
             Assert.Equal(1L, MapQueries.CountRows(map.Path, "map_identity", 0))
             Assert.Equal(36, MapQueries.ReadMapGuid(map.Path).Length)
-            Assert.Equal(2, MapQueries.ReadSchemaVersion(map.Path))
+            Assert.Equal(3, MapQueries.ReadSchemaVersion(map.Path))
 
             Dim solutions As List(Of SolutionRow) = MapQueries.ReadSolutions(map.Path)
             Assert.Single(solutions)
@@ -65,7 +68,7 @@ Public Class US1_FirstRunTests
             Assert.Equal("Debug", run.BuildConfiguration)
             Assert.False(String.IsNullOrEmpty(run.TargetFramework))
             Assert.Equal("0.2.0", run.ExtractorVersion)
-            Assert.Equal(2, run.SchemaVersion)
+            Assert.Equal(3, run.SchemaVersion)
             Assert.False(String.IsNullOrEmpty(run.SdkVersion), "sdk_version must be stamped on a version-2 run")
             Assert.Matches("^\d{4}-\d{2}-\d{2}T", run.StartedUtc)
             Assert.Matches("^\d{4}-\d{2}-\d{2}T", run.FinishedUtc)

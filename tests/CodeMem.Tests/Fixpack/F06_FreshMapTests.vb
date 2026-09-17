@@ -10,6 +10,11 @@
 '        DuringInitialize abort -> file still fresh, next run exit 0.
 ' FIRE:  2026-09-10 (T034) the Foreign case created the schema as if Fresh -> (b) red (exit 0 instead of 1: the foreign file gained tables);
 '        reverted -> green.
+' RED:   2026-09-17 (feature 005, T008; a Red named in plan 005 §Test design before it ran): the two Assert.Equal(2, ReadSchemaVersion) go red at
+'        T009 when SchemaVersion.Current becomes 3 (a fresh map is created at 1 and upgraded 1 -> 2 -> 3 in one transaction); amended to 3 in that
+'        task after the Red is observed.
+' RED:   2026-09-17 (T009) observed as named: ZeroByteFileIsFresh and AbortDuringInitializeLeavesAFreshFileAndTheNextRunSucceeds expected 2,
+'        actual 3. Amended to 3 in place; re-run -> green.
 
 Imports System.IO
 Imports CodeMem.Extraction
@@ -40,7 +45,7 @@ Public Class F06_FreshMapTests
             File.WriteAllBytes(map.Path, New Byte() {})
             Assert.Equal(ExitCode.Success, ExtractionRun.Execute(New ExtractionOptions With {.SolutionPath = _fixture.SolutionPath, .DbPath = map.Path}, Nothing))
             Assert.True(MapQueries.CountUserTables(map.Path) > 0, "no tables were created")
-            Assert.Equal(2, MapQueries.ReadSchemaVersion(map.Path))
+            Assert.Equal(3, MapQueries.ReadSchemaVersion(map.Path))
             Assert.Single(MapQueries.ReadRuns(map.Path))
         End Using
     End Sub
@@ -83,7 +88,7 @@ Public Class F06_FreshMapTests
             Assert.True(fresh, "the file left behind is not fresh")
 
             Assert.Equal(ExitCode.Success, ExtractionRun.Execute(New ExtractionOptions With {.SolutionPath = _fixture.SolutionPath, .DbPath = map.Path}, Nothing))
-            Assert.Equal(2, MapQueries.ReadSchemaVersion(map.Path))
+            Assert.Equal(3, MapQueries.ReadSchemaVersion(map.Path))
             Assert.Single(MapQueries.ReadRuns(map.Path))
         End Using
     End Sub

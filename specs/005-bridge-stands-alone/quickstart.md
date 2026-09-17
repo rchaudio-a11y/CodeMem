@@ -16,14 +16,16 @@ in `tasks.md` and the code.
 
 **T001 (2026-09-17)**: branch `005-bridge-stands-alone` from `90d62ca`; the artefacts committed as `ff0ce54`; `dotnet build` 0 / 0; `dotnet test` **144 passed / 1 failed / 8 skipped (2 m 27 s)** — S02 (2) `UpgradedMapHasTheSameSchemaObjectsAsAFreshMap` red because the 004 merge checkout had rewritten `src/CodeMem.Core/Schema/SchemaRepository.vb` to CRLF under `core.autocrlf=true` (the 004 record's "must stay LF" trap): the DDL literals' line endings become the sql text in `sqlite_master`, and the version-1 fixture map was created from LF text. Fixed on the branch by `.gitattributes` (`text eol=lf` for that file; `*.sqlite` and `*.nupkg` binary) and normalising the file; S02 4 / 4 green; the whole suite re-run at T011.
 
+**T011 (2026-09-17)**: after schema version 3 (T007–T010): `dotnet test` **152 passed / 2 failed / 8 skipped (2 m 55 s)** — the two failures are `BridgeStandaloneGateTests` (1) and (2), red as named until the archive at T024. Named Reds observed and amended in place: F06 ×2, S02 (1) (3) (4), US1, B02 (the pin; `schemaVersion` 2 → 3; the hand-bump 3 → 4); one Red the plan did not name, `RefusalTests.SchemaVersionMismatchIsRefused` (the same shape as S02 (3): its literal 3 is current now; stamps 4). Note: the `--filter` lines below use class-name prefixes (`FullyQualifiedName~CodeMem.Tests.B09`), because the test namespace is flat; the folder-name filters first written here matched nothing.
+
 ```powershell
 dotnet build CodeMem.sln -c Release --nologo -v q
 dotnet test --nologo -v q                                   # the whole suite; baseline 145 passed / 8 skipped / 2 m 33 s before 005
-dotnet test --nologo -v q --filter "FullyQualifiedName~Bridge.B09|FullyQualifiedName~Bridge.B10|FullyQualifiedName~Bridge.B11"
-dotnet test --nologo -v q --filter "FullyQualifiedName~Extraction.X0"       # .slnx and warnings
-dotnet test --nologo -v q --filter "FullyQualifiedName~Fixpack.S03"         # schema version 3
-dotnet test --nologo -v q --filter "FullyQualifiedName~Guards"              # every gate, the amended connection-site gate included
-$env:CODEMEM_LIVE_MAP = "C:\_DB\codemem.sqlite"; dotnet test --nologo -v q --filter "FullyQualifiedName~B08"   # armed live facts
+dotnet test --nologo -v q --filter "FullyQualifiedName~CodeMem.Tests.B09|FullyQualifiedName~CodeMem.Tests.B10|FullyQualifiedName~CodeMem.Tests.B11"
+dotnet test --nologo -v q --filter "FullyQualifiedName~CodeMem.Tests.X0"       # .slnx and warnings
+dotnet test --nologo -v q --filter "FullyQualifiedName~CodeMem.Tests.S03"         # schema version 3
+dotnet test --nologo -v q --filter "FullyQualifiedName~GateTests|FullyQualifiedName~Tripwire|FullyQualifiedName~RefusalTests"              # every gate, the amended connection-site gate included
+$env:CODEMEM_LIVE_MAP = "C:\_DB\codemem.sqlite"; dotnet test --nologo -v q --filter "FullyQualifiedName~CodeMem.Tests.B08"   # armed live facts
 ```
 
 ## Fixture validation (what the new facts do; runnable by hand against the built bridge)

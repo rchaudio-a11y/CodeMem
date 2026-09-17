@@ -16,6 +16,11 @@
 '        BridgeToolDescriptions.References -> (8) red naming the phrase; (b) AND s.is_active = 1 dropped from CodeSymbolsRepository.Search
 '        -> (7) red (the retired Twins row listed: total expected 0, actual 1); (c) AND e.verb <> 'part_of' dropped from ReadReferences ->
 '        (4) red (a part_of occurrence on MainForm); each restored from a byte copy -> green.
+'
+' 2026-09-17 (feature 005, T010): RED - every fact but (8) red with "schema version 3; this bridge requires 2" once Core moved to 3 at T009
+' (the fixture maps are version 3, the pin was 2): the named Red of FR-430. Amended with the pin: (7)'s hand-bump 3 -> 4 for "version above",
+' and a version-2 map (Fixtures/Maps/version2.sqlite) added as a second "version below" case with the extractor remedy.
+' (1)'s map.schemaVersion literal 2 -> 3 (observed red after the pin moved: expected 2, actual 3).
 
 Imports System.IO
 Imports System.Text.Json
@@ -55,7 +60,7 @@ Public Class B02_PortedReaderTests
         Dim root As JsonElement = reply.Root()
         Dim map As JsonElement = root.GetProperty("map")
         Assert.Equal(MapQueries.ReadMapGuid(_scenario.Map.Path), map.GetProperty("guid").GetString())
-        Assert.Equal(2, map.GetProperty("schemaVersion").GetInt32())
+        Assert.Equal(3, map.GetProperty("schemaVersion").GetInt32())
         Assert.Equal(JsonValueKind.String, map.GetProperty("createdUtc").ValueKind)
         Assert.Equal(_scenario.Map.Path, root.GetProperty("mapPath").GetString())
         Assert.Equal(JsonValueKind.String, root.GetProperty("readAtUtc").ValueKind)
@@ -281,9 +286,13 @@ Public Class B02_PortedReaderTests
             V1MapFixture.CopyToTemp(v1)
             Expect("version below", New BridgeHost(BridgeHost.WriteConfig(v1.Path, _scenario.Registry.Path, Nothing, False, False)).Invoke("solutions", Args()), "upgrades the map in place")
         End Using
+        Using v2 As TempMap = New TempMap()
+            V2MapFixture.CopyToTemp(v2)
+            Expect("version below (a 004-era map)", New BridgeHost(BridgeHost.WriteConfig(v2.Path, _scenario.Registry.Path, Nothing, False, False)).Invoke("solutions", Args()), "upgrades the map in place")
+        End Using
         Using newer As TempMap = New TempMap()
             Assert.Equal(ExitCode.Success, ExtractionRun.Execute(New ExtractionOptions With {.SolutionPath = _scenario.SolutionPath, .DbPath = newer.Path}, Nothing))
-            MapQueries.SetSchemaVersion(newer.Path, 3)
+            MapQueries.SetSchemaVersion(newer.Path, 4)
             Expect("version above", New BridgeHost(BridgeHost.WriteConfig(newer.Path, _scenario.Registry.Path, Nothing, False, False)).Invoke("solutions", Args()), "newer contract")
         End Using
         Using noTable As RegistryFixture = RegistryFixture.WithoutTable()

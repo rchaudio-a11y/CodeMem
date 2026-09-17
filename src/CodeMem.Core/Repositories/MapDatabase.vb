@@ -9,6 +9,8 @@
 '
 ' 2026-09-15 (feature 004, T011): ReadOnlyConnectionString and OpenReadOnly - the bridge's door, Mode=ReadOnly, no pragma (research R44,
 ' FR-303) - and BeginRead / EndRead, one deferred read transaction per tool call (CON4, research R58). The extractor's path is unchanged.
+'
+' 2026-09-17 (feature 005, T009): InspectSchema returns Version2 for a 004-era map so ExtractionRun migrates it to 3 (research R63).
 
 Imports Microsoft.Data.Sqlite
 
@@ -103,8 +105,8 @@ Public Class MapDatabase
 
     ''' <summary>
     ''' Classifies the file under the write lock (data-model.md "Map states at open"): no user table -> Fresh; no map_identity table or
-    ''' no row -> Foreign; schema_version 1 -> Version1; SchemaVersion.Current -> Current; anything else -> Newer. One method, one door
-    ''' (Article XII). A file that is not SQLite fails on the first query with SQLITE_NOTADB.
+    ''' no row -> Foreign; schema_version 1 -> Version1; 2 -> Version2 (feature 005); SchemaVersion.Current -> Current; anything else ->
+    ''' Newer. One method, one door (Article XII). A file that is not SQLite fails on the first query with SQLITE_NOTADB.
     ''' </summary>
     ''' <param name="version">Receives the stored schema version, or 0 when the file is Fresh or Foreign.</param>
     ''' <returns>The state.</returns>
@@ -114,6 +116,7 @@ Public Class MapDatabase
         If Not SchemaRepository.HasMapIdentityRow(Me) Then Return SchemaState.Foreign
         version = SchemaRepository.ReadSchemaVersion(Me)
         If version = 1 Then Return SchemaState.Version1
+        If version = 2 Then Return SchemaState.Version2
         If version = SchemaVersion.Current Then Return SchemaState.Current
         Return SchemaState.Newer
     End Function
