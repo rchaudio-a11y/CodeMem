@@ -1,8 +1,12 @@
 ' File: SolutionLoader.vb
 ' Project: CodeMem.Extraction
-' Description: Opens a solution or project through MSBuildWorkspace under the requested configuration and compiles every project (FR-001, FR-004).
+' Description: Opens a .sln, a .slnx (CodeMem's own parse, one OpenProjectAsync per project) or a .vbproj through MSBuildWorkspace under the requested configuration and compiles every project (FR-001, FR-004; 005 FR-421, FR-424).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-09
+'
+' 2026-09-17 (feature 005, T031): the three-way extension door sits before MSBuildWorkspace.Create - .sln through OpenSolutionAsync as
+' before, .slnx through SlnxReader then OpenProjectAsync per project in document order (a path the workspace already holds is not
+' opened again), .vbproj through OpenProjectAsync as before, anything else refused by name before a workspace exists (R61, route b).
 
 Imports System.IO
 Imports System.Xml.Linq
@@ -20,7 +24,7 @@ Public Class SolutionLoader
     ''' <summary>The loaded solution snapshot.</summary>
     Public ReadOnly Property Solution As Solution
 
-    ''' <summary>The absolute path of the .sln or .vbproj that was opened.</summary>
+    ''' <summary>The absolute path of the .sln, .slnx or .vbproj that was opened.</summary>
     Public ReadOnly Property OpenedPath As String
 
     Private Sub New(workspace As MSBuildWorkspace, solution As Solution, openedPath As String)
@@ -30,7 +34,7 @@ Public Class SolutionLoader
     End Sub
 
     ''' <summary>
-    ''' Opens a .sln or .vbproj. Workspace diagnostics of kind Failure become <see cref="WorkspaceLoadException"/>.
+    ''' Opens a .sln, a .slnx or a .vbproj. Workspace diagnostics of kind Failure become <see cref="WorkspaceLoadException"/>.
     ''' </summary>
     ''' <param name="path">The solution or project path.</param>
     ''' <param name="configuration">The build configuration.</param>
@@ -38,6 +42,15 @@ Public Class SolutionLoader
     ''' <returns>The loader holding the open workspace.</returns>
     Public Shared Function Open(path As String, configuration As String, framework As String) As SolutionLoader
         Dim fullPath As String = IO.Path.GetFullPath(path)
+        Dim extension As String = IO.Path.GetExtension(fullPath)
+        Dim isSolution As Boolean = String.Equals(extension, ".sln", StringComparison.OrdinalIgnoreCase)
+        Dim isSlnx As Boolean = String.Equals(extension, ".slnx", StringComparison.OrdinalIgnoreCase)
+        Dim isProject As Boolean = String.Equals(extension, ".vbproj", StringComparison.OrdinalIgnoreCase)
+        If Not (isSolution OrElse isSlnx OrElse isProject) Then
+            Throw WorkspaceLoadException.Refusal("unsupported solution file: " & fullPath & " (expected .sln, .slnx or .vbproj)")
+        End If
+        Dim projectPaths As List(Of String) = Nothing
+        If isSlnx Then projectPaths = SlnxReader.ReadProjectPaths(fullPath)
         Dim properties As Dictionary(Of String, String) = New Dictionary(Of String, String)(StringComparer.Ordinal)
         properties("Configuration") = configuration
         If Not String.IsNullOrEmpty(framework) Then
@@ -53,9 +66,13 @@ Public Class SolutionLoader
             End Sub
         Try
             Dim solution As Solution
-            Dim extension As String = IO.Path.GetExtension(fullPath)
-            If String.Equals(extension, ".sln", StringComparison.OrdinalIgnoreCase) OrElse String.Equals(extension, ".slnx", StringComparison.OrdinalIgnoreCase) Then
+            If isSolution Then
                 solution = workspace.OpenSolutionAsync(fullPath).GetAwaiter().GetResult()
+            ElseIf isSlnx Then
+                For Each projectPath As String In projectPaths
+                    If Not IsOpen(workspace, projectPath) Then workspace.OpenProjectAsync(projectPath).GetAwaiter().GetResult()
+                Next
+                solution = workspace.CurrentSolution
             Else
                 Dim project As Project = workspace.OpenProjectAsync(fullPath).GetAwaiter().GetResult()
                 solution = project.Solution
@@ -104,6 +121,13 @@ Public Class SolutionLoader
     Public Sub Dispose() Implements IDisposable.Dispose
         _workspace.Dispose()
     End Sub
+
+    Private Shared Function IsOpen(workspace As MSBuildWorkspace, projectPath As String) As Boolean
+        For Each project As Project In workspace.CurrentSolution.Projects
+            If String.Equals(project.FilePath, projectPath, StringComparison.OrdinalIgnoreCase) Then Return True
+        Next
+        Return False
+    End Function
 
     Private Shared Function ReadTargetFramework(project As Project) As String
         Dim document As XDocument = XDocument.Load(project.FilePath)

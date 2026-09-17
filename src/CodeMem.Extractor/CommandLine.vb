@@ -4,6 +4,8 @@
 ' Author: RCH Automation LLC
 ' Created: 2026-09-09
 '
+' 2026-09-17 (feature 005, T031): the usage names the three inputs (contracts/extractor.md §4).
+'
 ' 2026-09-10 (fixpack 002): usage documents CODEMEM_TEST_NONCE and the both-required rule (FR-117).
 
 Imports CodeMem.Extraction
@@ -28,13 +30,15 @@ Public Class CommandLine
     ''' <returns>The usage text.</returns>
     Public Shared ReadOnly Property Usage As String
         Get
-            Return "usage: CodeMem.Extractor --solution <path.sln|path.vbproj> --db <path to codemem.sqlite>" & Environment.NewLine &
+            Return "usage: CodeMem.Extractor --solution <path.sln|path.slnx|path.vbproj> --db <path to codemem.sqlite>" & Environment.NewLine &
                 "                         [--configuration Debug|Release]      default: Debug" & Environment.NewLine &
                 "                         [--framework <tfm>]                   default: the project's first target framework" & Environment.NewLine &
                 "                         [--solution-key <name>]               default: solution file name without extension" & Environment.NewLine &
                 "       CodeMem.Extractor --help" & Environment.NewLine &
                 Environment.NewLine &
                 "exit codes: 0 completed; 1 usage, load, schema or database failure; 2 compile errors; 3 lock held; 4 residual mismatch" & Environment.NewLine &
+                Environment.NewLine &
+                "inputs: a .sln, a .slnx (opened by CodeMem's own parse; folders and configurations are not read) or a .vbproj" & Environment.NewLine &
                 Environment.NewLine &
                 "test-only environment variables:" & Environment.NewLine &
                 "  CODEMEM_TEST_ABORT_AT=<phase>:<nonce>   phase: DuringInitialize, DuringUpgrade, AfterStaging or DuringPublish (invariants I9, F6, upgrade)" & Environment.NewLine &
