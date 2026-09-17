@@ -8,7 +8,9 @@
     <OptionInfer>Off</OptionInfer>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!-- Feature 004 (CON1): the bridge's library; the executable only wires. -->
-    <Version>0.1.0</Version>
+    <!-- Feature 005 (152687): the bridge stands alone - one database file, solutionKey the one scope, a solution added by key and path,
+         not_in_map listed, .slnx and restore warnings reported. -->
+    <Version>0.2.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

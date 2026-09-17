@@ -27,6 +27,7 @@
 '        rename succeeded mid-call: expected 5, actual 0); restored from a byte copy -> green.
 ' 2026-09-17 (feature 005, T017): the registry fixture and its seed leave (4), (5) and (6) - the configuration names the map only
 ' (FR-403); the facts are otherwise unchanged and stayed green through T014-T016 (no fact of this file named projectId).
+' 2026-09-17 (feature 005, T039): (5) also reads serverInfo.version - 0.2.0, the bridge's version after 005 (the assembly's, three parts).
 
 Imports System.IO
 Imports System.Text.Json
@@ -126,6 +127,7 @@ Public Class B01_ReadOnlyContractTests
             Using server As BridgeProcess = BridgeProcess.Serve(config)
                 Dim info As JsonElement = server.Initialize()
                 Assert.Equal("codemem", info.GetProperty("name").GetString())
+                Assert.Equal("0.2.0", info.GetProperty("version").GetString())
                 Dim expectedNames As List(Of String) = New List(Of String)(BridgeTools.RegisteredToolNames)
                 Dim listedNames As List(Of String) = server.ListTools()
                 expectedNames.Sort(StringComparer.Ordinal)
