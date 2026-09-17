@@ -1,0 +1,10 @@
+# CodeMem line-ending and binary attributes (feature 005, T001).
+# The DDL constants in SchemaRepository.vb are multi-line string literals: their line endings become the sql text
+# stored in sqlite_master, and the schema-identity facts (S02 (2), S03 (5)) compare that text byte for byte against
+# the committed version-1 map, which was created from LF text. core.autocrlf=true rewrote the file to CRLF at the 004
+# merge checkout (2026-09-17) and S02 (2) went red; this pin keeps it LF on every checkout.
+src/CodeMem.Core/Schema/SchemaRepository.vb text eol=lf
+
+# Committed fixtures that are bytes, never text.
+*.sqlite binary
+*.nupkg binary
