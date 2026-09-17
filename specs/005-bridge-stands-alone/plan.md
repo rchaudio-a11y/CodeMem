@@ -339,6 +339,150 @@ amendments (C1: the warnings repository lands behind X02's Red; C2: retired fact
 No Constitution Check violation to justify. The one two-call-site module (`SolutionFileSuggestion`) is recorded under Article XI's row
 as an Article XII consequence, not an abstraction.
 
+## Implementation record (2026-09-17)
+
+**Environment**: Windows 11 Home 10.0.26200; `dotnet --version` 10.0.401; the net8.0 projects run on Microsoft.NETCore.App
+8.0.31. Branch `005-bridge-stands-alone` cut from `90d62ca` (main after 004). No package was added or moved: the `.slnx`
+route is (b), so `Microsoft.Build.*` stays at 17.7.2/17.8.43 and the SDK stamp does not move (R60, R61). Starting suite on
+the branch: 144 passed / 1 failed / 8 skipped — the one failure was S02 (2), diagnosed at T001 as the 004 merge checkout
+rewriting `SchemaRepository.vb` to CRLF under `core.autocrlf` (the DDL text becomes `sqlite_master`'s text); fixed by
+`.gitattributes` (`eol=lf` for that file, `*.sqlite` and `*.nupkg` binary).
+
+**Order followed**: tasks.md T001–T045 in order, no reordering. Phase 1 T001–T003; Phase 2 T004–T011; US1 T012–T018;
+US2 T019–T025; US3 T026–T029; US4 T030–T032; US5 T033–T037; Polish T038–T045. Every test file was written and run
+before the code it names; every Red was recorded in the file's header before the code landed; every FIRE was injected
+alone, its one fact run, and the file restored from a byte copy (`cmp` equal) before the task closed. The whole-suite
+lines are in quickstart.md "Build and test".
+
+**Commits**, in order: `72a77c0` (T001 the LF pin), `af41bee` (T002, T004–T006 the gate's Reds and the fixtures),
+`674ca67` (T003 constitution v1.4.0), `c0a186a` (T007–T011 schema version 3), `c960479` (T012–T018 US1), `175ca44`
+(T019–T022 US2 resolution), `9bdc1fe` (T023–T025 the archive), `434558d` (T026–T029 US3), `5371da3` (T030–T032 US4),
+`0154194` (T033–T037 US5), `f27346a` (T038–T040 the process document and the versions), `4bf7d37` (T040 complete and
+the live steps 1–3).
+
+**Reds observed**, each dated in its file's header:
+
+- `BridgeStandaloneGateTests` (T002): 4 of 4 — (1) "BridgeConfig.vb:15: memos", (2) "ExtractDoor.vb: RegistryRecord"
+  and the other seven archived names, (3) Article IX still carrying "One exception is ruled", (4) the version line 1.3.0.
+  (3) and (4) green at T003; (1) and (2) at T024, as named.
+- `S03_SchemaVersion3Tests` (T007): 5 of 5 on `SchemaVersion.Current` = 2 and the absent table; F06, S02, US1, B02 and
+  `RefusalTests` amended after their own Reds on the 2 → 3 bump (S02 (3) and `RefusalTests` re-pinned to 4, since 3 had
+  become current and the fact would otherwise have passed for the wrong reason).
+- `B09_StandaloneTests` (T012): the assembly did not compile — `BridgeHost.WriteConfig(mapPath, extractorPath, enabled,
+  onGreenBuild)` binds to nothing while `storePath` is a parameter (BC30455); every other subject behind the same build.
+- B10, B05, B06 (T019): 31 red of 43. Every fact that reaches the door answered `RegistryAbsent` — "The store at '?'
+  holds no code_map_solutions table" — because the door still read a store no configuration named.
+- B05 (18) (T022): `ConfigKeyRetired` thrown by `BridgeConfigFile.Load` on the shipped sample, which still carried
+  `storePath`.
+- `SqlLocationGateTests.SqlAppearsOnlyInRepositories` (T023): the registry fixture's transcribed 029 §1 DDL, once its
+  exclusion was removed as dead.
+- `SqlLocationGateTests.OnlyMapDatabaseOpensAConnection` (T024, **the named Red of constitution v1.4.0**): expected
+  `["MapDatabase.vb", "StoreDatabase.vb"]`, actual `["MapDatabase.vb"]`. Amended to the one file.
+- `B09` (6) (T021): 30 kinds, not 29 — `RegistryAbsent` stayed for the store door until the archive; green at T024.
+- B10 (10)–(15) and B11 (T026): the assembly did not compile — `BC30456 'SolutionPath' is not a member of
+  'ExtractRequest'` at three sites.
+- B11 (T027, the first build with the shape): 8 of 8 — no reader, so `notInMap` was empty, `notInMapError` null, and
+  `extract(stale)` had no such property at all.
+- `X01_SlnxTests` (T030): 10 of 10 — `InvalidProjectFileException: No file format header found` for the `.slnx`
+  (R61's route (a) with today's packages), the workspace's own text where the parse's refusals were expected, and the
+  usage without the three inputs.
+- `X02_WarningTests` (T033): 6 of 7 — `workspace load failed: | Msbuild failed when processing the file '…Nu1701.vbproj'
+  with message: Package 'CodeMem.NetFxOnly 1.0.0' was restored using '.NETFramework,Version=v4.6.1, …'`. (6), the
+  unmatched failure, was green from the start: it pins what already happened.
+- `RefusalTests` (d) (T035, **named in the plan**): the anchored summary-line regex ended at `sha=`; red the moment
+  `warnings=<n>` joined the line.
+- `US1_FirstRunTests` (1) and `R02_BareNameTests` (3) (T035, **two Reds the plan did not name**): both pin the extraction
+  assembly's version literal, `0.2.0` → `0.3.0` — the same shape as 003's, amended the same way.
+
+**Not red as the plan named it**: B05 (2). The plan expected it to go red with `warnings=<n>`; it did not, because the
+summary line that fact asserts is scripted into the launcher and echoed verbatim, never the extractor's. The scripted
+string now carries `warnings=0` so it keeps the current shape; the extractor's own line is guarded by `RefusalTests` (d)
+and X02 (1).
+
+**Fires** (each injected alone, run on its one fact, reverted from a byte copy):
+
+- B09 (2) (T018): `ScopeResolver.RefuseProjectId` returned before reading the dictionary → red.
+- S03 (4) (T010): a substitute fire — the abort cannot be moved after `SetSchemaVersion` inside one transaction, so the
+  commit was moved before the abort instead (S02's precedent).
+- B10 (8) (T021): `Inspect` also listed the parent directory's `.sln` files → red, `Found: "Parent"`.
+- B10 (4) (T021): `ByPath` skipped rows whose `repo_root` is NULL → the `Loose` solution refused instead of resolving at
+  its solution file's directory.
+- `SqlLocationGateTests` (T024): a `New SqliteConnection` line appended to `MapStatusReader.vb` → red naming two files.
+- `BridgeStandaloneGateTests` (T024): the same probe in `MapAccess.vb` → "MapAccess.vb:94: SqliteConnection"; a comment
+  `' memos.sqlite` in `BridgeTools.vb` → "BridgeTools.vb:284: memos"; the store's class named in a test file → (2) red.
+- B11 (3) (T028): the reader made to forget — a birth stamp per `BridgeTools` instance, every older line dropped, the
+  per-instance memory Q1 ruled out → (3), (4), (5) and (7) red.
+- X01 (1) (T031): the loader made to open only the first project path → "fact sets differ: 118 only in the first
+  (C|38|…); 3 only in the second (C|25|…)" — the App's symbols missing, 25 observed against 38.
+- X02 (3) (T036): the loader made to treat every matched assets-log entry as a warning → NU1101 continued to the
+  compiler, exit 0, a run published.
+
+**R68: which mechanism landed.** The primary one. The SDK injects `RequestContext(Of CallToolRequestParams)` into the
+bound methods, proven by B09 (2) through the executable on the first build; the fallback (a wrapping delegate per tool
+with a hand-written input schema) was not needed. One seam the plan did not name was added to get there:
+`RequestContext` cannot be constructed in-process, so `CodeMem.Bridging.BridgeTools` takes the raw
+`IReadOnlyDictionary(Of String, JsonElement)` and a thin `BridgeToolBindings` holds the SDK type and passes
+`context.Params.Arguments` (copied into an ordinal dictionary — the SDK's property is an `IDictionary`). The in-process
+facts call `BridgeTools` directly; `BridgeServer` binds `BridgeToolBindings`.
+
+**Other deviations, all small and recorded where they happened**:
+
+1. **X02 (4) is false as specified** — the one deviation worth the Architect's ruling. The task expected "NoWarn in the
+   environment changes nothing". It changes everything: MSBuild takes the variable as a global property (the SDK folds
+   `$(NoWarn)` into `MSBuildWarningsAsMessages`), so with `NoWarn=NU1701` set for the child, NuGet's replay never becomes
+   a workspace Failure, the run exits 0 and **no** warning row is written. Observed twice, before and after T035. The
+   extractor itself still reads no variable and passes no `NoWarn` (R62 holds, and the fact asserts the contrast against
+   the clean launch). Consequence for the Operator, now in the process document: a shell that launches the bridge must
+   not carry the 152705 workaround, or the warnings it is meant to record will be suppressed upstream.
+2. **`WorkspaceLoadException.Refusal(line)`** added (T031): the four `.slnx` parse refusals and the unsupported
+   extension are one stderr line each, without the `workspace load failed:` prefix the failures constructor adds.
+3. **`MapStatusReader.ScopeOf`** added beside `RootOf` (T021) so `TargetResolver` asks the same scope object for
+   containment — one root rule, one door, rather than two callers re-deriving it.
+4. **`SolutionScope.NormalizeDirectory`** exposed (T028) rather than restating the normalisation in the bridge (the task
+   asked for exactly this).
+5. **B10's not-in-map helper** first asserted the directory against the wire JSON, where backslashes are escaped, and
+   never matched; it reads `refusal.text` from the parsed JSON now (T021).
+6. **Support classes beyond those the tasks named**: `AddedSolutionFixture` (the collection fixture holding US3's one
+   real launch), `SlnxPairFixture`, `Nu1701MapFixture`, `WarningsCopy`, `ChildEnvironment`; and `ExtractorProcess.Run`
+   gained one rule — a variable mapped to `Nothing` is removed from the child's environment, which is how X02 proves the
+   child ran without `NoWarn*`.
+7. **VB name shadowing** cost three build cycles: a parameter named `directory` hides `System.IO.Directory`, a local
+   `text` hides `System.Text`, a local named like its function is BC30290. Recorded here because the next feature will
+   meet it again.
+
+**The live steps** (quickstart "Live steps", Record rows 1–3 and part of 5; T041 and the copy half of T043):
+
+- The backup `C:\_DB\codemem.sqlite.bak-2026-09-17-pre-005` is byte-identical to the map (SHA-256 `fdac5897…c5404a`).
+- `storePath` removed from the `bridge.config.json` beside the Release executable; `solutions` over stdio then answered
+  `VersionBelow` naming version 2 and the remedy, in 47 ms — the honest first line the plan asked for.
+- On a copy: the bridge refuses a version-2 map for **every** target shape, the new by-key-with-path one included,
+  because the door opens the map and checks the pin before it resolves (the order contracts/tools.md §6 gives). So the
+  copy's first upgrade ran through `CodeMem.Extractor.dll` directly — which is exactly what the refusal's text tells the
+  reader to do — and every later call went through the bridge. **The live map's own upgrade (T042) will have the same
+  shape: the extractor first, the bridge after.**
+- DSP_Processor from `DSP_Processor.slnx`: exit 0 in 8 s, run 10, 2811 observed, 2811 matched, 0 new, balanced,
+  `warnings=0`, the copy at schema 3, `last_seen_path` now the `.slnx`.
+- RicksLife from `RicksLife.slnx` through the bridge, nothing `NoWarn*` in the launching environment: exit 0 in 9 s,
+  run 11, 1644 observed, balanced, **`warnings=3`** — three `NU1701` rows on `RicksLife/RicksLife.vbproj` for OpenTK
+  3.1.0, OpenTK.GLControl 3.1.0 and SkiaSharp.Views.WindowsForms 3.119.4, exactly the three the plan predicted.
+- `solutions` on the copy: five entries, RicksLife's `latestRun.warnings` 3, no registry field anywhere. `map_status`:
+  five entries each with `solutionId` and no `projectId`/`codememSolutionId`, no `storePath`/`bound`/`unbound`/
+  `inactive`, `notInMap` present. It took 3,577 ms over five working trees (SC-301's 3 s was measured for one call in
+  004; three of the five trees are dirty and MemOS is behind), while `solutions` took 62 ms — recorded, not silenced.
+- From the map alone, on the copy: `extract --repo-path C:\Users\rchau\source\repos\vbCalc` (unmapped, holding one
+  `vbCalc.slnx`) → exit 2, `PathNotInMap`, the five mapped roots listed, the text carrying
+  `extract --solution-key vbCalc --solution C:\Users\rchau\source\repos\vbCalc\vbCalc.slnx`, 0 launches, the map
+  byte-identical before and after. `map_status` then listed that one directory under `notInMap` with `verdict`
+  `not_in_map`, the suggested key `vbCalc`, the file and the command. `extract --repo-path
+  C:\Users\rchau\source\repos\DSP_Processor` → resolved `DSP_Processor` from the map alone, launched from the `.slnx`,
+  exit 0, run 12, 2811 balanced. The log's resolution column carries `PathNotInMap` and `DSP_Processor` on those two
+  lines.
+
+**What is not done here** and waits for the Architect: T042 (the two extractions against `C:\_DB\codemem.sqlite`, which
+upgrade it to version 3, and B08 armed), the live half of T043 (`memos.sqlite` renamed with the Shell closed), T044 (the
+Operator's steps outside this repository: delete `DSP_Processor.sln`, re-point the two MemOS registry rows), and T045's
+merge to main. `git -C rchaudio-a11y\MemOS status --porcelain` was empty on 2026-09-17 before any of this ran.
+
 ## Phase 0 / Phase 1 outputs
 
 - [research.md](research.md) — R60–R73, every unknown of the Technical Context resolved; the harness runs recorded.

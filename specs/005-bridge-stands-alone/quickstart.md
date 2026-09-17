@@ -85,12 +85,12 @@ $env:CODEMEM_LIVE_MAP = "C:\_DB\codemem.sqlite"; dotnet test --nologo -v q --fil
 | 2. `solutions` at pin 3 vs a version-2 map | `VersionBelow` | 2026-09-17: `storePath` removed from the Release `bridge.config.json` (gates off); `solutions` over stdio: `isError` true, "…is at schema version 2; this bridge requires 3. Run the CodeMem extractor once: it upgrades the map in place; the bridge is read-only and cannot." (47 ms) |
 | 3. copy: DSP_Processor from `.slnx` | exit 0, schema 3, `.slnx` recorded | 2026-09-17: **through the bridge first: exit 2, `VersionBelow`** (the door's pin check precedes resolution for every shape — see the T041 note); then the extractor directly on the copy: exit 0 in 8 s, `run_id=10 observed=2811 matched=2811 new=0 … sha=d07d341b… warnings=0`; the copy at schema 3; `last_seen_path` `…\DSP_Processor.slnx` |
 | 3. copy: RicksLife from `.slnx`, no NoWarn | exit 0, `warnings=3` | 2026-09-17: through the bridge on the upgraded copy (no `NoWarn*` in the launching environment): exit 0 in 9 s, `run_id=11 observed=1644 matched=1644 new=0 … sha=6aa2b895… warnings=3`; the three rows NU1701 on `RicksLife/RicksLife.vbproj`: OpenTK 3.1.0, OpenTK.GLControl 3.1.0, SkiaSharp.Views.WindowsForms 3.119.4; `last_seen_path` `…\RicksLife.slnx`. `solutions` on the copy: five entries, RicksLife `latestRun.warnings` 3, no registry field; `map_status`: five entries with `solutionId` (DSP_Processor `current`, MemOS `behind`, the other three `dirty`), `notInMap` empty, no `storePath`/`bound`/`unbound`/`inactive` — 3,577 ms on five repositories |
-| 4. live: the two runs | as 3 | |
-| 5. `--repo-path` DSP_Processor, store renamed | key `DSP_Processor` | |
-| 5. `--repo-path` unmapped + `map_status` | `PathNotInMap` with the command; listed | |
-| 6. after the `.sln` is deleted | runs from the `.slnx` | |
-| 7. MemOS `git status` | empty, twice | |
-| suite | green, under 5 min | |
+| 4. live: the two runs | as 3 | **open — the Architect's call** (T042; the extractor runs first, as step 3 showed) |
+| 5. `--repo-path` DSP_Processor, store renamed | key `DSP_Processor` | 2026-09-17 **on the copy** (the rename itself waits for the Shell to be closed): `extract --repo-path …\DSP_Processor` → `resolvedKey` `DSP_Processor` from the map alone, `solutionPath` the `.slnx`, launched, exit 0, run 12, 2811 observed and matched, balanced |
+| 5. `--repo-path` unmapped + `map_status` | `PathNotInMap` with the command; listed | 2026-09-17 **on the copy**: `--repo-path …\vbCalc` (holding one `vbCalc.slnx`) → exit 2, `PathNotInMap`, the five mapped roots listed, the text carrying `extract --solution-key vbCalc --solution …\vbCalc.slnx`, 0 launches, the map byte-identical (`ed9c2ac8…` before and after); `map_status` → one `notInMap` entry, `verdict` `not_in_map`, key `vbCalc`, its file and the command; the log's resolution column reads `PathNotInMap` |
+| 6. after the `.sln` is deleted | runs from the `.slnx` | **open — the Operator's step** (T044) |
+| 7. MemOS `git status` | empty, twice | 2026-09-17 before the live steps: empty. The second reading belongs to T044 |
+| suite | green, under 5 min | 2026-09-17: Debug 197 passed / 0 failed / 9 skipped in 2 m 53 s; Release 197 / 0 / 9 in 3 m 1 s |
 
 ## What must not happen
 
