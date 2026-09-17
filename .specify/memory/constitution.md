@@ -141,10 +141,6 @@ first created and never rewritten. CodeMem opens no database in any role other t
 The constraint is on role, not path: tests create throwaway map files at temporary paths and those
 are still codemem.sqlite in role.
 
-One exception is ruled (decisions 137077, 142362, 152658; feature 004, amendment v1.3.0): the bridge opens
-the MemOS store read-only, for the code_map_solutions registry alone, to construct --solution-key and to bind
-map solutions to projects; it writes neither file. The extractor never opens the store.
-
 Rationale: A single writer against a single file is the cheapest guarantee that no run can
 half-overwrite another solution's map.
 
@@ -241,9 +237,9 @@ Every plan, task list and implementation review verifies:
 - Header block and XML docs on every new or modified file. This gate is the enforcement mechanism
   for the XML documentation rule; the compiler does not enforce it.
 - Any new abstraction justified by three call sites in hand.
-- New SqliteConnection appears in exactly two production files, MapDatabase.vb (the map: read-write for the
-  extractor, read-only for the bridge) and StoreDatabase.vb (the MemOS store, read-only, Article IX's ruled
-  exception), asserted by a test that names both and fires when a third site appears (v1.3.0).
+- New SqliteConnection appears in exactly one production file, MapDatabase.vb (the map: read-write for the
+  extractor, read-only for the bridge), asserted by a test that names it and fires when a second site appears
+  (v1.4.0; the v1.3.0 second site is archived).
 
 ## Governance
 
@@ -321,4 +317,23 @@ Migration path: none — no code opened the store before this amendment. The tes
 `SqlLocationGateTests.OnlyMapDatabaseOpensAConnection` is amended to the two files in the same task in which
 `StoreDatabase.vb` lands, after its Red is recorded, and re-fired.
 
-**Version**: 1.3.0 | **Ratified**: 2026-09-10 | **Last Amended**: 2026-09-15
+**2026-09-16 — v1.4.0 (MINOR).** Article IX's ruled exception (v1.3.0) is withdrawn: its text returns to
+v1.2.1's — CodeMem opens no database in any role other than its own map — and the connection-site gate
+names one production file again, `MapDatabase.vb`. No article is removed or redefined; an obligation v1.3.0
+narrowed is restored.
+
+Rationale: task 152687 (the Architect, 2026-09-16): "CodeMem is supposed to be a standalone project
+completely independent of MemOS; MemOS is a project that can look into CodeMem if it's there." Feature 004
+inverted that direction — the bridge could not answer a question about its own map without MemOS's store
+present — and it drifted in four recorded steps: 137077's store-read clause (2026-09-12), 142362's "a file,
+not a dependency" (2026-09-13), 152658 ruling 1's store clause (2026-09-15) and 152672 item 1, this
+document's v1.3.0 (2026-09-15). All four are superseded by 152687. What the bridge needs — a solution's key,
+repository root and last-seen path — is in the map's own `solutions` table; the store supplied only MemOS's
+project-to-key mapping, which is MemOS's.
+
+Migration path: feature 005. `StoreDatabase.vb`, the registry module and every reader of them move to
+`_Archive/004-store/` (Article XIV); `SqlLocationGateTests.OnlyMapDatabaseOpensAConnection` is amended to the
+one file in the task in which `StoreDatabase.vb` leaves `src/`, after its Red is recorded, and re-fired;
+`bridge.config.json` loses `storePath`, and a file still carrying it is refused naming the key.
+
+**Version**: 1.4.0 | **Ratified**: 2026-09-10 | **Last Amended**: 2026-09-16
