@@ -492,7 +492,8 @@ re-pointed at their `.slnx` files, and `extract --repo-path` run once more at th
 presents exactly the source set the `.sln` did. `git -C rchaudio-a11y\MemOS status --porcelain` was empty on 2026-09-17
 before any of this ran and empty again after the last step; nothing in this feature opened `memos.sqlite`.
 
-**What is left**: T045's merge to `main`, at the Architect's direction.
+**T045 closed 2026-09-17**: `main` fast-forwarded 90d62ca → 15a2d9b at the Architect's word — the sixteen commits landing in
+order, this repository's history still linear and still without a merge commit. The feature is complete.
 
 ## Phase 0 / Phase 1 outputs
 

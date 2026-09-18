@@ -25,8 +25,8 @@ refusal — and the store restored byte-identical, never opened. MemOS re-extrac
 was asserting a transient, and (7)'s absorbed-twin count re-pinned 277 → 279 with the arithmetic recorded. **T044 done 2026-09-17**: `DSP_Processor.sln` deleted and committed in its own repository (`98c81d0`), the two MemOS
 registry rows re-pointed at their `.slnx` files by the Operator through the Shell, and `extract --repo-path` run once more at
 that commit — run 16, launched from `DSP_Processor.slnx`, 2,811 balanced, the source digest unchanged from every run
-before it; MemOS `git status --porcelain` empty before the live steps and empty again after. Open at the Architect's hand:
-the merge to main (T045's last line).
+before it; MemOS `git status --porcelain` empty before the live steps and empty again after. **T045 closed and merged 2026-09-17**:
+`main` fast-forwarded 90d62ca → 15a2d9b at the Architect's word, sixteen commits in order. **The feature is complete.**
 
 **Input**: User description: "CodeMem 005: the bridge stands alone. PM: 152687, 152688, 152705. Parent: 004. ### Remove
 StoreDatabase, CodeMapSolutionsRepository, storePath, the projectId parameter on every tool, ScopeResolver's registry
