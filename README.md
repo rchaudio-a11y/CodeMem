@@ -1,90 +1,155 @@
+<div align="center">
+
 # CodeMem
 
-**A compiler-backed map of a .NET solution — every symbol, every reference, every run that produced them — in one
-SQLite file, served read-only to an AI coding assistant over MCP.**
+### Your codebase as the compiler sees it — in one SQLite file your AI assistant can actually read.
 
-An assistant working in an unfamiliar codebase answers *who calls this?*, *is anything still using it?* and *what
-breaks if I delete this type?* by grepping. Grep cannot tell an overload from a coincidence, does not know a method
-was renamed rather than deleted, and never says how old its answer is.
+**Stop letting it grep.** CodeMem compiles your solution, records every symbol and every edge the compiler
+resolved, and serves that map to Claude Code over MCP — read-only, and honest about how stale it is.
 
-CodeMem answers those questions from what the compiler knows. A console extractor loads the solution through Roslyn,
-refuses to record anything unless it compiles clean, and writes the symbols, their relationships and the run's own
-arithmetic into `codemem.sqlite` — *the map*. A second program, the bridge, serves that file to Claude Code as eight
-MCP tools and never writes a byte of it.
+![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)
+![Roslyn](https://img.shields.io/badge/Roslyn-VB.NET-5C2D91)
+![SQLite](https://img.shields.io/badge/SQLite-schema%20v3-003B57?logo=sqlite&logoColor=white)
+![MCP](https://img.shields.io/badge/MCP-8%20tools-FF6B35)
+![tests](https://img.shields.io/badge/tests-197%20passing-2ea44f)
 
-Two programs, one file:
+</div>
 
-| | |
+---
+
+## The problem
+
+Ask an assistant *"is anything still using `AudioBuffer`?"* and it runs a text search. It gets forty-seven hits —
+comments, a string literal, a variable that happens to share the name, three overloads it can't tell apart — and
+misses the call that goes through an interface. Then it tells you the type is safe to delete.
+
+It can't do better. Text has no idea what the compiler knows.
+
+## The answer
+
+```text
+ your solution         CodeMem.Extractor          codemem.sqlite          CodeMem.Bridge         Claude Code
+ .sln · .slnx   ──▶    compiles it first   ──▶    symbols · edges   ──▶   read-only, stdio  ──▶  8 MCP tools
+ .vbproj               nothing red is kept        runs · renames          never writes
+```
+
+One console tool writes the map. One bridge reads it. One file between them — no service, no daemon, no state held
+between calls.
+
+| You ask | grep answers | CodeMem answers |
+|---|---|---|
+| *Who calls `Process()`?* | every file containing the letters | the calls the compiler resolved, per overload, with file, line and verb |
+| *Was this renamed, or deleted?* | it can't tell | a **rename candidate**: this symbol retired, that one arrived, same shape |
+| *Safe to delete this type?* | you guess | `type_usages`: every constructor call, member use, `implements` and `extends` — with `fromOutside` |
+| *Is this answer even current?* | it can't tell | `current`, `behind by 24 commits`, `dirty`, `no_git`, `diverged` — per solution |
+
+---
+
+## See it work
+
+**Put a solution in the map.** One command, and the extractor does the rest:
+
+```console
+$ CodeMem.Bridge extract --solution-key DSP_Processor --solution C:\src\DSP_Processor\DSP_Processor.slnx
+
+solution=DSP_Processor run_id=16 observed=2811 matched=2811 reactivated=0 new=0 retired=0
+registry_before=2811 notes_orphaned=0 candidates=0 unaccounted_observed=0 unaccounted_registry=0
+digest=80199c40… sha=98c81d07… warnings=0
+```
+
+Every count on that line has to close. A run whose arithmetic doesn't balance exits non-zero and says which side is
+short — no silent drift, ever.
+
+**Your assistant checks the map before it trusts it.** `map_status`, the first call of a session:
+
+```jsonc
+{ "solutionKey": "DSP_Processor", "verdict": "current",
+  "reason": "HEAD equals the recorded 98c81d07 and the tree is clean." }
+
+{ "solutionKey": "CodeMem", "verdict": "dirty", "head": { "behindBy": 24, "treeDirty": true },
+  "reason": "HEAD e284ac53 is 24 commits past the recorded f6488469 and the working tree has
+             uncommitted or untracked changes." }
+```
+
+A stale map still answers — it just tells you it's describing an older tree. Nothing is guessed, and a repository it
+can't read says so.
+
+**A repo it doesn't know yet doesn't get invented.** It gets a refusal with the exact command that fixes it:
+
+```jsonc
+"notInMap": [{
+  "path": "C:\\src\\vbCalc\\", "suggestedKey": "vbCalc",
+  "command": "extract --solution-key vbCalc --solution C:\\src\\vbCalc\\vbCalc.slnx"
+}]
+```
+
+**And it keeps itself current.** With the hook installed, a green `dotnet build` re-extracts that solution before
+your assistant's next question — and stays out of the way when there's nothing to do:
+
+```text
+codemem hook: not a dotnet build or test; nothing ran
+```
+
+---
+
+## What you get
+
+|  |  |
 |---|---|
-| **`CodeMem.Extractor`** | The map's **only** writer. Loads a `.sln`, `.slnx` or `.vbproj` through `MSBuildWorkspace`, requires zero compile errors, reconciles what it observed against what the map already held, and stamps the run with the commit it saw. |
-| **`CodeMem.Bridge`** | A read-only MCP server over stdio, plus the command line that launches the extractor. Opens the map per call and closes it before replying: no cache, no held connection, no second database. |
+| 🧠 **The compiler's answer, not a text match** | Eight edge verbs — `part_of`, `calls`, `uses`, `implements`, `extends`, `imports`, `depends_on`, `handles` — resolved by identity. Overloads stay distinct; a call through an interface still counts. |
+| 🔗 **Identity that survives a rename** | A symbol's hash covers its token text with its *own* name excluded. Rename a method and the hash holds: you get a rename candidate, not a phantom delete plus a phantom add. |
+| ✅ **Never a red build** | Compile errors exit 2 and the map is untouched. What's in the map compiled. |
+| 🧮 **Counts that reconcile** | Observed, matched, new, retired, reactivated, prior registry — written on every run and required to balance. A number in the map is evidence or an error, never an estimate. |
+| 🕒 **Staleness is a first-class answer** | Every run stamps its commit and dirty state; `map_status` compares to HEAD *now*, per solution, and names the gap. |
+| 🔒 **Read-only by construction** | The bridge opens one file, per call, and closes it before replying. No cache, no held connection, no second database, no writes. |
+| 🗂️ **Many solutions, one file** | Five repositories and ~23,000 symbols live in a single `codemem.sqlite` here. Add one with a key and a path. |
+| 🧾 **Refusals that tell you what to do** | Twenty-nine named kinds. `VersionBelow` names the remedy, `PathNotInMap` prints the command, `Busy` says an extraction is in flight. An error is an answer, not a stack trace. |
 
-The map file is the entire interface between them. There is no service to keep running and no state held between
-calls.
+---
 
-## Why a map and not a grep
+## What's in the map
 
-- **The compiler's answer.** Edges come from the semantic model, under eight verbs — `part_of`, `calls`, `uses`,
-  `implements`, `extends`, `imports`, `depends_on`, `handles` — so an overload is distinguished from its siblings
-  and a reference through an interface is still a reference. Symbols the compiler generates (implicit constructors,
-  auto-property backing fields, `WithEvents` pairs) are deliberately not recorded.
-- **Identity survives a rename.** A symbol's hash covers its token text with its *own* identifier excluded, so
-  renaming a method leaves the hash intact. The run then records a **rename candidate** — this symbol retired, that
-  one arrived, same shape — instead of an unrelated deletion and addition.
-- **Nothing is recorded from a red build.** Compile errors exit 2 and the map is untouched (*Green Only, Stamped*).
-- **Every run reconciles or fails.** Observed, matched, new, retired, reactivated and the registry's prior count are
-  written on the run and must close; a run whose counts do not balance exits 4 and says which side is short. A
-  number in the map is evidence or an error, never an estimate.
-- **The map knows how stale it is.** Each run stamps the commit and the working tree's dirty state. `map_status`
-  compares that to HEAD *now* and answers `current`, `behind` (by N commits, HEAD named), `dirty`, `no_git` or
-  `diverged` — per solution, guessing nothing. An assistant is told when it is reading an older tree instead of
-  quietly trusting it.
+One SQLite file, schema version 3, many solutions, exactly one writer.
 
-## What the map holds
-
-One SQLite file, schema version 3, many solutions, one writer.
-
-| Table | What it is |
+| Table | What it holds |
 |---|---|
-| `map_identity` | The file's own GUID and schema version — what makes a `.sqlite` file *a CodeMem map* rather than some other database. |
+| `map_identity` | The file's GUID and schema version — what makes it *a CodeMem map* and not some other database. |
 | `solutions` | One row per solution: key, name, repository root, the solution file last seen. |
-| `extract_runs` | Every run: outcome, source digest, commit and dirty state, SDK version, start and finish, and the ten reconciliation counts. |
-| `code_symbols` | Every source-declared symbol, in fourteen kinds (`namespace`, `class`, `module`, `structure`, `interface`, `enum`, `enum_member`, `delegate`, `method`, `constructor`, `property`, `field`, `event`, `project`), with its doc-comment id, span, body hash, active flag and the runs that first and last saw it. |
-| `code_parts` | The pieces a symbol's hash is built from — a partial type's several declarations included. |
-| `code_edges` | Every occurrence, under the eight verbs, with the file and position it was seen at. An edge carries the target's doc-comment id whether or not the map declares the target, so a call into the framework is still recorded; a `handles` edge also names the `WithEvents` member it travels through. |
-| `rename_candidates` | Retired symbol, arrived symbol, and why the run thinks they are the same thing. Proposed, never applied. |
-| `extract_run_warnings` | NuGet restore warnings (`NU1701` and the like) recorded on the run instead of failing it. A restore *error* still stops the load, naming the code and the project. |
+| `extract_runs` | Every run: outcome, source digest, commit and dirty state, SDK version, timings, the ten reconciliation counts. |
+| `code_symbols` | Every source-declared symbol in fourteen kinds — `namespace`, `class`, `module`, `structure`, `interface`, `enum`, `enum_member`, `delegate`, `method`, `constructor`, `property`, `field`, `event`, `project` — with doc-comment id, span, body hash, active flag, first and last run seen. |
+| `code_parts` | The pieces a symbol's hash is built from; a partial type has several. |
+| `code_edges` | Every occurrence under the eight verbs, with file and position. An edge carries the target's doc-comment id even when the target is external, so a call into the framework is still recorded; a `handles` edge names the `WithEvents` member it travels through. |
+| `rename_candidates` | Retired symbol, arrived symbol, and why the run thinks they're the same. Proposed — never applied. |
+| `extract_run_warnings` | NuGet restore *warnings* recorded on the run instead of failing it. A restore *error* still stops the load, naming the code and the project. |
 
-A retired symbol is marked inactive, never deleted (*Reconcile, Never Truncate*), so a question asked against an
-older run still has rows to land on.
+Retired symbols are marked inactive, never deleted — so a question asked against an older run still lands on rows.
 
-## The MCP tools
+## The tools your assistant gets
 
-Eight, all scoped by `solutionKey` — the key of a `solutions` row. All read-only except `extract`, which launches
-the extractor as a child process.
+Eight, over stdio, every one scoped to a `solutionKey`.
 
 | Tool | Answers |
 |---|---|
-| `solutions` | Every solution in the map with its latest run: outcome, commit, dirty state, the ten counts, the warning count. |
-| `map_status` | Per solution, whether the map is current with the working tree — and, under `notInMap`, every directory an extract has refused as unmapped, with the exact command that would add it. |
-| `symbol_search` | Find symbols by name, kind, or both, within a solution or one of its projects. |
-| `symbol_detail` | One symbol by id: kind, container, file and span, activity, the runs that bound it. |
-| `references` | Who reaches this symbol. `part_of` never counts as a reference. |
-| `type_usages` | Everything that touches a *type* — constructor calls, member references, implements, extends, and the places it is simply named. This is the question to ask before a delete or a rename; `references` on a constructor is not it. |
-| `orphans` | Active symbols no recorded reference reaches, counted per project and per kind. An orphan is a symbol with no recorded reference — not a verdict that it is dead, and the tool says so: entry points, test methods, `Overrides` members called through a base and anything reached by reflection all surface here. |
-| `extract` | Refresh the map. Called by the green-build hook, or by hand with a key and a solution path. |
+| **`map_status`** | Is the map current with the working tree? Plus every directory an extract refused as unmapped, with the command that adds it. |
+| **`solutions`** | Every solution with its latest run: outcome, commit, dirty state, the ten counts, the warning count. |
+| **`symbol_search`** | Find symbols by name, kind, or both — across a solution or one project. |
+| **`symbol_detail`** | One symbol whole: its parts, and its inbound and outbound edges under all eight verbs. |
+| **`references`** | Who reaches this symbol, by compiler identity. Containment never counts as a reference. |
+| **`type_usages`** | Everything recorded against a *type* — constructors, members, `implements`, `extends`, bare names — with the `fromOutside` number to read before you delete it. |
+| **`orphans`** | Active symbols nothing recorded reaches. An orphan is *unreferenced*, not *dead* — and the tool says so, naming the live code it can't see (entry points, tests, reflection, `Overrides`). |
+| **`extract`** | Refresh the map: by the green-build hook, or by hand with a key and a path. |
 
-Refusals are answers, not errors: twenty-nine named kinds, each a short text saying what was wrong and what to do
-about it — `VersionBelow` tells you to run the extractor once, `PathNotInMap` prints the command that would add the
-repository, `Busy` tells you an extraction is in flight. The full table is in
-[src/CodeMem.Bridge/README.md](src/CodeMem.Bridge/README.md).
+Full reference — installation, gates, the log, all twenty-nine refusals — in the
+[process document](src/CodeMem.Bridge/README.md).
 
-## Getting started
+---
 
-**Prerequisites** — the .NET SDK (the projects target `net8.0`; recorded runs use SDK 10.0.401), a Visual Basic
-solution to map, and Windows: the extractor drives `MSBuildWorkspace` and the bridge ships as an `.exe`.
+## Quick start
 
-**1. Build.**
+**You'll need** the .NET SDK (projects target `net8.0`; recorded runs use 10.0.401), a Visual Basic solution, and
+Windows — the extractor drives `MSBuildWorkspace` and the bridge ships as an `.exe`.
+
+**1 · Build**
 
 ```powershell
 dotnet build CodeMem.sln -c Release
@@ -92,20 +157,16 @@ dotnet build CodeMem.sln -c Release
 
 `CodeMem.Bridge.exe` and `CodeMem.Extractor.dll` both land in `src\CodeMem.Bridge\bin\Release\net8.0\`.
 
-**2. Create the map.** The bridge never creates one — the first run goes to the extractor directly:
+**2 · Create the map.** The bridge never creates one, so the first run goes straight to the extractor:
 
 ```powershell
 dotnet src\CodeMem.Bridge\bin\Release\net8.0\CodeMem.Extractor.dll `
-    --solution C:\src\MyApp\MyApp.slnx `
-    --db C:\_DB\codemem.sqlite `
-    --solution-key MyApp
+    --solution C:\src\MyApp\MyApp.slnx --db C:\_DB\codemem.sqlite --solution-key MyApp
 ```
 
-It prints one summary line — `run_id`, the ten counts, the source digest, the commit, `warnings=N` — and exits 0 on
-a clean compile, 2 on compile errors, 4 if the counts do not reconcile.
+Exit 0 on a clean compile, 2 on compile errors, 4 if the counts don't reconcile.
 
-**3. Configure the bridge.** Copy `src/CodeMem.Bridge/bridge.config.sample.json` beside the executable as
-`bridge.config.json`:
+**3 · Point the bridge at it.** Copy `bridge.config.sample.json` beside the executable as `bridge.config.json`:
 
 ```json
 {
@@ -115,20 +176,17 @@ a clean compile, 2 on compile errors, 4 if the counts do not reconcile.
 }
 ```
 
-Read on every call, so an edit takes effect without a restart. `extractorPath: null` means *the DLL beside the
-executable*.
+Read on every call — edit it and the next call sees the change, no restart.
 
-**4. Register it with Claude Code.** This repository's `.mcp.json` registers `codemem` at project scope. For
-sessions in *other* repositories, register it at user scope:
+**4 · Register it with Claude Code.** This repo's `.mcp.json` covers sessions here; for every other repository:
 
 ```powershell
 claude mcp add --scope user --transport stdio codemem -- "C:/path/to/CodeMem.Bridge.exe" serve
 ```
 
-**5. Keep the map current (optional).** Merge `src/CodeMem.Bridge/hooks/settings.fragment.json` into
-`~/.claude/settings.json` and flip `extract.enabled`, then `extract.onGreenBuild`, in `bridge.config.json`. A green
-`dotnet build` or `dotnet test` in any mapped repository then re-extracts that solution automatically. Both gates
-ship **off**; nothing installs itself.
+**5 · Keep it fresh (optional).** Merge `src/CodeMem.Bridge/hooks/settings.fragment.json` into
+`~/.claude/settings.json`, then flip `extract.enabled` and `extract.onGreenBuild`. Every green build re-extracts that
+solution. Both gates ship **off** — nothing here installs itself or turns itself on.
 
 ## Command lines
 
@@ -142,12 +200,11 @@ CodeMem.Extractor --solution <path.sln|path.slnx|path.vbproj> --db <path to code
                   [--configuration Debug|Release] [--framework <tfm>] [--solution-key <name>]
 ```
 
-`--solution-key <key> --solution <path>` is how a solution the map has never seen is added: the extractor creates
-the row. `--repo-path` resolves a directory to a solution *from the map alone* — no registry, no lookup anywhere
-else — and a directory no mapped root contains is refused with the command that would add it. `--stale` extracts
-every solution `map_status` reports as behind or dirty.
+`--solution-key <key> --solution <path>` adds a solution the map has never seen. `--repo-path` resolves a directory
+to a solution **from the map alone** — no registry, no lookup anywhere else. `--stale` re-extracts everything
+`map_status` reports as behind or dirty.
 
-## Repository layout
+## Layout
 
 | Path | |
 |---|---|
@@ -155,36 +212,38 @@ every solution `map_status` reports as behind or dirty.
 | `src/CodeMem.Extraction` | Workspace loading (`.sln`, `.slnx`, `.vbproj`), the extraction run, reconciliation. |
 | `src/CodeMem.Extractor` | The extractor's command line. |
 | `src/CodeMem.Bridging` | The bridge's library: readers, tools, refusals, the extract door. |
-| `src/CodeMem.Bridge` | The executable: MCP server, CLI, hook entry — and the [process document](src/CodeMem.Bridge/README.md), which is the reference for installation, tools, gates, the log and every refusal. |
-| `tests/CodeMem.Tests` | xUnit. 197 passing, 9 skipped (live-map facts, armed with `CODEMEM_LIVE_MAP`). |
-| `specs/` | One folder per feature: spec, plan, research, contracts, tasks, and the implementation record. |
-| `_Archive/` | Code that was retired, kept where it can be read. Nothing here compiles. |
+| `src/CodeMem.Bridge` | The executable — MCP server, CLI, hook entry — and the [process document](src/CodeMem.Bridge/README.md). |
+| `tests/CodeMem.Tests` | xUnit: 197 passing, 9 skipped (live-map facts, armed with `CODEMEM_LIVE_MAP`). |
+| `specs/` | One folder per feature: spec, plan, research, contracts, tasks, implementation record. |
+| `_Archive/` | Retired code, kept where it can be read. Nothing here compiles. |
 
-## How this project is built
+## How it's built
 
-Spec-driven, and strictly. Each feature gets a numbered folder under `specs/` holding its specification, its
-clarification rulings, a plan, per-task breakdowns and — written as it is built — an implementation record naming
-every failing test, its fix, and every deviation from the plan. Tests are written first and carry dated RED/GREEN
-lines proving they failed before they passed.
+Spec-driven, and strictly. Every feature gets a numbered folder under `specs/` holding its specification, its
+clarification rulings, a plan, per-task breakdowns, and — written as it's built — an implementation record naming
+every failing test, its fix, and every deviation from the plan. Tests come first and carry dated RED/GREEN lines
+proving they failed before they passed.
 
-The rules the code answers to live in [`.specify/memory/constitution.md`](.specify/memory/constitution.md) (v1.4.0,
-fifteen articles): *Compiler Fact Only*, *Green Only, Stamped*, *Reconcile, Never Truncate*, *Counts That
-Reconcile*, *One File, Many Solutions, One Writer*, *Archive, Never Delete*, and the rest. Where a specification and
-the constitution disagree, the constitution wins and the specification is the defect.
+The rules the code answers to live in [`.specify/memory/constitution.md`](.specify/memory/constitution.md) — v1.4.0,
+fifteen articles: *Compiler Fact Only*, *Green Only, Stamped*, *Reconcile, Never Truncate*, *Counts That Reconcile*,
+*One File, Many Solutions, One Writer*, *Archive, Never Delete*. Where a specification and the constitution disagree,
+the constitution wins and the specification is the defect.
 
-## What it deliberately does not do
+## What it will never do
 
-- **The bridge never writes the map.** The extractor is the sole writer; `extract` only launches it.
-- **The bridge never opens a second database.** One map file, read-only, per call. The only file it writes is its
-  own `extract.log`.
-- **It never adds a solution on its own and never invents a key.** An unmapped directory is answered with the
-  command that would add it, and a human runs it.
-- **It never guesses.** A repository it cannot read says so; a stale map says how stale; a symbol it retired is not
-  returned as if it were live.
-- **It never fails the thing that triggered it.** The green-build hook's every outcome — refusal, child failure,
-  exception — is one line of context and exit 0.
+- **Write the map from the bridge.** The extractor is the sole writer; `extract` only launches it.
+- **Open a second database.** One map file, read-only, per call. The only file the bridge writes is its own log.
+- **Add a solution on its own, or invent a key.** An unmapped directory gets the command; a human runs it.
+- **Guess.** A repository it can't read says so. A stale map says how stale. A retired symbol is never returned as
+  if it were live.
+- **Break the thing that triggered it.** The green-build hook's every outcome — refusal, child failure, exception —
+  is one line of context and exit 0.
 
-## Status
+---
 
-Features 001–005 are merged. The map is at schema version 3; the live map covers five solutions and roughly 23,000
-symbols. The suite runs 197 passing / 9 skipped on Debug and Release.
+<div align="center">
+
+**Status** · Features 001–005 merged · schema v3 · 197 passing / 9 skipped on Debug and Release · five solutions and
+~23,000 symbols in the live map.
+
+</div>
