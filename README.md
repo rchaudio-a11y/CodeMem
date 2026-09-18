@@ -8,7 +8,7 @@
 resolved, and serves that map to Claude Code over MCP — read-only, and honest about how stale it is.
 
 ![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)
-![Roslyn](https://img.shields.io/badge/Roslyn-VB.NET-5C2D91)
+![Roslyn](https://img.shields.io/badge/Roslyn-VB.NET%20today%2C%20C%23%20next-5C2D91)
 ![SQLite](https://img.shields.io/badge/SQLite-schema%20v3-003B57?logo=sqlite&logoColor=white)
 ![MCP](https://img.shields.io/badge/MCP-8%20tools-FF6B35)
 ![tests](https://img.shields.io/badge/tests-197%20passing-2ea44f)
@@ -42,6 +42,8 @@ between calls.
 | *Was this renamed, or deleted?* | it can't tell | a **rename candidate**: this symbol retired, that one arrived, same shape |
 | *Safe to delete this type?* | you guess | `type_usages`: every constructor call, member use, `implements` and `extends` — with `fromOutside` |
 | *Is this answer even current?* | it can't tell | `current`, `behind by 24 commits`, `dirty`, `no_git`, `diverged` — per solution |
+
+> **Today it maps VB.NET** — `.sln`, `.slnx`, `.vbproj`. **C# is in progress**; see [Language support](#language-support).
 
 ---
 
@@ -146,7 +148,7 @@ Full reference — installation, gates, the log, all twenty-nine refusals — in
 
 ## Quick start
 
-**You'll need** the .NET SDK (projects target `net8.0`; recorded runs use 10.0.401), a Visual Basic solution, and
+**You'll need** the .NET SDK (projects target `net8.0`; recorded runs use 10.0.401), a **VB.NET** solution, and
 Windows — the extractor drives `MSBuildWorkspace` and the bridge ships as an `.exe`.
 
 **1 · Build**
@@ -238,6 +240,19 @@ the constitution wins and the specification is the defect.
   if it were live.
 - **Break the thing that triggered it.** The green-build hook's every outcome — refusal, child failure, exception —
   is one line of context and exit 0.
+
+## Language support
+
+**VB.NET today. C# is the next language in.**
+
+Most of CodeMem never had an opinion about language: the schema, the bridge and its eight tools, and the symbol walk
+itself work from Roslyn's `ISymbol` and SQLite rows. What *is* VB-shaped is the syntax layer — how a declaration's
+parts are found, how its body hash is taken, and the eight edge rules — and that is the work in progress.
+
+Until it lands, a C# input is refused cleanly rather than half-extracted. A `.csproj` is turned away by name before a
+workspace is opened; a C#-only or mixed solution exits 1 at load with *the language 'C#' is not supported*, and
+nothing is written to the map. A mixed solution is all-or-nothing: one `.csproj` stops the run, so the VB projects
+beside it are not extracted either.
 
 ---
 
