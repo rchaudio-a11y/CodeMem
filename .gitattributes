@@ -5,6 +5,10 @@
 # merge checkout (2026-09-17) and S02 (2) went red; this pin keeps it LF on every checkout.
 src/CodeMem.Core/Schema/SchemaRepository.vb text eol=lf
 
+# The server's instructions (feature 006, research R75): 191490 §1 as a multi-line literal; its line breaks are the advertised text's, so
+# they stay LF on every checkout. UsageTextsGateTests (1) asserts no CR reaches initialize.
+src/CodeMem.Bridging/Mcp/BridgeServerInstructions.vb text eol=lf
+
 # Committed fixtures that are bytes, never text.
 *.sqlite binary
 *.nupkg binary
