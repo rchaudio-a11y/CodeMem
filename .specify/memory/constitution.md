@@ -216,6 +216,16 @@ interpreter standing between the source and the map.
   → then fix.
 - Propose-Before-Building for anything touching more than one file, changing a signature, or making
   an architectural choice.
+- Map first. For questions about this solution's structure — where a symbol is declared, who calls,
+  constructs or uses it, whether it is safe to change or remove, what was renamed — use the bridge's
+  tools before Grep, Glob or Read, and call map_status first. A claim that nothing, exactly N, or only
+  X calls, constructs or uses Y is proved with references (a member) or type_usages (a type), and
+  states the tool and the count. If map_status is not current, refresh first or say the answer came
+  from a stale map. A "nothing" claim also names what the map cannot see that could still reach Y:
+  Handles wiring, Overrides, interface dispatch, reflection, public API. Where the map cannot answer,
+  a text search may stand in, and the claim says so. The map proves structure; runtime behaviour
+  needs its own proof. Text search stays right for comments, strings, markdown, SQL, configuration
+  and unmapped files.
 - No placeholder values presented as real; an unwired surface is disabled or labeled.
 
 ## Review Gates
@@ -240,6 +250,11 @@ Every plan, task list and implementation review verifies:
 - New SqliteConnection appears in exactly one production file, MapDatabase.vb (the map: read-write for the
   extractor, read-only for the bridge), asserted by a test that names it and fires when a second site appears
   (v1.4.0; the v1.3.0 second site is archived).
+- The shipped usage texts agree with tool behaviour: the server instructions, every registered tool
+  description, docs/claude-code/ (the skill and the CLAUDE snippet) and the README's tool list and
+  usage section. A feature that adds, removes or changes a tool updates each of them in the same
+  feature, and a test pins the phrases the texts depend on — firing when a registered tool is
+  missing from the server instructions or the README's tool list.
 
 ## Governance
 
@@ -336,4 +351,17 @@ Migration path: feature 005. `StoreDatabase.vb`, the registry module and every r
 one file in the task in which `StoreDatabase.vb` leaves `src/`, after its Red is recorded, and re-fired;
 `bridge.config.json` loses `storePath`, and a file still carrying it is refused naming the key.
 
-**Version**: 1.4.0 | **Ratified**: 2026-09-10 | **Last Amended**: 2026-09-16
+**2026-09-29 — v1.5.0 (MINOR).** A Cross-Cutting Hard Rule makes the map the first source for
+structure questions on this solution and makes count and absence claims provable by tool and count.
+A Review Gate keeps the usage texts CodeMem ships true to the tools they describe.
+
+Rationale: a rule that fires on questions misses claims — a count was proved by text search in a
+session where the map was live and current. And once CodeMem ships guidance on using its tools,
+guidance that drifts from the tools misleads everyone who follows it.
+
+Migration path: the rule applies from the next feature. The gate applies from the next feature that
+touches a tool; the server instructions and docs/claude-code/ do not yet exist and arrive with that
+feature; the tool descriptions and the README's tool list exist, and that feature brings them under
+the gate's test, so no existing code is put out of compliance.
+
+**Version**: 1.5.0 | **Ratified**: 2026-09-10 | **Last Amended**: 2026-09-29
