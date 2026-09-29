@@ -119,3 +119,6 @@ The step 6 slice runs from the line that opens it to its closing line `installs 
 | T001 MemOS before | `git status --porcelain` empty; HEAD `546f387` |
 | T002 | `BridgeStandaloneGateTests` (4) retired to `_Archive/006-map-teaches-its-use/`; the class runs 3 of 3 green |
 | T003 baseline | Debug, `--no-build` after one build at the T002 state, three TRX runs (`baseline-006-{1,2,3}.trx`): **196 passed / 0 failed / 9 skipped (205)** each, wall 302 s, 289 s, 293 s. No failure in any run: the plan-time run's unnamed failure did not recur in three runs and stays recorded as seen once. `--no-build` (a deviation from the task's text) kept the three runs on one build while later tasks' sources were written. Run 1 sits at 5 m 02 s, at SC-509's bound. |
+| T017 verbatim | `instructions` OK (`d8a173d3…`), written from the store by the Q3 rule; `git ls-files --eol`: `i/lf w/lf attr/text eol=lf` |
+| T026 verbatim | six `OK`: instructions, snippet, skill, step 6, step 5 line, table row. The store matched the six ratified hashes at each write. |
+| T026 privacy | `git grep 153204 -- docs` and `git grep Rick -- docs`: nothing; UsageTexts (6) green after its fire |

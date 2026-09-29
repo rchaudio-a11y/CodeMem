@@ -10,7 +10,7 @@ resolved, and serves that map to Claude Code over MCP — read-only, and honest 
 ![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)
 ![Roslyn](https://img.shields.io/badge/Roslyn-VB.NET%20today%2C%20C%23%20next-5C2D91)
 ![SQLite](https://img.shields.io/badge/SQLite-schema%20v3-003B57?logo=sqlite&logoColor=white)
-![MCP](https://img.shields.io/badge/MCP-8%20tools-FF6B35)
+![MCP](https://img.shields.io/badge/MCP-9%20tools-FF6B35)
 ![tests](https://img.shields.io/badge/tests-197%20passing-2ea44f)
 
 </div>
@@ -29,7 +29,7 @@ It can't do better. Text has no idea what the compiler knows.
 
 ```text
  your solution         CodeMem.Extractor          codemem.sqlite          CodeMem.Bridge         Claude Code
- .sln · .slnx   ──▶    compiles it first   ──▶    symbols · edges   ──▶   read-only, stdio  ──▶  8 MCP tools
+ .sln · .slnx   ──▶    compiles it first   ──▶    symbols · edges   ──▶   read-only, stdio  ──▶  9 MCP tools
  .vbproj               nothing red is kept        runs · renames          never writes
 ```
 
@@ -128,7 +128,7 @@ Retired symbols are marked inactive, never deleted — so a question asked again
 
 ## The tools your assistant gets
 
-Eight, over stdio, every one scoped to a `solutionKey`.
+Nine, over stdio.
 
 | Tool | Answers |
 |---|---|
@@ -139,6 +139,7 @@ Eight, over stdio, every one scoped to a `solutionKey`.
 | **`references`** | Who reaches this symbol, by compiler identity. Containment never counts as a reference. |
 | **`type_usages`** | Everything recorded against a *type* — constructors, members, `implements`, `extends`, bare names — with the `fromOutside` number to read before you delete it. |
 | **`orphans`** | Active symbols nothing recorded reaches. An orphan is *unreferenced*, not *dead* — and the tool says so, naming the live code it can't see (entry points, tests, reflection, `Overrides`). |
+| **`rename_candidates`** | Was this renamed? What became of a retired id? Ranked proposals; never applied. |
 | **`extract`** | Refresh the map: by the green-build hook, or by hand with a key and a path. |
 
 Full reference — installation, gates, the log, all twenty-nine refusals — in the
@@ -189,6 +190,24 @@ claude mcp add --scope user --transport stdio codemem -- "C:/path/to/CodeMem.Bri
 **5 · Keep it fresh (optional).** Merge `src/CodeMem.Bridge/hooks/settings.fragment.json` into
 `~/.claude/settings.json`, then flip `extract.enabled` and `extract.onGreenBuild`. Every green build re-extracts that
 solution. Both gates ship **off** — nothing here installs itself or turns itself on.
+Replace `C:/path/to/CodeMem.Bridge.exe` in the fragment with the path your build produced.
+
+**6 · Teach your assistant to reach for it.** Tools alone don't change habits — an assistant that
+has always grepped keeps grepping. CodeMem ships three layers, each loaded differently:
+
+| Layer | Where | Loads |
+|---|---|---|
+| Server instructions | built into the bridge | automatically, whenever the bridge is connected |
+| A standing rule | `docs/claude-code/CLAUDE.snippet.md` → your `~/.claude/CLAUDE.md` | every session, every repo |
+| The playbook skill | `docs/claude-code/skills/codemem/` → `~/.claude/skills/codemem/` | when a code-structure question comes up |
+
+```powershell
+Copy-Item -Recurse docs\claude-code\skills\codemem $HOME\.claude\skills\
+Get-Content docs\claude-code\CLAUDE.snippet.md | Add-Content $HOME\.claude\CLAUDE.md
+```
+
+The first layer needs nothing from you. The other two are optional and yours to edit — nothing here
+installs itself.
 
 ## Command lines
 
@@ -226,7 +245,7 @@ clarification rulings, a plan, per-task breakdowns, and — written as it's buil
 every failing test, its fix, and every deviation from the plan. Tests come first and carry dated RED/GREEN lines
 proving they failed before they passed.
 
-The rules the code answers to live in [`.specify/memory/constitution.md`](.specify/memory/constitution.md) — v1.4.0,
+The rules the code answers to live in [`.specify/memory/constitution.md`](.specify/memory/constitution.md) — v1.5.0,
 fifteen articles: *Compiler Fact Only*, *Green Only, Stamped*, *Reconcile, Never Truncate*, *Counts That Reconcile*,
 *One File, Many Solutions, One Writer*, *Archive, Never Delete*. Where a specification and the constitution disagree,
 the constitution wins and the specification is the defect.
@@ -245,7 +264,7 @@ the constitution wins and the specification is the defect.
 
 **VB.NET today. C# is the next language in.**
 
-Most of CodeMem never had an opinion about language: the schema, the bridge and its eight tools, and the symbol walk
+Most of CodeMem never had an opinion about language: the schema, the bridge and its nine tools, and the symbol walk
 itself work from Roslyn's `ISymbol` and SQLite rows. What *is* VB-shaped is the syntax layer — how a declaration's
 parts are found, how its body hash is taken, and the eight edge rules — and that is the work in progress.
 

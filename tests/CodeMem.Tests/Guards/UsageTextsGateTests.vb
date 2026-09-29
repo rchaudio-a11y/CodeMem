@@ -15,6 +15,11 @@
 '        found at 1639; the ServerInstructions line removed from RunAsync -> (1) and B01 (5) red, initialize carries no instructions; (2)
 '        the rename_candidates line deleted from the constant -> red, missing rename_candidates; (3) the proof line changed -> red,
 '        Prove, don't grep missing.
+' GREEN: 2026-09-29 (T026) (4)-(7) once the kit files, the README and the fragment landed from the store (six verbatim hashes OK).
+' FIRE:  2026-09-29 (T026) each injected alone, restored from a byte copy: (4) the rename_candidates row deleted -> red, missing
+'        rename_candidates; a ghost row added -> red, extra ghost; (5) the sentence deleted from SKILL.md -> red, SKILL.md does not carry
+'        it (its first Red was file missing, analyze C1); (6) section 2's private block appended to the snippet -> red, the snippet names
+'        153204; (7) the sketch set back to 8 MCP tools -> red, README does not say 9 MCP tools.
 
 Imports System.IO
 Imports System.Text.RegularExpressions

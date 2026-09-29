@@ -434,7 +434,7 @@ the repository.
 
 **Independent Test**: `UsageTextsGateTests` (4)–(7), B05 (18), quickstart §Verbatim (six `OK`).
 
-- [ ] T021 [US3] Add four facts to `tests/CodeMem.Tests/Guards/UsageTextsGateTests.vb` (FR-518–FR-521; contracts
+- [X] T021 [US3] Add four facts to `tests/CodeMem.Tests/Guards/UsageTextsGateTests.vb` (FR-518–FR-521; contracts
   usage-texts §5; ruled FR-521 B):
   - (4) `TheReadmeToolTableIsExactlyTheRegisteredTools`: read `README.md` from the line `## The tools your assistant
     gets` to the first blank line after the table's last `|` row. Take each row's tool as the text between ``**` `` and
@@ -454,13 +454,13 @@ the repository.
 
   Run → (4) red (no `rename_candidates` row), (5) red (no files), (6) green first (a guard on absence; trusted through
   T026's FIRE), (7) red ("8 tools"), B05 (18) red (the `rchau` path). Record every Red line.
-- [ ] T022 [P] [US3] The kit files, from the store (FR-516, FR-517; research R82):
+- [X] T022 [P] [US3] The kit files, from the store (FR-516, FR-517; research R82):
   - `docs/claude-code/skills/codemem/SKILL.md` = 191490 §3's block + one final LF (70 lines);
   - `docs/claude-code/CLAUDE.snippet.md` = 191490 §2's **first** block + one final LF (13 lines).
 
   Both are taken by the Q3 rule from `document_sections`, read-only. Neither the second block of §2 nor its heading is
   written anywhere. Run quickstart §Verbatim's `skill` and `snippet` lines → `OK`.
-- [ ] T023 [US3] `README.md`, exactly contracts/usage-texts.md §1, every row but the suite counts and the Status line
+- [X] T023 [US3] `README.md`, exactly contracts/usage-texts.md §1, every row but the suite counts and the Status line
   (T030):
   - badge `MCP-9%20tools`; the sketch's `9 MCP tools`; "Nine, over stdio.";
   - the `rename_candidates` row after `orphans`;
@@ -470,9 +470,9 @@ the repository.
 
   No pointer line. No other line changes (`git diff README.md` shows only these hunks). Run quickstart §Verbatim's
   `step 6`, `step 5 line` and `table row` → `OK`.
-- [ ] T024 [P] [US3] `src/CodeMem.Bridge/hooks/settings.fragment.json` line 9 → `"command": "\"C:/path/to/CodeMem.Bridge.exe\"
+- [X] T024 [P] [US3] `src/CodeMem.Bridge/hooks/settings.fragment.json` line 9 → `"command": "\"C:/path/to/CodeMem.Bridge.exe\"
   hook"` (contracts/usage-texts.md §3). Nothing else in the file changes.
-- [ ] T025 [P] [US3] `src/CodeMem.Bridge/README.md`, exactly contracts/usage-texts.md §4 (FR-523; Q9; STOP 1
+- [X] T025 [P] [US3] `src/CodeMem.Bridge/README.md`, exactly contracts/usage-texts.md §4 (FR-523; Q9; STOP 1
   decision 11 as ruled):
   - nine tools named in §"What the bridge is"; its sentence "Every tool is scoped by `solutionKey`, the key of a
     `solutions` row in the map; `solutions` lists them." deleted;
@@ -482,7 +482,7 @@ the repository.
   - the §"What the bridge never does" sentence amended.
 
   `git grep -n "C:/Users/" -- src/CodeMem.Bridge/README.md` prints nothing.
-- [ ] T026 [US3] `dotnet build` 0/0; run `UsageTextsGateTests` (1)–(7) and B05 → green; record Green lines. FIREs, each
+- [X] T026 [US3] `dotnet build` 0/0; run `UsageTextsGateTests` (1)–(7) and B05 → green; record Green lines. FIREs, each
   reverted:
   - (4): delete the `rename_candidates` row → red naming it missing; add the row ``| **`ghost`** | x |`` → red naming
     it extra;

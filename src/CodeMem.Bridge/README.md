@@ -9,13 +9,12 @@ went, and one recorded non-choice.
 
 The bridge is Claude Code's source for the CodeMem code map, and the green-compile trigger that keeps the map
 current. It is one process, `CodeMem.Bridge.exe`, built from two projects: `CodeMem.Bridge` (the executable: the
-command line, the MCP server) and `CodeMem.Bridging` (the tools, the readers, the extract door). It serves eight
+command line, the MCP server) and `CodeMem.Bridging` (the tools, the readers, the extract door). It serves nine
 MCP tools over stdio — `solutions`, `symbol_search`, `symbol_detail`, `references`, `orphans`, `type_usages`,
-`map_status` and `extract` — reading `codemem.sqlite` (the map) and nothing else: one database file, opened read-only
+`map_status`, `rename_candidates` and `extract` — reading `codemem.sqlite` (the map) and nothing else: one database file, opened read-only
 per call and closed before the reply. `memos.sqlite` is not a file the bridge knows; a configuration that names one
 is refused by name. The bridge never writes the map: the CodeMem extractor is the sole writer, and `extract` only
-launches it as a child process. Every tool is scoped by `solutionKey`, the key of a `solutions` row in the map;
-`solutions` lists them.
+launches it as a child process.
 
 Decisions 142362 (the bridge is Claude Code's source; a green compile is its trigger), 137077 (serve and extract in
 one surface; the extract verb is permissive-gated) and 152658 (stdio; a PostToolUse hook; two gates, both off,
@@ -51,7 +50,7 @@ a standalone project completely independent of MemOS; MemOS is a project that ca
    path:
 
    ```text
-   claude mcp add --scope user --transport stdio codemem -- "C:/Users/rchau/source/repos/CodeMem/src/CodeMem.Bridge/bin/Release/net8.0/CodeMem.Bridge.exe" serve
+   claude mcp add --scope user --transport stdio codemem -- "C:/path/to/CodeMem.Bridge.exe" serve
    ```
 
    The same entry written by hand, for when `claude` is not on PATH (it is not on this machine): merge it into the
@@ -61,7 +60,7 @@ a standalone project completely independent of MemOS; MemOS is a project that ca
    "mcpServers": {
      "codemem": {
        "type": "stdio",
-       "command": "C:/Users/rchau/source/repos/CodeMem/src/CodeMem.Bridge/bin/Release/net8.0/CodeMem.Bridge.exe",
+       "command": "C:/path/to/CodeMem.Bridge.exe",
        "args": ["serve"]
      }
    }
@@ -110,6 +109,9 @@ the `extract` tool's `solutionKey` with `solutionPath`.
   then detail or references by the symbol id the search returned. `orphans` examines the kinds the map records as
   examined; project and namespace rows are roots and are not orphans by construction. `solutions` carries each
   solution's latest run, its ten counts and its `warnings` count.
+- **`rename_candidates`** — when a tool refuses an id as `SymbolRetired`, with the id it names (`retiredSymbolId`); or after a
+  build, to see what the run proposed as renames (`runId`, from `solutions`). A candidate is a proposal, never applied, and the
+  code is read before acting on one. An empty answer is common: a changed signature or body is not a rename.
 - **`extract`** — by the hook, on a green `dotnet build` or `dotnet test`, never by Claude Code directly. The tool
   is registered so the hook and the tests can reach the door; a session that wants a fresh map builds the solution
   and lets the hook run. A run's answer carries the child's exit code, its summary line verbatim, the run's ten
@@ -167,7 +169,7 @@ origin, dropped once a mapped root contains it. The bridge never rewrites or tru
 ## Refusals and remedies
 
 Every refusal is a short text naming what was wrong and what to do; the phrases in bold are the ones the tests
-assert (contracts/tools.md §6). Twenty-nine kinds:
+assert (contracts/tools.md §6). Thirty-two kinds:
 
 | Kind | What it says | Remedy |
 |---|---|---|
@@ -188,9 +190,12 @@ assert (contracts/tools.md §6). Twenty-nine kinds:
 | `SolutionKeyUnknown` | The map **holds no solution with key** so-and-so. | Keys are exact; `solutions` lists them. To add a solution: `extract --solution-key <key> --solution <path to its .sln or .slnx>`. |
 | `SymbolNotFound` | The map **holds no symbol with id** so-and-so. | Find the id with `symbol_search`. |
 | `SymbolOutOfScope` | The symbol belongs to a solution **not in the requested scope**. | Ask with that solution's key. |
-| `SymbolRetired` | The symbol is **retired**; last seen in a named run. | Search again for the current symbol, or consult the rename candidates whose retired symbol it is. |
+| `SymbolRetired` | The symbol is **retired**; last seen in a named run. | Search again for the current symbol, or call `rename_candidates` with `retiredSymbolId` set to its id. |
 | `NotAProjectRow` | The given `projectSymbolId` is **not a project row**. | Pass the id of a project-kind symbol — the ids the result's `byProject` lists. |
 | `NotAType` | The symbol is **not a type**. | `type_usages` takes a class, module, structure, interface, enum or delegate; **use references** for a member. |
+| `RunNotFound` | The map **holds no extract run with id** so-and-so. | Omit `runId` to list every run of the solution; `solutions` names each latest run. |
+| `RunOutOfScope` | The run **belongs to solution** another key. | Ask with that key, or pass a run of this solution. |
+| `CandidateCountMismatch` | The run **recorded N rename candidates but the map holds M**. | The run's evidence does not reconcile and the bridge does not repair the map; a new extraction writes a new run. Report it. |
 | `GateOff` | extract is refused: **the named gate is false** in the config file. | The Architect flips it; nothing ran and the map is unchanged. |
 | `TargetMissing` | Supply **exactly one of solutionKey, repoPath or stale**; solutionPath only beside solutionKey. | Give one target. |
 | `PathNotInMap` | The directory is **not in the map**: no mapped solution's root contains it; the mapped roots are listed, the command that adds it is printed. | Run the printed command with the key you want; nothing ran and nothing was added. |
@@ -213,7 +218,7 @@ in `_Archive/004-store/README.md`. The registry-era `no registry row names proje
 - Never adds a solution and never chooses a key: `PathNotInMap` prints the command and stops; the Architect runs it.
 - Never walks up or down from a directory: the suggestion inspects the directory given, and resolution asks only
   whether a mapped root contains it.
-- Never uses `LIKE` in an identity query, never takes a doc-comment id as input, never returns a retired symbol,
+- Never uses `LIKE` in an identity query, never takes a doc-comment id as input, never returns a retired symbol as if it were live (`rename_candidates` names retired symbols as the retired side of a proposal, each side with its active state),
   never counts `part_of` as a reference, never guesses in `map_status`.
 - Never extracts without a key the map holds or a path the Architect gave: a directory resolves to a mapped root or
   is answered not in the map; the hook never falls back to the session directory.

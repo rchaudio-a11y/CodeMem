@@ -38,6 +38,8 @@
 '        asserts is scripted into the launcher and echoed verbatim, never the extractor's. The scripted line now carries warnings=0 so
 '        it keeps the current shape; the extractor's own line is asserted by RefusalTests (d) and X02 (1).
 ' 2026-09-29 (feature 006, T021): (18) also asserts the fragment's command is the placeholder path and names no C:/Users/ (FR-522).
+' RED:   2026-09-29 (T021) (18) red against the shipped fragment, which named the machine path under C:/Users/. GREEN (T024) with the
+'        placeholder; the Red on the real defect is its fire.
 
 Imports System.IO
 Imports System.Text.Json
