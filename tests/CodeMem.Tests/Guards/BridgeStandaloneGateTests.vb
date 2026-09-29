@@ -1,6 +1,6 @@
 ' File: BridgeStandaloneGateTests.vb
 ' Project: CodeMem.Tests
-' Description: Review gate (feature 005, FR-401, FR-402, FR-431): the bridge projects name no second database; the archived store names are gone from src/ and tests/; Article IX reads as v1.2.1; the constitution is v1.4.0.
+' Description: Review gate (feature 005, FR-401, FR-402, FR-431): the bridge projects name no second database; the archived store names are gone from src/ and tests/; Article IX reads as v1.2.1.
 ' Author: RCH Automation LLC
 ' Created: 2026-09-17
 '
@@ -21,14 +21,17 @@
 '        src/CodeMem.Bridging/Reading/MapAccess.vb -> red "MapAccess.vb:94: SqliteConnection"; a comment ' memos.sqlite appended to
 '        src/CodeMem.Bridging/Mcp/BridgeTools.vb -> red "BridgeTools.vb:284: memos"; (2) Dim r As <the store's database class> = Nothing
 '        appended to B09_StandaloneTests.vb -> red "B09_StandaloneTests.vb: <that name>"; green after each revert.
+' 2026-09-29 (006, T002): (4) TheConstitutionIsVersionOneFour retired to _Archive/006-map-teaches-its-use/ - red on main since
+'        806b524 (the v1.5.0 amendment moved the version line; Expected start "**Version**: 1.4.0"). STOP 1 decision 1: (3) pins
+'        Article IX's text, which is what (4) protected. Three facts remain.
 
 Imports System.IO
 Imports System.Text.RegularExpressions
 Imports Xunit
 
 ''' <summary>
-''' Four facts over the source tree and the constitution: no SqliteConnection and no store path under the two bridge projects; the eight
-''' archived names absent under src/ and tests/; Article IX equal to its v1.2.1 body; the version line at 1.4.0.
+''' Three facts over the source tree and the constitution: no SqliteConnection and no store path under the two bridge projects; the eight
+''' archived names absent under src/ and tests/; Article IX equal to its v1.2.1 body.
 ''' </summary>
 Public Class BridgeStandaloneGateTests
 
@@ -109,19 +112,6 @@ Public Class BridgeStandaloneGateTests
         Assert.True(collected.Count > 0, "Article IX heading not found in the constitution")
         Dim actual As String = Whitespace.Replace(String.Join(" ", collected), " ").Trim()
         Assert.Equal(ArticleNineV121, actual)
-    End Sub
-
-    ''' <summary>
-    ''' (4) The constitution's version line begins **Version**: 1.4.0 (FR-431).
-    ''' </summary>
-    <Fact>
-    Public Sub TheConstitutionIsVersionOneFour()
-        Dim versionLine As String = Nothing
-        For Each line As String In IO.File.ReadAllLines(ConstitutionPath())
-            If line.StartsWith("**Version**:", StringComparison.Ordinal) Then versionLine = line
-        Next
-        Assert.NotNull(versionLine)
-        Assert.StartsWith("**Version**: 1.4.0", versionLine, StringComparison.Ordinal)
     End Sub
 
     Private Shared Function ConstitutionPath() As String

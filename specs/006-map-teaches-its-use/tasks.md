@@ -88,13 +88,13 @@ record it in the test file header → implement → confirm Green → record. Ev
 **Purpose**: The feature branch carries the artefacts; the red version pin is retired to the archive as ruled; the
 suite's baseline is named test by test before any product code changes.
 
-- [ ] T001 Create the branch and record the starting state:
+- [X] T001 Create the branch and record the starting state:
   - `git switch -c 006-map-teaches-its-use 806b524`.
   - Commit `specs/006-map-teaches-its-use/` (spec, plan, research, data-model, contracts/, quickstart, checklists/;
     this file included) as the first commit: "docs(006): spec, plan, research, contracts, tasks — STOP 1 ruled".
   - Record `git -C C:\Users\rchau\source\repos\rchaudio-a11y\MemOS status --porcelain` (before) under "What must not
     happen" in `specs/006-map-teaches-its-use/quickstart.md`.
-- [ ] T002 Retire `BridgeStandaloneGateTests` (4) (STOP 1 decision 1):
+- [X] T002 Retire `BridgeStandaloneGateTests` (4) (STOP 1 decision 1):
   - Create `_Archive/006-map-teaches-its-use/tests/BridgeStandaloneGateTests_RetiredFacts.vb` holding fact (4)'s
     text, `TheConstitutionIsVersionOneFour`, its XML doc and its `<Fact>`, verbatim. Give it a header naming
     `tests/CodeMem.Tests/Guards/BridgeStandaloneGateTests.vb` as its origin, its 005 RED/GREEN lines, and "RED:
@@ -111,7 +111,7 @@ suite's baseline is named test by test before any product code changes.
       main since 806b524".
 
   `ConstitutionPath()` stays: fact (3) still uses it. Run `BridgeStandaloneGateTests` → 3 facts, all green.
-- [ ] T003 The named baseline (plan §Test design "Red on `main`"):
+- [X] T003 The named baseline (plan §Test design "Red on `main`"):
   - Run `dotnet test CodeMem.sln -c Debug --nologo --logger "trx;LogFileName=baseline-006-<n>.trx"` three times
     (n = 1, 2, 3).
   - From each TRX, record passed / failed / skipped, the duration and every failing test by name. Expected: 196

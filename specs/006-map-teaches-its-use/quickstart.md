@@ -110,3 +110,12 @@ The step 6 slice runs from the line that opens it to its closing line `installs 
   src/CodeMem.Bridge/hooks/settings.fragment.json README.md` prints nothing (STOP 1 decision 11; FR-522).
 - `BridgeStandaloneGateTests` (4) in the suite. It is retired to `_Archive/006-map-teaches-its-use/` (STOP 1 decision
   1); the suite lists three facts for that class.
+
+## Record (filled during implementation)
+
+| Step | Recorded |
+|---|---|
+| T001 branch | `006-map-teaches-its-use` created 2026-09-29 from `main` at `cf6222a`: the Architect's commit of the 006 artefacts, on top of `806b524`. The artefacts were already committed there, so T001's "first commit" step is satisfied by `cf6222a`. |
+| T001 MemOS before | `git status --porcelain` empty; HEAD `546f387` |
+| T002 | `BridgeStandaloneGateTests` (4) retired to `_Archive/006-map-teaches-its-use/`; the class runs 3 of 3 green |
+| T003 baseline | Debug, `--no-build` after one build at the T002 state, three TRX runs (`baseline-006-{1,2,3}.trx`): **196 passed / 0 failed / 9 skipped (205)** each, wall 302 s, 289 s, 293 s. No failure in any run: the plan-time run's unnamed failure did not recur in three runs and stays recorded as seen once. `--no-build` (a deviation from the task's text) kept the three runs on one build while later tasks' sources were written. Run 1 sits at 5 m 02 s, at SC-509's bound. |
