@@ -9,6 +9,8 @@
 ' ScopeConflict gone. The 004 texts of the kinds that leave at T021 and T024 stay until their kind leaves.
 ' 2026-09-17 (T021): the five resolver texts gone (KeyNotRegistered, KeyUnbound, KeyInactive, MapMissingSolution, PathNotRegistered).
 ' 2026-09-17 (T024): RegistryAbsent's text gone with the archive; the seven retired texts are listed in _Archive/004-store/README.md.
+' 2026-09-29 (feature 006, T010): RunNotFound, RunOutOfScope and CandidateCountMismatch (006 contracts/tools.md §6); SymbolRetired's last
+' sentence names the tool and the argument - "call rename_candidates with retiredSymbolId N" (FR-515).
 
 ''' <summary>
 ''' A refusal is text on the wire, never an exception (058's rule). <see cref="Named"/> is the only place a sentence is composed; facts assert
@@ -77,11 +79,17 @@ Public Class BridgeRefusal
             Case BridgeRefusalKind.SymbolOutOfScope
                 Return "Symbol " & F(facts, "id") & " ('" & F(facts, "name") & "') belongs to solution '" & F(facts, "solutionKey") & "', which is not in the requested scope (" & F(facts, "scope") & "). Ask with that solution's key."
             Case BridgeRefusalKind.SymbolRetired
-                Return "Symbol " & F(facts, "id") & " ('" & F(facts, "name") & "', " & F(facts, "kind") & ", " & F(facts, "path") & ") in solution '" & F(facts, "solutionKey") & "' is retired; it was last seen in extract run " & F(facts, "lastSeenRunId") & ". Search again for the current symbol, or consult the rename candidates whose retired symbol is " & F(facts, "id") & "."
+                Return "Symbol " & F(facts, "id") & " ('" & F(facts, "name") & "', " & F(facts, "kind") & ", " & F(facts, "path") & ") in solution '" & F(facts, "solutionKey") & "' is retired; it was last seen in extract run " & F(facts, "lastSeenRunId") & ". Search again for the current symbol, or call rename_candidates with retiredSymbolId " & F(facts, "id") & "."
             Case BridgeRefusalKind.NotAProjectRow
                 Return "Symbol " & F(facts, "id") & " ('" & F(facts, "name") & "', " & F(facts, "kind") & ", " & F(facts, "path") & ":" & F(facts, "line") & ") is not a project row; projectSymbolId takes the id of a project-kind symbol — the ids the result's byProject lists."
             Case BridgeRefusalKind.NotAType
                 Return "Symbol " & F(facts, "id") & " ('" & F(facts, "name") & "', " & F(facts, "kind") & ") is not a type; type_usages takes a class, module, structure, interface, enum or delegate. Use references for a member."
+            Case BridgeRefusalKind.RunNotFound
+                Return "The CodeMem map at '" & F(facts, "mapPath") & "' holds no extract run with id " & F(facts, "runId") & ". Omit runId to list every run of the solution; solutions names each solution's latest run."
+            Case BridgeRefusalKind.RunOutOfScope
+                Return "Extract run " & F(facts, "runId") & " belongs to solution '" & F(facts, "runKey") & "', not to '" & F(facts, "solutionKey") & "'. Ask with solutionKey " & F(facts, "runKey") & ", or pass a run of '" & F(facts, "solutionKey") & "'."
+            Case BridgeRefusalKind.CandidateCountMismatch
+                Return "Extract run " & F(facts, "runId") & " of '" & F(facts, "solutionKey") & "' recorded " & F(facts, "recorded") & " rename candidates but the map holds " & F(facts, "found") & ": the run's evidence does not reconcile, and no answer is built on it. The bridge does not repair the map; a new extraction writes a new run and leaves this one as it is."
             Case BridgeRefusalKind.GateOff
                 Return "extract is refused: " & F(facts, "gate") & " is false in '" & F(facts, "configPath") & "'. The Architect flips it; nothing ran and the map is unchanged."
             Case BridgeRefusalKind.TargetMissing

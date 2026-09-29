@@ -15,6 +15,7 @@
 ' argument dictionary, which ScopeResolver.RefuseProjectId reads (research R68: the protocol layer ignores an argument no parameter names);
 ' BridgeToolBindings hands it the SDK's request context, BridgeHost a dictionary of its own. The shape is now arguments -> configuration ->
 ' the map -> scope -> the seam -> the reader -> serialise -> EndRead -> answer.
+' 2026-09-29 (feature 006, T013): rename_candidates registered between map_status and extract, the same read shape (FR-501).
 
 Imports System.Text.Json
 Imports CodeMem.Core
@@ -26,7 +27,7 @@ Imports ModelContextProtocol.Protocol
 ''' </summary>
 Public Class BridgeTools
 
-    Private Shared ReadOnly Names As String() = New String() {"solutions", "symbol_search", "symbol_detail", "references", "orphans", "type_usages", "map_status", "extract"}
+    Private Shared ReadOnly Names As String() = New String() {"solutions", "symbol_search", "symbol_detail", "references", "orphans", "type_usages", "map_status", "rename_candidates", "extract"}
     Private Shared ReadOnly Descriptions As Dictionary(Of String, String) = New Dictionary(Of String, String)(StringComparer.Ordinal) From {
         {"solutions", BridgeToolDescriptions.Solutions},
         {"symbol_search", BridgeToolDescriptions.SymbolSearch},
@@ -35,6 +36,7 @@ Public Class BridgeTools
         {"orphans", BridgeToolDescriptions.Orphans},
         {"type_usages", BridgeToolDescriptions.TypeUsages},
         {"map_status", BridgeToolDescriptions.MapStatus},
+        {"rename_candidates", BridgeToolDescriptions.RenameCandidates},
         {"extract", BridgeToolDescriptions.Extract}}
 
     Private ReadOnly _configPath As String
@@ -209,6 +211,27 @@ Public Class BridgeTools
             Function(config As BridgeConfig, map As MapDatabase)
                 Seam()
                 Return MapStatusReader.Read(config, map)
+            End Function)
+    End Function
+
+    ''' <summary>
+    ''' One solution's rename evidence, optionally narrowed to one run and to one retired symbol (feature 006 contracts/tools.md §1-§4).
+    ''' </summary>
+    ''' <param name="rawArguments">The call's arguments as received, or Nothing.</param>
+    ''' <param name="solutionKey">A map solution key.</param>
+    ''' <param name="runId">One run, or Nothing.</param>
+    ''' <param name="retiredSymbolId">One retired symbol, or Nothing.</param>
+    ''' <returns>The envelope or a refusal.</returns>
+    Public Function RenameCandidates(rawArguments As IReadOnlyDictionary(Of String, JsonElement), Optional solutionKey As String = Nothing, Optional runId As Long? = Nothing, Optional retiredSymbolId As Long? = Nothing) As CallToolResult
+        Dim key As String = Normalise(solutionKey)
+        Return RunRead(Of RenameCandidatesEnvelope)(
+            Sub()
+                ScopeResolver.ValidateArguments(rawArguments, key)
+            End Sub,
+            Function(config As BridgeConfig, map As MapDatabase)
+                Dim scope As ResolvedScope = ScopeResolver.Resolve(key, config, map)
+                Seam()
+                Return RenameCandidatesReader.Read(map, scope, config, runId, retiredSymbolId)
             End Function)
     End Function
 

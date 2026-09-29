@@ -3,6 +3,9 @@
 ' Description: The symbol-level refusals the id-taking tools share, in 058 §6's order: not found, out of scope, retired; and the project-row rule (FR-311, FR-314, 060 §3.1).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-15
+'
+' 2026-09-29 (feature 006, T009): RequireInScope - not found, then out of scope, the row returned active or not - for rename_candidates'
+' retiredSymbolId; RequireActive is RequireInScope followed by the retired check, so the two refusals live in one place (Article XII).
 
 Imports CodeMem.Core
 
@@ -29,6 +32,23 @@ Public Module SymbolResolver
     ''' <param name="symbolId">The id.</param>
     ''' <returns>The active row in scope.</returns>
     Public Function RequireActive(map As MapDatabase, scope As ResolvedScope, config As BridgeConfig, symbolId As Long) As SymbolRecord
+        Dim row As SymbolRecord = RequireInScope(map, scope, config, symbolId)
+        If Not row.IsActive Then
+            Throw Refuse(BridgeRefusalKind.SymbolRetired, "id", symbolId.ToString(Globalization.CultureInfo.InvariantCulture), "name", row.Name, "kind", row.Kind, "path", row.Path, "solutionKey", row.SolutionKey, "lastSeenRunId", row.LastSeenRunId.ToString(Globalization.CultureInfo.InvariantCulture))
+        End If
+        Return row
+    End Function
+
+    ''' <summary>
+    ''' Reads the row and refuses SymbolNotFound, then SymbolOutOfScope; the row is returned whether active or retired (rename_candidates'
+    ''' retiredSymbolId takes a retired id by design, feature 006 spec Q6).
+    ''' </summary>
+    ''' <param name="map">The call's open map.</param>
+    ''' <param name="scope">The resolved scope.</param>
+    ''' <param name="config">The configuration read for this call.</param>
+    ''' <param name="symbolId">The id.</param>
+    ''' <returns>The row in scope.</returns>
+    Public Function RequireInScope(map As MapDatabase, scope As ResolvedScope, config As BridgeConfig, symbolId As Long) As SymbolRecord
         Dim row As SymbolRecord = CodeSymbolsRepository.ReadById(map, symbolId)
         Dim id As String = symbolId.ToString(Globalization.CultureInfo.InvariantCulture)
         If row Is Nothing Then
@@ -36,9 +56,6 @@ Public Module SymbolResolver
         End If
         If Not scope.Contains(row.SolutionId) Then
             Throw Refuse(BridgeRefusalKind.SymbolOutOfScope, "id", id, "name", row.Name, "solutionKey", row.SolutionKey, "scope", scope.Describe())
-        End If
-        If Not row.IsActive Then
-            Throw Refuse(BridgeRefusalKind.SymbolRetired, "id", id, "name", row.Name, "kind", row.Kind, "path", row.Path, "solutionKey", row.SolutionKey, "lastSeenRunId", row.LastSeenRunId.ToString(Globalization.CultureInfo.InvariantCulture))
         End If
         Return row
     End Function

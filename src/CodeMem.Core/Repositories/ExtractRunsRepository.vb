@@ -6,6 +6,8 @@
 '
 ' 2026-09-10 (fixpack 002): binds sdk_version (NULL when the stamp has none). The trigger, not this code, refuses a v2 row without it (Article XII).
 ' 2026-09-15 (feature 004, T018): ReadLatest (any outcome, INC4), ReadLatestCompleted and ReadById for the bridge, SELECT-only (research R45).
+' 2026-09-29 (feature 006, T008): ReadBySolution (every run of a solution, newest first) and ReadRetiringRun (the one place the run that
+' retired a symbol is derived, spec Q2) for rename_candidates, SELECT-only; the row mapping is one private function both shapes share.
 
 Imports Microsoft.Data.Sqlite
 
@@ -113,36 +115,78 @@ Public Module ExtractRunsRepository
         End Using
     End Function
 
+    ''' <summary>
+    ''' Every run of a solution, whatever its outcome, newest first (rename_candidates without a filter; feature 006, spec Q5).
+    ''' </summary>
+    ''' <param name="db">The open map.</param>
+    ''' <param name="solutionId">The solution.</param>
+    ''' <returns>The rows; empty when the solution has none.</returns>
+    Public Function ReadBySolution(db As MapDatabase, solutionId As Long) As List(Of RunRecord)
+        Using command As SqliteCommand = db.CreateCommand()
+            command.CommandText = "SELECT " & ReadColumns & " FROM extract_runs WHERE solution_id = @solution_id ORDER BY id DESC"
+            command.Parameters.AddWithValue("@solution_id", solutionId)
+            Dim rows As List(Of RunRecord) = New List(Of RunRecord)()
+            Using reader As SqliteDataReader = command.ExecuteReader()
+                While reader.Read()
+                    rows.Add(RowOf(reader))
+                End While
+            End Using
+            Return rows
+        End Using
+    End Function
+
+    ''' <summary>
+    ''' The run that retired a symbol: the first completed run of its solution after the run that last observed it. A completed run that
+    ''' does not observe an active symbol retires it (Article VI, step 4) and a failed run publishes nothing (Article V), so that run is the
+    ''' one. This is the one place the derivation lives (feature 006, spec Q2; the map stores no retiring run).
+    ''' </summary>
+    ''' <param name="db">The open map.</param>
+    ''' <param name="solutionId">The symbol's solution.</param>
+    ''' <param name="lastSeenRunId">The symbol's last_seen_run_id.</param>
+    ''' <returns>The row, or Nothing when no completed run follows (a symbol still active has none).</returns>
+    Public Function ReadRetiringRun(db As MapDatabase, solutionId As Long, lastSeenRunId As Long) As RunRecord
+        Using command As SqliteCommand = db.CreateCommand()
+            command.CommandText = "SELECT " & ReadColumns & " FROM extract_runs WHERE solution_id = @solution_id AND outcome = 'completed' AND id > @last_seen_run_id ORDER BY id LIMIT 1"
+            command.Parameters.AddWithValue("@solution_id", solutionId)
+            command.Parameters.AddWithValue("@last_seen_run_id", lastSeenRunId)
+            Return ReadOne(command)
+        End Using
+    End Function
+
     Private Function ReadOne(command As SqliteCommand) As RunRecord
         Using reader As SqliteDataReader = command.ExecuteReader()
             If Not reader.Read() Then Return Nothing
-            Dim record As RunRecord = New RunRecord With {
-                .Id = reader.GetInt64(0),
-                .SolutionId = reader.GetInt64(1),
-                .Outcome = reader.GetString(2),
-                .SourceDigest = reader.GetString(3),
-                .CommitSha = If(reader.IsDBNull(4), Nothing, reader.GetString(4)),
-                .BuildConfiguration = reader.GetString(6),
-                .TargetFramework = reader.GetString(7),
-                .ExtractorVersion = reader.GetString(8),
-                .SchemaVersion = reader.GetInt32(9),
-                .StartedUtc = reader.GetString(10),
-                .FinishedUtc = reader.GetString(11),
-                .SdkVersion = If(reader.IsDBNull(22), Nothing, reader.GetString(22))}
-            If Not reader.IsDBNull(5) Then record.IsDirty = reader.GetInt32(5) = 1
-            record.Counts = New RunCounts With {
-                .SymbolsObserved = reader.GetInt32(12),
-                .SymbolsMatched = reader.GetInt32(13),
-                .SymbolsReactivated = reader.GetInt32(14),
-                .SymbolsNew = reader.GetInt32(15),
-                .SymbolsRetired = reader.GetInt32(16),
-                .RegistryActiveBefore = reader.GetInt32(17),
-                .NotesOrphaned = reader.GetInt32(18),
-                .RenameCandidates = reader.GetInt32(19),
-                .UnaccountedObserved = reader.GetInt32(20),
-                .UnaccountedRegistry = reader.GetInt32(21)}
-            Return record
+            Return RowOf(reader)
         End Using
+    End Function
+
+    Private Function RowOf(reader As SqliteDataReader) As RunRecord
+        Dim record As RunRecord = New RunRecord With {
+            .Id = reader.GetInt64(0),
+            .SolutionId = reader.GetInt64(1),
+            .Outcome = reader.GetString(2),
+            .SourceDigest = reader.GetString(3),
+            .CommitSha = If(reader.IsDBNull(4), Nothing, reader.GetString(4)),
+            .BuildConfiguration = reader.GetString(6),
+            .TargetFramework = reader.GetString(7),
+            .ExtractorVersion = reader.GetString(8),
+            .SchemaVersion = reader.GetInt32(9),
+            .StartedUtc = reader.GetString(10),
+            .FinishedUtc = reader.GetString(11),
+            .SdkVersion = If(reader.IsDBNull(22), Nothing, reader.GetString(22))}
+        If Not reader.IsDBNull(5) Then record.IsDirty = reader.GetInt32(5) = 1
+        record.Counts = New RunCounts With {
+            .SymbolsObserved = reader.GetInt32(12),
+            .SymbolsMatched = reader.GetInt32(13),
+            .SymbolsReactivated = reader.GetInt32(14),
+            .SymbolsNew = reader.GetInt32(15),
+            .SymbolsRetired = reader.GetInt32(16),
+            .RegistryActiveBefore = reader.GetInt32(17),
+            .NotesOrphaned = reader.GetInt32(18),
+            .RenameCandidates = reader.GetInt32(19),
+            .UnaccountedObserved = reader.GetInt32(20),
+            .UnaccountedRegistry = reader.GetInt32(21)}
+        Return record
     End Function
 
 End Module

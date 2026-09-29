@@ -133,7 +133,7 @@ changed.
 
 **⚠️ CRITICAL**: No user story work until T006 records its check.
 
-- [ ] T004 [P] Add `Public Function InitializeResult() As JsonElement` to `tests/CodeMem.Tests/Support/BridgeProcess.vb`
+- [X] T004 [P] Add `Public Function InitializeResult() As JsonElement` to `tests/CodeMem.Tests/Support/BridgeProcess.vb`
   (research R74, R79):
   - It sends the same `initialize` request and `notifications/initialized` as `Initialize()` and returns the whole
     `result` element, cloned.
@@ -142,7 +142,7 @@ changed.
   - Add `Public Function ListToolAnnotations() As Dictionary(Of String, JsonElement)`: one `tools/list`, each tool's
     `annotations` element cloned, keyed by name. It is needed for B12 (6)'s `readOnlyHint` (analyze U1).
   - Dated header line.
-- [ ] T005 [P] Test-side mutation helpers (research R78, R79; STOP 1 decision 8):
+- [X] T005 [P] Test-side mutation helpers (research R78, R79; STOP 1 decision 8):
   - In `tests/CodeMem.Tests/Support/TwinScenario.vb`, `Prepare` goes from `Private Shared` to `Friend Shared`, with a
     dated header line: "a second caller, `RenameScenario`; no third, so no abstraction".
   - In `tests/CodeMem.Tests/Support/MapQueries.vb` (the exempt test SQL file), add
@@ -150,7 +150,7 @@ changed.
     @id` on a read-write connection. Its XML doc says it exists only to make a completed run disagree with its
     recorded count on a copied map. Add `Public Function ReadCandidateIds(db As String, runId As Long) As List(Of
     Long)` (`SELECT id FROM rename_candidates WHERE run_id = @run_id ORDER BY id`). Dated header lines.
-- [ ] T006 Create `tests/CodeMem.Tests/Support/RenameScenario.vb` (research R79; STOP 1 decision 8). An
+- [X] T006 Create `tests/CodeMem.Tests/Support/RenameScenario.vb` (research R79; STOP 1 decision 8). An
   `IDisposable` class fixture holding `Copy As FixtureCopy`, `Other As FixtureCopy`, `Map As TempMap`, the two
   solution ids, the four run ids (`SampleRun1`, `SampleRun2`, `SampleRun3Failed`, `OtherRun1`), `ConfigPath As String`
   (the file written by `BridgeHost.WriteConfig(Map.Path, Nothing, False, False)`, exposed for `BridgeProcess.Serve`;
@@ -187,7 +187,7 @@ matter. It has three new refusals, and `SymbolRetired` names it.
 **Independent Test**: B12 (1)–(9) on `RenameScenario`, the refusals through the executable, the map byte-identical;
 B08 (9)–(11) armed for T031.
 
-- [ ] T007 [US1] Create `tests/CodeMem.Tests/Bridge/B12_RenameCandidatesTests.vb` (FR-501–FR-509, FR-515; spec US1;
+- [X] T007 [US1] Create `tests/CodeMem.Tests/Bridge/B12_RenameCandidatesTests.vb` (FR-501–FR-509, FR-515; spec US1;
   `<Collection("Fixture")>`, `IClassFixture(Of RenameScenario)`) with nine facts. Assertions are on the parsed JSON of
   data-model §2–§4, and every id comes from the scenario, never a literal.
   - (1) `UnfilteredListsEveryRunAndTheTwinsAsSeparateCandidates`: `rename_candidates(solutionKey "Sample")`.
@@ -232,7 +232,7 @@ B08 (9)–(11) armed for T031.
 
   Run → every fact red for its stated reason (the tool is not registered: "unknown tool" / not found; record the
   message). Header "RED: <date> (T007)".
-- [ ] T008 [US1] Core reads (research R76, R77; STOP 1 decisions 3–4; data-model §1).
+- [X] T008 [US1] Core reads (research R76, R77; STOP 1 decisions 3–4; data-model §1).
   - `src/CodeMem.Core/Records/RenameCandidateRecord.vb` (new): `Id`, `SolutionId`, `RunId`, `RetiredSymbolId`,
     `NewSymbolId` As Long; `SamePath` As Boolean; `OffsetDistance` As Integer? ("null when same_path = 0");
     `Rank` As Integer.
@@ -253,13 +253,13 @@ B08 (9)–(11) armed for T031.
 
   Run `Guards` → `BridgeSqlGateTests` (3) (the three are `Read…`, SELECT-only), the tripwire and `SqlLocationGateTests`
   green.
-- [ ] T009 [US1] `src/CodeMem.Bridging/Reading/SymbolResolver.vb` (research R76; Article XII):
+- [X] T009 [US1] `src/CodeMem.Bridging/Reading/SymbolResolver.vb` (research R76; Article XII):
   - Add `Public Function RequireInScope(map, scope, config, symbolId As Long) As SymbolRecord`. It reads the row, then
     raises `SymbolNotFound`, then `SymbolOutOfScope`, with the same facts as today, and returns the row active or not.
   - `RequireActive` becomes `RequireInScope` followed by the `SymbolRetired` check, the same order and the same facts.
     The two refusals now live in one place.
   - Dated header line. Run `Bridge` → the existing refusal facts (B02, B03) green, unchanged.
-- [ ] T010 [US1] Refusal vocabulary (FR-508, FR-515; contracts/tools.md §6; STOP 1 decision 7).
+- [X] T010 [US1] Refusal vocabulary (FR-508, FR-515; contracts/tools.md §6; STOP 1 decision 7).
   - `src/CodeMem.Bridging/Refusals/BridgeRefusalKind.vb`: add `RunNotFound`, `RunOutOfScope` and
     `CandidateCountMismatch` after `NotAType`, each with its summary.
   - `src/CodeMem.Bridging/Refusals/BridgeRefusal.vb`: the three texts of §6 verbatim, keyed on the facts `mapPath`,
@@ -268,7 +268,7 @@ B08 (9)–(11) armed for T031.
   - Dated header lines.
   - Amend `tests/CodeMem.Tests/Bridge/B09_StandaloneTests.vb` (6): run first → **red, expected 29, actual 32** (the
     named Red); record it; change the literal to 32; dated header line. Run → green.
-- [ ] T011 [P] [US1] Envelopes (data-model §2–§4, field names and nulls verbatim; nulls are written, never omitted —
+- [X] T011 [P] [US1] Envelopes (data-model §2–§4, field names and nulls verbatim; nulls are written, never omitted —
   `BridgeJson`'s `DefaultIgnoreCondition = Never`), each file new under `src/CodeMem.Bridging/Reading/Envelopes/`:
   - `RenameCandidatesEnvelope`: `ReadAtUtc`, `Scope As ScopeEnvelope`, `Filters As RenameCandidatesFiltersEnvelope`,
     `Symbol As CandidateSideEnvelope`, `Runs As List(Of ExaminedRunEnvelope)`, `Total As Integer`,
@@ -283,7 +283,7 @@ B08 (9)–(11) armed for T031.
   - `ExaminedRunEnvelope`: `RunId`, `Outcome`, `FinishedUtc`, `SymbolsRetired`, `RenameCandidatesRecorded`,
     `CandidatesReturned`, `CountChecked As Boolean`, `CountNotCheckedReason As String` ("null when checked; otherwise
     `failed run` or `filtered by retiredSymbolId`").
-- [ ] T012 [US1] `src/CodeMem.Bridging/Reading/Readers/RenameCandidatesReader.vb` (new; research R76–R78; STOP 1
+- [X] T012 [US1] `src/CodeMem.Bridging/Reading/Readers/RenameCandidatesReader.vb` (new; research R76–R78; STOP 1
   decisions 3–5). `Public Function Read(map, scope As ResolvedScope, config, runId As Long?, retiredSymbolId As Long?)
   As RenameCandidatesEnvelope`, in this order:
   1. The one solution of the scope.
@@ -304,7 +304,7 @@ B08 (9)–(11) armed for T031.
   8. `note`: data-model §2's two sentences when `total` = 0, else null.
 
   The file carries no SQL and no gate word. XML docs name the Q2 derivation's one door (`ReadRetiringRun`).
-- [ ] T013 [US1] Register the tool (FR-501, FR-510; contracts/tools.md §1–§2, §4; STOP 1 decision 6 as ruled).
+- [X] T013 [US1] Register the tool (FR-501, FR-510; contracts/tools.md §1–§2, §4; STOP 1 decision 6 as ruled).
   - `src/CodeMem.Bridging/Mcp/BridgeToolDescriptions.vb`: add `Public Const RenameCandidates As String`, the ruled
     text of contracts/tools.md §2 verbatim, both STOP 1 edits included. Revise the header description ("The nine
     registered tool descriptions").
@@ -324,7 +324,7 @@ B08 (9)–(11) armed for T031.
   - Amend `tests/CodeMem.Tests/Bridge/B09_StandaloneTests.vb` (4): run first → **red, expected 8, actual 9**;
     record; change the literal to 9 (the new description passes the forbidden-phrase scan unchanged); dated header
     line.
-- [ ] T014 [US1] `dotnet build` 0/0; run B12 → (1)–(9) green; run `Bridge` and `Guards` → green. Record Green in B12's
+- [X] T014 [US1] `dotnet build` 0/0; run B12 → (1)–(9) green; run `Bridge` and `Guards` → green. Record Green in B12's
   header. Then the FIREs (research R79; plan §Test design; the Review Gate "every new guard carries its fire
   demonstration"; analyze C1, G1), each reverted from a byte copy:
   - (1): in the reader, fold candidates whose sides share `name`, `path` and `line` → two candidates, not three → red;
@@ -340,7 +340,7 @@ B08 (9)–(11) armed for T031.
     `RenameCandidatesReader.vb`, and the connection-site gate (`SqlLocationGateTests`) red naming a second site.
 
   Record the seven FIRE lines: B12's in B12's header, and FR-509's in B12's header naming the two gates.
-- [ ] T015 [US1] Add three facts to `tests/CodeMem.Tests/Bridge/B08_LiveMapTests.vb`, armed by `CODEMEM_LIVE_MAP` like
+- [X] T015 [US1] Add three facts to `tests/CodeMem.Tests/Bridge/B08_LiveMapTests.vb`, armed by `CODEMEM_LIVE_MAP` like
   the other eight (research R84; STOP 1 decision 9; analyze G3). No timing is asserted; each fact writes its call's
   measured duration to the test output, for T031 to record.
   - (9) `LiveRenameCandidatesRunThirteenHasOne`: `rename_candidates(solutionKey "MemOS", runId 13)` → one candidate:
@@ -366,7 +366,7 @@ carries the constructor sentence; the bridge is 0.3.0.
 
 **Independent Test**: `UsageTextsGateTests` (1)–(3) and B01 (5) through the executable; B09 (4)'s caveat table.
 
-- [ ] T016 [US2] Create `tests/CodeMem.Tests/Guards/UsageTextsGateTests.vb` (FR-511–FR-513, the v1.5.0 gate;
+- [X] T016 [US2] Create `tests/CodeMem.Tests/Guards/UsageTextsGateTests.vb` (FR-511–FR-513, the v1.5.0 gate;
   contracts/usage-texts.md §5) with three facts. A helper `Collapse(text)` replaces every run of `\s+` with one space
   (spec Q4). A helper `HasWord(text, name)` matches `(?<![A-Za-z0-9_])` & `Regex.Escape(name)` &
   `(?![A-Za-z0-9_])` (research R79).
@@ -389,7 +389,7 @@ carries the constructor sentence; the bridge is 0.3.0.
   Run → UsageTexts (1)–(3) red (compile: no `BridgeServerInstructions`); record as the Red. After a stub
   `Public Const Text As String = ""` lands: (1) red (no `instructions` property, or empty); (2) red; (3) red. B01 (5)
   red: version 0.2.0 and no instructions. Record every Red line.
-- [ ] T017 [US2] The instructions (FR-511; research R75; STOP 1 decision 2):
+- [X] T017 [US2] The instructions (FR-511; research R75; STOP 1 decision 2):
   - `src/CodeMem.Bridging/Mcp/BridgeServerInstructions.vb` (new module): `Public Const Text As String` = a multi-line
     VB string literal whose value is 191490 §1's block. Take it from the store by the Q3 rule (25 lines), doubling
     only the two `"` quotations for VB. XML doc: "The server's instructions, 191490 §1 verbatim; LF only (the file is
@@ -400,7 +400,7 @@ carries the constructor sentence; the bridge is 0.3.0.
   - `src/CodeMem.Bridge/Mcp/BridgeServer.vb` `RunAsync`: `options.ServerInstructions = BridgeServerInstructions.Text`
     directly after the `ServerInfo` line; dated header line.
   - Run quickstart §Verbatim's `instructions` line → `OK` (`d8a173d3…`); a `DIFF` stops the work.
-- [ ] T018 [US2] The `symbol_search` sentence (FR-514; contracts/tools.md §2):
+- [X] T018 [US2] The `symbol_search` sentence (FR-514; contracts/tools.md §2):
   - First add "VB constructors are named New; to find a class's constructions, use type_usages on the class." to the
     `SymbolSearch` row of the caveat table in `tests/CodeMem.Tests/Bridge/B09_StandaloneTests.vb` (4). Run → **red**
     (the phrase is absent); record.
@@ -408,9 +408,9 @@ carries the constructor sentence; the bridge is 0.3.0.
     "…event, project." as contracts/tools.md §2 shows. Every other sentence is unchanged (B07's "compiled into N
     projects" included).
   - Dated header lines.
-- [ ] T019 [P] [US2] `<Version>0.3.0</Version>` in `src/CodeMem.Bridging/CodeMem.Bridging.vbproj` and
+- [X] T019 [P] [US2] `<Version>0.3.0</Version>` in `src/CodeMem.Bridging/CodeMem.Bridging.vbproj` and
   `src/CodeMem.Bridge/CodeMem.Bridge.vbproj` (FR-525; STOP 1 decision 10). `ProjectFileGateTests` green.
-- [ ] T020 [US2] `dotnet build` 0/0; run `UsageTextsGateTests` (1)–(3), B01 (5), B09 (4) and B07 → green; record Green
+- [X] T020 [US2] `dotnet build` 0/0; run `UsageTextsGateTests` (1)–(3), B01 (5), B09 (4) and B07 → green; record Green
   lines. FIREs, each reverted:
   - UsageTexts (1): concatenate `& vbCrLf` into the constant → red;
   - B01 (5) and UsageTexts (1): remove the `ServerInstructions` line from `RunAsync` → red (the spec's FIRE);

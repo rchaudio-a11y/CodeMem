@@ -6,6 +6,8 @@
 '
 ' 2026-09-17 (feature 005, T014): the delegates point at BridgeToolBindings, whose first parameter is the request context the SDK injects
 ' and leaves out of the schema (research R68); projectId is no parameter of any tool.
+' 2026-09-29 (feature 006, T013): the rename_candidates delegate (solutionKey, runId, retiredSymbolId); read-only like every tool but extract.
+' 2026-09-29 (feature 006, T017): options.ServerInstructions = BridgeServerInstructions.Text, advertised at initialize (FR-511).
 
 Imports System.Threading
 Imports System.Threading.Tasks
@@ -29,6 +31,7 @@ Public Module BridgeServer
         Dim bindings As BridgeToolBindings = New BridgeToolBindings(New BridgeTools(configPath, New ProcessExtractorLauncher(), Nothing))
         Dim options As McpServerOptions = New McpServerOptions()
         options.ServerInfo = New Implementation With {.Name = "codemem", .Version = GetType(BridgeServer).Assembly.GetName().Version.ToString(3)}
+        options.ServerInstructions = BridgeServerInstructions.Text
         options.ToolCollection = New McpServerPrimitiveCollection(Of McpServerTool)()
         For Each name As String In BridgeTools.RegisteredToolNames
             Dim createOptions As McpServerToolCreateOptions = New McpServerToolCreateOptions With {
@@ -68,6 +71,8 @@ Public Module BridgeServer
                 Return New Func(Of RequestContext(Of CallToolRequestParams), Long?, String, CallToolResult)(AddressOf bindings.TypeUsages)
             Case "map_status"
                 Return New Func(Of RequestContext(Of CallToolRequestParams), CallToolResult)(AddressOf bindings.MapStatus)
+            Case "rename_candidates"
+                Return New Func(Of RequestContext(Of CallToolRequestParams), String, Long?, Long?, CallToolResult)(AddressOf bindings.RenameCandidates)
             Case "extract"
                 Return New Func(Of RequestContext(Of CallToolRequestParams), String, String, String, Boolean?, CallToolResult)(AddressOf bindings.Extract)
             Case Else

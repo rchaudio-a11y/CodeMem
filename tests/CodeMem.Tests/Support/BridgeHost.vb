@@ -8,6 +8,7 @@
 ' 2026-09-15 (T037): Launcher, Door and ConfigPath; WriteConfig takes an optional path so a fact can rewrite its own file.
 ' 2026-09-17 (feature 005, T013/T014): WriteConfig writes no storePath (FR-403); Invoke hands BridgeTools the raw argument dictionary it
 ' would receive from the SDK (research R68), so a projectId passed here is refused exactly as over stdio.
+' 2026-09-29 (feature 006, T007): Invoke dispatches rename_candidates (solutionKey, runId, retiredSymbolId).
 
 Imports System.IO
 Imports System.Text.Json
@@ -66,6 +67,8 @@ Public Class BridgeHost
                 result = _tools.TypeUsages(raw, GetLong(args, "symbolId"), GetString(args, "solutionKey"))
             Case "map_status"
                 result = _tools.MapStatus(raw)
+            Case "rename_candidates"
+                result = _tools.RenameCandidates(raw, GetString(args, "solutionKey"), GetLong(args, "runId"), GetLong(args, "retiredSymbolId"))
             Case "extract"
                 result = _tools.Extract(raw, GetString(args, "solutionKey"), GetString(args, "solutionPath"), GetString(args, "repoPath"), GetBoolean(args, "stale"))
             Case Else

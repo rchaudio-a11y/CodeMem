@@ -28,6 +28,11 @@
 ' 2026-09-17 (feature 005, T017): the registry fixture and its seed leave (4), (5) and (6) - the configuration names the map only
 ' (FR-403); the facts are otherwise unchanged and stayed green through T014-T016 (no fact of this file named projectId).
 ' 2026-09-17 (feature 005, T039): (5) also reads serverInfo.version - 0.2.0, the bridge's version after 005 (the assembly's, three parts).
+' 2026-09-29 (feature 006, T016): (5) lists the nine names as a literal, not RegisteredToolNames itself (which could never fire for a tool
+' that was never registered); reads the whole initialize result; the instructions equal BridgeServerInstructions.Text; version 0.3.0.
+' RED:   2026-09-29 (006, T013) (4) - no arguments for tool rename_candidates: extend the table - the fact's own guard for a new tool,
+'        unnamed in the plan; the table gains rename_candidates (solutionKey only), so the tool's stdio call is held byte-identical too.
+' RED:   2026-09-29 (006, T016) (5) - version 0.2.0, no instructions in the initialize result, eight names listed.
 
 Imports System.IO
 Imports System.Text.Json
@@ -116,8 +121,9 @@ Public Class B01_ReadOnlyContractTests
     End Sub
 
     ''' <summary>
-    ''' (5) The executable answers initialize with serverInfo.name codemem, lists exactly the registered tool names, returns each registered
-    ''' description verbatim (FR-312 on the production route, G4), and leaves no -journal beside the map after the session.
+    ''' (5) The executable answers initialize with serverInfo.name codemem, version 0.3.0 and the server's instructions (006 FR-511), lists
+    ''' exactly the nine tool names, returns each registered description verbatim (FR-312 on the production route, G4), and leaves no
+    ''' -journal beside the map after the session.
     ''' </summary>
     <Fact>
     Public Sub TheExecutableServesOverStdio()
@@ -125,10 +131,14 @@ Public Class B01_ReadOnlyContractTests
             Dim solutionId As Long = Extract(map)
             Dim config As String = BridgeHost.WriteConfig(map.Path, Nothing, False, False)
             Using server As BridgeProcess = BridgeProcess.Serve(config)
-                Dim info As JsonElement = server.Initialize()
+                Dim result As JsonElement = server.InitializeResult()
+                Dim info As JsonElement = result.GetProperty("serverInfo")
                 Assert.Equal("codemem", info.GetProperty("name").GetString())
-                Assert.Equal("0.2.0", info.GetProperty("version").GetString())
-                Dim expectedNames As List(Of String) = New List(Of String)(BridgeTools.RegisteredToolNames)
+                Assert.Equal("0.3.0", info.GetProperty("version").GetString())
+                Dim instructions As JsonElement
+                Assert.True(result.TryGetProperty("instructions", instructions), "initialize carries no instructions")
+                Assert.Equal(BridgeServerInstructions.Text, instructions.GetString())
+                Dim expectedNames As List(Of String) = New List(Of String) From {"solutions", "symbol_search", "symbol_detail", "references", "orphans", "type_usages", "map_status", "rename_candidates", "extract"}
                 Dim listedNames As List(Of String) = server.ListTools()
                 expectedNames.Sort(StringComparer.Ordinal)
                 listedNames.Sort(StringComparer.Ordinal)
@@ -178,7 +188,7 @@ Public Class B01_ReadOnlyContractTests
                 Return "{""solutionKey"":""Sample"",""name"":""Widget""}"
             Case "symbol_detail", "references", "type_usages"
                 Return "{""solutionKey"":""Sample"",""symbolId"":" & consumerId & "}"
-            Case "orphans"
+            Case "orphans", "rename_candidates"
                 Return "{""solutionKey"":""Sample""}"
             Case Else
                 Throw New InvalidOperationException("no arguments for tool " & name & ": extend the table")

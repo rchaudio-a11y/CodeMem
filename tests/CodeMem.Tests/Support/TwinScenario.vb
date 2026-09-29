@@ -69,7 +69,12 @@ Public Class TwinScenario
         Copy.Dispose()
     End Sub
 
-    Private Shared Sub Prepare(copy As FixtureCopy)
+    ''' <summary>
+    ''' Writes the linked Shared/Twin.vb (namespace Sample.App.Shared under TWIN_APP, Sample.Lib.Shared otherwise), the one-line overload
+    ''' pair, and links the file into both projects.
+    ''' </summary>
+    ''' <param name="copy">The fixture copy to prepare.</param>
+    Friend Shared Sub Prepare(copy As FixtureCopy)
         Directory.CreateDirectory(Path.Combine(copy.Directory, "Shared"))
         File.WriteAllText(Path.Combine(copy.Directory, "Shared", "Twin.vb"),
                           "#If TWIN_APP Then" & vbLf & "Namespace Global.Sample.App.Shared" & vbLf & "#Else" & vbLf & "Namespace Global.Sample.Lib.Shared" & vbLf & "#End If" & vbLf &

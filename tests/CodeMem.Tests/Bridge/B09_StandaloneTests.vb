@@ -15,6 +15,10 @@
 ' RED:   2026-09-17 (T021) (6) added with the five resolver kinds gone: 30 kinds, not 29 - RegistryAbsent stays for the store door until
 '        the archive (T024). Expected red; green at T024.
 ' GREEN: 2026-09-17 (T024) (6) with the archive: 29.
+' 2026-09-29 (feature 006): RED (T010, T013) - (6) expected 29, actual 32 (the three 006 kinds); (4) expected 8, actual 9 descriptions;
+'        and (2) expected 8, actual 9 listed tools - the plan named (4) and (6), not (2): the same literal count, the same cause, amended
+'        alike and recorded as an unnamed Red. (6) renamed TheVocabularyHasThirtyTwoKinds; (4) asserts rename_candidates' bold phrases
+'        (006 contracts/tools.md §2) and, from T018, the symbol_search sentence; ArgumentsFor gives rename_candidates its own case.
 
 Imports System.IO
 Imports System.Text.Json
@@ -69,7 +73,7 @@ Public Class B09_StandaloneTests
     End Sub
 
     ''' <summary>
-    ''' (2) A call carrying projectId, beside its ordinary arguments, is refused naming the argument on every one of the eight tools, and
+    ''' (2) A call carrying projectId, beside its ordinary arguments, is refused naming the argument on every one of the nine tools, and
     ''' still when the configuration file does not exist (arguments before configuration) (FR-406).
     ''' </summary>
     <Fact>
@@ -78,7 +82,7 @@ Public Class B09_StandaloneTests
         Using server As BridgeProcess = BridgeProcess.Serve(_scenario.ConfigPath)
             server.Initialize()
             Dim names As List(Of String) = server.ListTools()
-            Assert.Equal(8, names.Count)
+            Assert.Equal(9, names.Count)
             For Each name As String In names
                 Dim reply As ToolReply = server.CallTool(name, WithProjectId(ArgumentsFor(name, consumerId)))
                 Assert.True(reply.IsError, name & ": projectId was not refused; got " & reply.Text)
@@ -130,7 +134,7 @@ Public Class B09_StandaloneTests
         Using server As BridgeProcess = BridgeProcess.Serve(_scenario.ConfigPath)
             server.Initialize()
             Dim descriptions As Dictionary(Of String, String) = server.ListToolDescriptions()
-            Assert.Equal(8, descriptions.Count)
+            Assert.Equal(9, descriptions.Count)
             Dim offenders As List(Of String) = New List(Of String)()
             For Each pair As KeyValuePair(Of String, String) In descriptions
                 Assert.Equal(BridgeTools.RegisteredToolDescriptions(pair.Key), pair.Value)
@@ -143,13 +147,14 @@ Public Class B09_StandaloneTests
         End Using
         Dim caveats As Dictionary(Of String, String()) = New Dictionary(Of String, String())(StringComparer.Ordinal) From {
             {BridgeToolDescriptions.Solutions, New String() {"unknown when there is no commit"}},
-            {BridgeToolDescriptions.SymbolSearch, New String() {"at most 200", "narrow the filter rather than page", "as one declaration compiled into N projects, carrying every project's symbol id"}},
+            {BridgeToolDescriptions.SymbolSearch, New String() {"at most 200", "narrow the filter rather than page", "as one declaration compiled into N projects, carrying every project's symbol id", "VB constructors are named New; to find a class's constructions, use type_usages on the class."}},
             {BridgeToolDescriptions.SymbolDetail, New String() {"eight verbs", "marked external", "does not exist", "retired"}},
             {BridgeToolDescriptions.References, New String() {"Containment (part_of) is not a reference and is never included", "Does not show AddHandler … AddressOf wiring sites", "Takes a mapped symbol id only"}},
             {BridgeToolDescriptions.Orphans, New String() {"used by its bare name", "no namespace rows", "unreferenced by construction", "not a verdict that it is dead", "referenced only by a sibling", "implemented but never called"}},
             {BridgeToolDescriptions.TypeUsages, New String() {"calls to each of its constructors", "from inside", "fromOutside"}},
             {BridgeToolDescriptions.MapStatus, New String() {"one verdict by name", "current", "behind", "dirty", "no_git", "diverged", "not_in_map"}},
-            {BridgeToolDescriptions.Extract, New String() {"Gated", "solutionPath", "not in the map"}}}
+            {BridgeToolDescriptions.Extract, New String() {"Gated", "solutionPath", "not in the map"}},
+            {BridgeToolDescriptions.RenameCandidates, New String() {"a proposal, never applied", "retiredSymbolId", "the run that retired it", "a changed signature or body is not a rename", "never folded", "refused by name", "uncapped"}}}
         Dim missing As List(Of String) = New List(Of String)()
         For Each pair As KeyValuePair(Of String, String()) In caveats
             For Each phrase As String In pair.Value
@@ -199,7 +204,7 @@ Public Class B09_StandaloneTests
                 Return "{}"
             Case "symbol_search"
                 Return "{""solutionKey"":""Sample"",""name"":""Widget""}"
-            Case "orphans"
+            Case "orphans", "rename_candidates"
                 Return "{""solutionKey"":""Sample""}"
             Case "extract"
                 Return "{""solutionKey"":""Sample""}"
@@ -209,12 +214,12 @@ Public Class B09_StandaloneTests
     End Function
 
     ''' <summary>
-    ''' (6) The vocabulary has twenty-nine kinds: the four 005 kinds in; ScopeConflict, RegistryAbsent and the five resolver kinds out (FR-409;
-    ''' analyze U1).
+    ''' (6) The vocabulary has thirty-two kinds: the four 005 kinds in; ScopeConflict, RegistryAbsent and the five resolver kinds out (FR-409;
+    ''' analyze U1); 006's RunNotFound, RunOutOfScope and CandidateCountMismatch in (006 FR-508).
     ''' </summary>
     <Fact>
-    Public Sub TheVocabularyHasTwentyNineKinds()
-        Assert.Equal(29, [Enum].GetValues(GetType(BridgeRefusalKind)).Length)
+    Public Sub TheVocabularyHasThirtyTwoKinds()
+        Assert.Equal(32, [Enum].GetValues(GetType(BridgeRefusalKind)).Length)
     End Sub
 
     Private Shared Function WithProjectId(argumentsJson As String) As String

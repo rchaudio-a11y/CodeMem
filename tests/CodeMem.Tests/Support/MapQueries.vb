@@ -10,6 +10,8 @@
 ' 2026-09-16 (feature 004, T048): SetStartLine added - B07's same-project twin shape (COR3) cannot come from VB source (BC32009), so the
 ' scenario moves one overload's start_line onto the other's in its temp map.
 ' 2026-09-17 (feature 005, T006): ReadWarnings added - the extract_run_warnings rows of one run (schema version 3; X02, S03).
+' 2026-09-29 (feature 006, T005): DeleteCandidate added - the only way to make a completed run disagree with its recorded count, on a
+' copied temp map (B12 (4), research R78). The candidate ids come from ReadCandidates, which already returns them.
 
 Imports CodeMem.Core
 Imports Microsoft.Data.Sqlite
@@ -559,6 +561,22 @@ Public Module MapQueries
                 command.CommandText = "UPDATE code_symbols SET start_line = @start_line WHERE id = @id"
                 command.Parameters.AddWithValue("@start_line", startLine)
                 command.Parameters.AddWithValue("@id", symbolId)
+                command.ExecuteNonQuery()
+            End Using
+        End Using
+    End Sub
+
+    ''' <summary>
+    ''' Removes one rename candidate row, so that a completed run disagrees with its recorded count (feature 006, B12 (4)). It exists
+    ''' only for that fact, and only on a copied temp map; nothing in the product removes a candidate.
+    ''' </summary>
+    ''' <param name="db">Map path (a copy).</param>
+    ''' <param name="candidateId">The row.</param>
+    Public Sub DeleteCandidate(db As String, candidateId As Long)
+        Using connection As SqliteConnection = Open(db)
+            Using command As SqliteCommand = connection.CreateCommand()
+                command.CommandText = "DELETE FROM rename_candidates WHERE id = @id"
+                command.Parameters.AddWithValue("@id", candidateId)
                 command.ExecuteNonQuery()
             End Using
         End Using

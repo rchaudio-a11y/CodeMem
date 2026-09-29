@@ -9,6 +9,7 @@
 ' MapMissingSolution and PathNotRegistered at T021 with the resolver; RegistryAbsent at T024 with the archive. The count is 29 at T024.
 ' 2026-09-17 (T021): the five resolver kinds gone with TargetResolver's rewrite; 30 remain until RegistryAbsent leaves at T024.
 ' 2026-09-17 (T024): RegistryAbsent gone with the archive - 29 kinds, B09 (6) green.
+' 2026-09-29 (feature 006, T010): RunNotFound, RunOutOfScope, CandidateCountMismatch after NotAType, the question-stage kinds together - 32.
 
 ''' <summary>
 ''' Every way a tool refuses. The wording of each lives in <see cref="BridgeRefusal"/>; facts assert each kind's distinguishing phrase.
@@ -54,6 +55,12 @@ Public Enum BridgeRefusalKind
     NotAProjectRow
     ''' <summary>type_usages on a non-type.</summary>
     NotAType
+    ''' <summary>rename_candidates with a runId the map does not hold (feature 006).</summary>
+    RunNotFound
+    ''' <summary>rename_candidates with a runId of another solution (feature 006).</summary>
+    RunOutOfScope
+    ''' <summary>A completed run returned whole whose candidates differ from its recorded count (feature 006).</summary>
+    CandidateCountMismatch
     ''' <summary>extract refused by a gate.</summary>
     GateOff
     ''' <summary>No mapped solution's root contains the directory; the answer names the command that adds it (feature 005).</summary>

@@ -3,6 +3,9 @@
 ' Description: Spawns the real CodeMem.Bridge executable from the test output directory and speaks JSON-RPC to it over stdio (feature 004, Article XIII, research R54).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-15
+'
+' 2026-09-29 (feature 006, T004): InitializeResult returns the whole initialize result (the instructions are a sibling of serverInfo);
+' Initialize is re-expressed over it, one door for the handshake. ListToolAnnotations reads each tool's annotations (analyze U1).
 
 Imports System.Diagnostics
 Imports System.IO
@@ -44,9 +47,32 @@ Public Class BridgeProcess
     ''' </summary>
     ''' <returns>The serverInfo element of the initialize result.</returns>
     Public Function Initialize() As JsonElement
+        Return InitializeResult().GetProperty("serverInfo").Clone()
+    End Function
+
+    ''' <summary>
+    ''' Sends initialize (protocol 2025-06-18) and notifications/initialized, and returns the whole result: serverInfo, capabilities,
+    ''' and the server's instructions when it sets them (feature 006, FR-511).
+    ''' </summary>
+    ''' <returns>The initialize result, cloned.</returns>
+    Public Function InitializeResult() As JsonElement
         Dim result As JsonElement = Request("initialize", "{""protocolVersion"":""2025-06-18"",""capabilities"":{},""clientInfo"":{""name"":""CodeMem.Tests"",""version"":""0""}}")
         Notify("notifications/initialized")
-        Return result.GetProperty("serverInfo").Clone()
+        Return result.Clone()
+    End Function
+
+    ''' <summary>
+    ''' The annotations element tools/list returns for each tool, by tool name; a tool without annotations is absent from the result
+    ''' (feature 006, B12 (6)).
+    ''' </summary>
+    ''' <returns>Name to annotations.</returns>
+    Public Function ListToolAnnotations() As Dictionary(Of String, JsonElement)
+        Dim annotations As Dictionary(Of String, JsonElement) = New Dictionary(Of String, JsonElement)(StringComparer.Ordinal)
+        For Each tool As JsonElement In Request("tools/list", "{}").GetProperty("tools").EnumerateArray()
+            Dim element As JsonElement
+            If tool.TryGetProperty("annotations", element) Then annotations(tool.GetProperty("name").GetString()) = element.Clone()
+        Next
+        Return annotations
     End Function
 
     ''' <summary>

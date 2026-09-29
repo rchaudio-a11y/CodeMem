@@ -1,6 +1,6 @@
 ' File: BridgeToolBindings.vb
 ' Project: CodeMem.Bridging
-' Description: The eight methods the MCP server registers: each takes the SDK's request context (injected, absent from the advertised schema) and the typed arguments, and hands BridgeTools the raw argument dictionary (research R68; 005 FR-406).
+' Description: The nine methods the MCP server registers (feature 006 adds rename_candidates): each takes the SDK's request context (injected, absent from the advertised schema) and the typed arguments, and hands BridgeTools the raw argument dictionary (research R68; 005 FR-406).
 ' Author: RCH Automation LLC
 ' Created: 2026-09-17
 '
@@ -87,6 +87,16 @@ Public Class BridgeToolBindings
     ''' <returns>The envelope or a refusal.</returns>
     Public Function MapStatus(context As RequestContext(Of CallToolRequestParams)) As CallToolResult
         Return _tools.MapStatus(ArgumentsOf(context))
+    End Function
+
+    ''' <summary>rename_candidates (feature 006).</summary>
+    ''' <param name="context">The request context the SDK injects.</param>
+    ''' <param name="solutionKey">A map solution key.</param>
+    ''' <param name="runId">One run, or Nothing.</param>
+    ''' <param name="retiredSymbolId">One retired symbol, or Nothing.</param>
+    ''' <returns>The envelope or a refusal.</returns>
+    Public Function RenameCandidates(context As RequestContext(Of CallToolRequestParams), Optional solutionKey As String = Nothing, Optional runId As Long? = Nothing, Optional retiredSymbolId As Long? = Nothing) As CallToolResult
+        Return _tools.RenameCandidates(ArgumentsOf(context), solutionKey, runId, retiredSymbolId)
     End Function
 
     ''' <summary>extract.</summary>

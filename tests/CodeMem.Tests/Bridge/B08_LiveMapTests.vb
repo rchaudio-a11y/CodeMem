@@ -46,6 +46,8 @@
 '        Diagnosed and re-pinned to 279: the fixpack added exactly two members to CodeMemMapFixture.vb, which is LINKED into the
 '        integration project as well, so each folds as one twin pair. The arithmetic closes exactly (15,824 - 279 = 15,545); see the
 '        comment at the assertion. This figure is expected to move with every MemOS extraction that touches a linked file.
+' 2026-09-29 (feature 006, T015): (9)-(11) rename_candidates on MemOS - run 13's one candidate, 6754's one retiring run (53), the
+'        unfiltered call reconciling every completed run. No timing asserted for them (analyze G3): Measured prints the duration only.
 Imports System.Diagnostics
 Imports System.Linq
 Imports System.Text.Json
@@ -383,6 +385,90 @@ Public Class B08_LiveMapTests
         Assert.Equal(expected, Assert.Single(host.Launcher.Requests).SolutionPath)
         live.AssertUnchanged()
     End Sub
+
+    ''' <summary>
+    ''' (9) rename_candidates on MemOS run 13: exactly one candidate, 5339 SupportedSchemaVersion (retired) to 23219
+    ''' MinimumSupportedSchemaVersion (active), same path, offset distance 284, rank 1; run 13 completed, 9 retired, 1 recorded, the count
+    ''' check ran (006 FR-527, US1 scenario 1). No timing asserted; the duration is recorded (analyze G3).
+    ''' </summary>
+    <SkippableFact>
+    Public Sub LiveRenameCandidatesRunThirteenHasOne()
+        Dim live As LiveBridge = Arm()
+        Dim root As JsonElement = Measured(live, "rename_candidates", Args("solutionKey", "MemOS", "runId", 13L)).Root()
+        Assert.Equal(1, root.GetProperty("total").GetInt32())
+        Dim candidate As JsonElement = root.GetProperty("candidates")(0)
+        Assert.Equal(5339L, candidate.GetProperty("retired").GetProperty("id").GetInt64())
+        Assert.False(candidate.GetProperty("retired").GetProperty("isActive").GetBoolean())
+        Assert.Equal(23219L, candidate.GetProperty("new").GetProperty("id").GetInt64())
+        Assert.True(candidate.GetProperty("new").GetProperty("isActive").GetBoolean())
+        Assert.True(candidate.GetProperty("samePath").GetBoolean())
+        Assert.Equal(284, candidate.GetProperty("offsetDistance").GetInt32())
+        Assert.Equal(1, candidate.GetProperty("rank").GetInt32())
+        Dim run As JsonElement = Assert.Single(root.GetProperty("runs").EnumerateArray())
+        Assert.Equal(13L, run.GetProperty("runId").GetInt64())
+        Assert.Equal("completed", run.GetProperty("outcome").GetString())
+        Assert.Equal(9, run.GetProperty("symbolsRetired").GetInt32())
+        Assert.Equal(1, run.GetProperty("renameCandidatesRecorded").GetInt32())
+        Assert.True(run.GetProperty("countChecked").GetBoolean())
+        live.AssertUnchanged()
+    End Sub
+
+    ''' <summary>
+    ''' (10) rename_candidates on MemOS with retiredSymbolId 6754 (the 062 constructor whose signature changed): no candidate, and exactly
+    ''' one run listed - 53, the run that retired it, derived as the first completed run after its last sighting (52) - never every run of
+    ''' the solution (006 FR-504, FR-527, spec Q2).
+    ''' </summary>
+    <SkippableFact>
+    Public Sub LiveRetiredConstructorListsOnlyItsRetiringRun()
+        Dim live As LiveBridge = Arm()
+        Dim root As JsonElement = Measured(live, "rename_candidates", Args("solutionKey", "MemOS", "retiredSymbolId", 6754L)).Root()
+        Assert.Equal(0, root.GetProperty("total").GetInt32())
+        Dim run As JsonElement = Assert.Single(root.GetProperty("runs").EnumerateArray())
+        Assert.Equal(53L, run.GetProperty("runId").GetInt64())
+        Assert.Equal(52L, root.GetProperty("symbol").GetProperty("lastSeenRunId").GetInt64())
+        Assert.Equal(53L, root.GetProperty("symbol").GetProperty("retiredInRunId").GetInt64())
+        Assert.False(root.GetProperty("symbol").GetProperty("isActive").GetBoolean())
+        live.AssertUnchanged()
+    End Sub
+
+    ''' <summary>
+    ''' (11) rename_candidates on MemOS unfiltered: answered, not refused; every completed run checked; the total equals the sum of the
+    ''' recorded counts over the completed runs (006 SC-501; analyze G3 - the Architect checked live on 2026-09-29 that every completed MemOS
+    ''' run reconciles, total 1).
+    ''' </summary>
+    <SkippableFact>
+    Public Sub LiveUnfilteredMemOsReconcilesEveryCompletedRun()
+        Dim live As LiveBridge = Arm()
+        Dim root As JsonElement = Measured(live, "rename_candidates", Args("solutionKey", "MemOS")).Root()
+        Dim recorded As Integer = 0
+        Dim completed As Integer = 0
+        For Each run As JsonElement In root.GetProperty("runs").EnumerateArray()
+            If run.GetProperty("outcome").GetString() <> "completed" Then Continue For
+            completed += 1
+            Assert.True(run.GetProperty("countChecked").GetBoolean(), "run " & run.GetProperty("runId").GetInt64() & " was not checked")
+            recorded += run.GetProperty("renameCandidatesRecorded").GetInt32()
+        Next
+        Assert.True(completed > 0, "no completed MemOS run listed: the check is vacuous")
+        Assert.Equal(recorded, root.GetProperty("total").GetInt32())
+        _output.WriteLine("MemOS unfiltered: " & root.GetProperty("runs").GetArrayLength() & " runs, " & completed & " completed, total " & recorded)
+        live.AssertUnchanged()
+    End Sub
+
+    ''' <summary>
+    ''' One rename_candidates call, its duration printed and not asserted (006 analyze G3, ruled), the reply asserted not an error.
+    ''' </summary>
+    ''' <param name="live">The armed host.</param>
+    ''' <param name="tool">The tool name.</param>
+    ''' <param name="args">The arguments.</param>
+    ''' <returns>The reply.</returns>
+    Private Function Measured(live As LiveBridge, tool As String, args As Dictionary(Of String, Object)) As BridgeReply
+        Dim watch As Stopwatch = Stopwatch.StartNew()
+        Dim reply As BridgeReply = live.Host.Invoke(tool, args)
+        watch.Stop()
+        _output.WriteLine(tool & " " & watch.ElapsedMilliseconds & " ms (measured, not asserted)")
+        Assert.False(reply.IsError, tool & ": " & reply.Text)
+        Return reply
+    End Function
 
     ''' <summary>
     ''' Arms the facts: the variable set, else Skipped.

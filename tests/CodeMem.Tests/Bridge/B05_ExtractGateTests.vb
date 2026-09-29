@@ -37,6 +37,7 @@
 ' 2026-09-17 (feature 005, T035): the plan named (2) as a Red when warnings=<n> joined the summary line; it was not red - the line (2)
 '        asserts is scripted into the launcher and echoed verbatim, never the extractor's. The scripted line now carries warnings=0 so
 '        it keeps the current shape; the extractor's own line is asserted by RefusalTests (d) and X02 (1).
+' 2026-09-29 (feature 006, T021): (18) also asserts the fragment's command is the placeholder path and names no C:/Users/ (FR-522).
 
 Imports System.IO
 Imports System.Text.Json
@@ -487,6 +488,8 @@ Public Class B05_ExtractGateTests
             Dim hookEntry As JsonElement = postToolUse.GetProperty("hooks")(0)
             Assert.Equal("command", hookEntry.GetProperty("type").GetString())
             Assert.EndsWith("CodeMem.Bridge.exe"" hook", hookEntry.GetProperty("command").GetString())
+            Assert.Equal("""C:/path/to/CodeMem.Bridge.exe"" hook", hookEntry.GetProperty("command").GetString())
+            Assert.DoesNotContain("C:/Users/", hookEntry.GetProperty("command").GetString(), StringComparison.Ordinal)
             Assert.Equal(600, hookEntry.GetProperty("timeout").GetInt32())
         End Using
     End Sub
