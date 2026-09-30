@@ -353,3 +353,105 @@ The decisions as they stood for the ruling:
 ## Complexity Tracking
 
 No Constitution Check violation to justify.
+
+## Implementation record (2026-09-29)
+
+**Branch** `006-map-teaches-its-use`, from `cf6222a`.
+
+**Commits**:
+- `637e96d` T001–T003
+- `dd9ba90` T017, the instructions and their `eol=lf` pin, on their own commit
+- `0558457` T004–T020, US1 and US2
+- `d781beb` T021–T026, US3
+- the close-out commit
+
+The figures are in quickstart.md §Record.
+
+### By task
+
+- **T001**: the Architect had committed the 006 artefacts on `main` as `cf6222a` (on `806b524`), so the branch starts
+  there and that commit is T001's "first commit". MemOS `status --porcelain` was empty at `546f387`.
+- **T002**: `BridgeStandaloneGateTests` (4) was retired to `_Archive/006-map-teaches-its-use/` with a README quoting the
+  ruling. The class runs 3/3.
+- **T003**: three TRX runs, `--no-build` on one build: **196 / 0 / 9 (205)** each, 302 s, 289 s and 293 s. The
+  plan-time unnamed failure did not recur, so it stays recorded as seen once. `--no-build` is a deviation that let later
+  tasks' sources be written during the runs without touching the baseline.
+- **T004–T006**:
+  - `BridgeProcess.InitializeResult` and `ListToolAnnotations` added.
+  - `MapQueries.DeleteCandidate` added. **Deviation:** no `ReadCandidateIds`, because `ReadCandidates` already returns
+    the ids (Article XI).
+  - `TwinScenario.Prepare` is now `Friend Shared`.
+  - `RenameScenario` was checked once by a throwaway probe (deleted): runs S1=1, O1=2, S2=3 (3 candidates, one per
+    twin plus Describe→Explain), S3=4 (failed, 1 recorded, 0 rows).
+  - **The probe also settled a question raised mid-implementation.** A top-level type renamed in the linked file
+    gives two candidates, one per project, each within its own container (5 and 7). So Q1's reason (a) and the ruled
+    description ("one candidate per project") hold for types as well as members. The concern, drawn from
+    `symbol_search` kind `namespace` returning 0 on CodeMem, was withdrawn before it was raised.
+- **T007 and T016 Reds (CON2)**: the US1 product was written while the baseline held the build, so the Red was
+  observed by stashing every `src/` change and building at `637e96d`. There were five compile errors:
+  `BridgeHost.vb` BC30456 (`RenameCandidates` not a member of `BridgeTools`), and BC30451 (`BridgeServerInstructions`
+  not declared) in B01 (5) and UsageTexts (1)–(3). The product was then restored.
+- **T008–T013**: the Core reads (`ReadCandidates`, `ReadBySolution`, `ReadRetiringRun`, with one row mapping),
+  `RenameCandidateRecord`, `RequireInScope`, the three kinds and texts, the five envelopes, the reader, and the
+  registration. B12 went **9/9 green on the first build**.
+- **Named Reds**:
+  - B09 (6): 29 → 32; the fact was renamed `TheVocabularyHasThirtyTwoKinds`.
+  - B09 (4): 8 → 9 descriptions.
+  - B01 (5): version, instructions, the nine literal names.
+  - B05 (18): the machine path.
+  - UsageTexts (4), (5), (7): US3.
+- **Unnamed Reds**, diagnosed and amended like 005's version literals:
+  - **B09 (2)**: the same literal tool count, 8 → 9.
+  - **B01 (4)**: its argument table's own guard ("no arguments for tool rename_candidates: extend the table"). The
+    table gained the tool, so its stdio call is held byte-identical too.
+- **T014 FIREs**, every one red for its stated reason:
+  - (1) fold: CandidateCountMismatch 3 vs 2;
+  - (2) every run: the run list differs;
+  - (4) skip the check: answered;
+  - (5) RunOutOfScope and RunNotFound: both answered;
+  - (6) read-only: `readOnlyHint` false;
+  - FR-509: the canonical spelling turned the standalone gate and `OnlyMapDatabaseOpensAConnection` red.
+- **Finding for the Architect**: `SqlLocationGateTests.OnlyMapDatabaseOpensAConnection` matches the text
+  `New SqliteConnection`, so a fully qualified `New Microsoft.Data.Sqlite.SqliteConnection(…)` turned only the
+  standalone gate red. In the bridge projects the standalone gate still catches it; elsewhere under `src/` nothing
+  would. Raised, not changed here.
+- **FIRE mechanics**: restoring a byte copy kept the old timestamp, so the last incremental build still carried two
+  injections. Each FIRE's own result is valid, since each injection wrote a fresh file and forced its own build. The
+  final state was rebuilt with `--no-incremental`, and the script now touches what it restores.
+- **T017–T019**:
+  - The instructions constant was written from the store by the Q3 rule. Its hash `d8a173d3…` was OK;
+    `git ls-files --eol` shows `i/lf w/lf attr/text eol=lf`.
+  - `RunAsync` assigns it.
+  - The `symbol_search` sentence landed after its Red.
+  - Both projects are at 0.3.0.
+- **T020 FIREs**:
+  - a CR concatenated → (1) red at position 1639;
+  - the assignment removed → (1) and B01 (5) red;
+  - the `rename_candidates` line deleted → (2) red;
+  - the proof line changed → (3) red.
+- **T021–T026**:
+  - `SKILL.md`, the snippet, README step 6, step 5's line and the table row were all written from the store. The store
+    matched the six ratified hashes at each write, and quickstart §Verbatim gives **six OK**.
+  - The fragment and the process document changed per contracts/usage-texts.md §4. **Deviation:** the "never returns
+    a retired symbol" clause takes its addition in parentheses, to keep the sentence's list.
+  - T026 FIREs: (4) missing row, and a ghost row; (5) the skill's sentence deleted; (6) the private block pasted, then
+    restored; (7) the sketch back to 8. All red.
+- **T027**: Debug **224 / 212 / 0 / 12**, 284 s.
+- **T028**: Release **224 / 212 / 0 / 12**, 273 s. **Deviation:** the Release bridge serving the session was not
+  stopped; Release was built into per-project `bin-006-release\` folders and those were removed.
+- **T029**: every new guard has its FIRE. Nothing changed under the extractor, `Extractor` or `SchemaRepository.vb`;
+  the extractor is 0.3.0 and the schema 3.
+- **T030**: the README reads 212 passing / 12 skipped.
+- **T031, on a copy of the live map**, with the live map unchanged:
+  - **(9)** run 13: 5339 → 23219, 284, rank 1, checked; 4 ms.
+  - **(10)** 6754: runs `[53]`, retired in 53; 5 ms.
+  - **(11)** MemOS unfiltered: 97 runs, all checked, total 1; 31 ms.
+  - The older (6) missed its 3 s budget once at 6 s on a cold first class run, then passed at 265 ms and 246 ms. That
+    is 004's recorded timing Red, not 006 behaviour.
+- **T032**: MemOS is unchanged, `C:/Users/` appears in no install text, and there is nothing private under `docs/`.
+- **`~/.claude`**: no task of 006 writes to it (FR-528; analyze G6).
+
+**Open for the Architect**:
+- the connection-site gate's qualified-name gap;
+- whether B08 (6)'s 3 s budget should stay a hard assert;
+- the merge to `main`.

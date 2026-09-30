@@ -20,6 +20,11 @@ Q2–Q7 and Q9–Q13 stood as proposed into the plan. **Planned and tasked 2026-
   the tool description approved with two edits; the process document's two exclusions overruled. That extends Q9.
 - **Analyzed the same day**: fourteen findings, ruled and applied. FR-513 is "the fact, with one FIRE"; four FIREs
   were added; B08 (11) and B12 (9) were added; the rest is wording.
+- **Implemented 2026-09-29** on `006-map-teaches-its-use` (plan.md "Implementation record"): T001–T033.
+  - Debug and Release are both 224 / 212 / 0 / 12.
+  - Six verbatim hashes OK.
+  - On a copy of the live map, B08 (9)–(11) are green and the live map is unchanged.
+  - Open for the Architect: the connection-site gate's qualified-name gap, and the merge.
 
 **Input**: User description: "CodeMem 006: the map teaches its own use. PM: 153204. Rulings: 191497. Parent: 005.
 ### Remove Nothing. ### Change `BridgeServer.RunAsync` … also sets the server instructions to a constant holding doc

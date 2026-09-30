@@ -503,21 +503,21 @@ ratified values; nothing private and no machine path ships.
 
 **Purpose**: Both builds green, the live figures proven on a copy, the README's counts current, the record written.
 
-- [ ] T027 Full suite on the Debug build: `dotnet test CodeMem.sln -c Debug --nologo --logger
+- [X] T027 Full suite on the Debug build: `dotnet test CodeMem.sln -c Debug --nologo --logger
   "trx;LogFileName=close-006-debug.trx"` → green, under 5 minutes. Record passed / failed / skipped, the duration and
   the delta against T003's baseline: + B12's 9, + UsageTexts' 7, + B08's 3 skipped, − BridgeStandaloneGateTests (4).
-- [ ] T028 Full suite on the Release build. Stop any Release `CodeMem.Bridge.exe serve` first (the F10 caveat), then
+- [X] T028 Full suite on the Release build. Stop any Release `CodeMem.Bridge.exe serve` first (the F10 caveat), then
   `dotnet build CodeMem.sln -c Release --nologo -v q` 0/0 and `dotnet test CodeMem.sln -c Release --nologo` → green,
   under 5 minutes. Record it.
-- [ ] T029 Every new guard carries its FIRE: `git grep -n "' FIRE:" -- tests/CodeMem.Tests/Bridge/B12_RenameCandidatesTests.vb
+- [X] T029 Every new guard carries its FIRE: `git grep -n "' FIRE:" -- tests/CodeMem.Tests/Bridge/B12_RenameCandidatesTests.vb
   tests/CodeMem.Tests/Guards/UsageTextsGateTests.vb` shows the FIREs of T014, T020 and T026. `git diff --stat
   806b524 -- src/CodeMem.Extraction src/CodeMem.Extractor src/CodeMem.Core/Schema/SchemaRepository.vb` prints nothing
   (FR-526; SC-508). The extractor still reports version 0.3.0 and the fixture's I02 fact is green. Record.
-- [ ] T030 README counts at the close (contracts/usage-texts.md §1; Q8 (d)): the badge's `tests-<n>%20passing`, the
+- [X] T030 README counts at the close (contracts/usage-texts.md §1; Q8 (d)): the badge's `tests-<n>%20passing`, the
   Layout row's "<n> passing, 9 skipped" and the Status line's figures set to T027's passed and skipped counts. The
   Status line's "Features 001–005 merged" stays until the merge (T033). Re-run `UsageTextsGateTests` (4) and (7) →
   green.
-- [ ] T031 Acceptance on a copy of the live map (quickstart §"Acceptance on a copy"; FR-527; STOP 1 decision 9):
+- [X] T031 Acceptance on a copy of the live map (quickstart §"Acceptance on a copy"; FR-527; STOP 1 decision 9):
   1. With no build running in a mapped repository, record the live map's SHA-256.
   2. `Copy-Item` it to `$env:TEMP\codemem-006-acceptance.sqlite`.
   3. In one command, run B08 with `CODEMEM_LIVE_MAP` set to the copy, the live hash read before and after.
@@ -526,10 +526,10 @@ ratified values; nothing private and no machine path ships.
   5. Delete the copy.
 
   A moved figure in an older B08 fact is diagnosed as 005 T042 did, never re-pinned blind.
-- [ ] T032 Record the untouched: `git -C C:\Users\rchau\source\repos\rchaudio-a11y\MemOS status --porcelain`, the same
+- [X] T032 Record the untouched: `git -C C:\Users\rchau\source\repos\rchaudio-a11y\MemOS status --porcelain`, the same
   as T001's; `git grep -n "C:/Users/" -- README.md src/CodeMem.Bridge/README.md src/CodeMem.Bridge/hooks/settings.fragment.json`
   prints nothing; `git grep -n "153204" -- docs` prints nothing. Record under "What must not happen" in the quickstart.
-- [ ] T033 Close-out:
+- [X] T033 Close-out:
   - Append "Implementation record (<date>)" to `specs/006-map-teaches-its-use/plan.md`: every Red, Green and FIRE by
     task; T003's baseline and any intermittent failure; the acceptance figures; deviations.
   - Update the spec's Status line. `checklists/requirements.md` is left alone (its markers are the reviewer's).

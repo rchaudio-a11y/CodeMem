@@ -11,7 +11,7 @@ resolved, and serves that map to Claude Code over MCP — read-only, and honest 
 ![Roslyn](https://img.shields.io/badge/Roslyn-VB.NET%20today%2C%20C%23%20next-5C2D91)
 ![SQLite](https://img.shields.io/badge/SQLite-schema%20v3-003B57?logo=sqlite&logoColor=white)
 ![MCP](https://img.shields.io/badge/MCP-9%20tools-FF6B35)
-![tests](https://img.shields.io/badge/tests-197%20passing-2ea44f)
+![tests](https://img.shields.io/badge/tests-212%20passing-2ea44f)
 
 </div>
 
@@ -234,7 +234,7 @@ to a solution **from the map alone** — no registry, no lookup anywhere else. `
 | `src/CodeMem.Extractor` | The extractor's command line. |
 | `src/CodeMem.Bridging` | The bridge's library: readers, tools, refusals, the extract door. |
 | `src/CodeMem.Bridge` | The executable — MCP server, CLI, hook entry — and the [process document](src/CodeMem.Bridge/README.md). |
-| `tests/CodeMem.Tests` | xUnit: 197 passing, 9 skipped (live-map facts, armed with `CODEMEM_LIVE_MAP`). |
+| `tests/CodeMem.Tests` | xUnit: 212 passing, 12 skipped (live-map facts, armed with `CODEMEM_LIVE_MAP`). |
 | `specs/` | One folder per feature: spec, plan, research, contracts, tasks, implementation record. |
 | `_Archive/` | Retired code, kept where it can be read. Nothing here compiles. |
 
@@ -277,7 +277,7 @@ beside it are not extracted either.
 
 <div align="center">
 
-**Status** · Features 001–005 merged · schema v3 · 197 passing / 9 skipped on Debug and Release · five solutions and
+**Status** · Features 001–005 merged · schema v3 · 212 passing / 12 skipped on Debug and Release · five solutions and
 ~23,000 symbols in the live map.
 
 </div>
