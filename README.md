@@ -277,7 +277,7 @@ beside it are not extracted either.
 
 <div align="center">
 
-**Status** · Features 001–005 merged · schema v3 · 212 passing / 12 skipped on Debug and Release · five solutions and
+**Status** · Features 001–006 merged · schema v3 · 212 passing / 12 skipped on Debug and Release · five solutions and
 ~23,000 symbols in the live map.
 
 </div>

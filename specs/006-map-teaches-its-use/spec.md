@@ -24,7 +24,8 @@ Q2–Q7 and Q9–Q13 stood as proposed into the plan. **Planned and tasked 2026-
   - Debug and Release are both 224 / 212 / 0 / 12.
   - Six verbatim hashes OK.
   - On a copy of the live map, B08 (9)–(11) are green and the live map is unchanged.
-  - Open for the Architect: the connection-site gate's qualified-name gap, and the merge.
+  - Ruled 2026-09-29: merged to `main` by fast-forward. The connection-site gate's qualified-name gap and B08 (6)'s
+    hard 3 s assert go to the review-findings fixpack.
 
 **Input**: User description: "CodeMem 006: the map teaches its own use. PM: 153204. Rulings: 191497. Parent: 005.
 ### Remove Nothing. ### Change `BridgeServer.RunAsync` … also sets the server instructions to a constant holding doc

@@ -455,3 +455,11 @@ The figures are in quickstart.md §Record.
 - the connection-site gate's qualified-name gap;
 - whether B08 (6)'s 3 s budget should stay a hard assert;
 - the merge to `main`.
+
+**Ruled 2026-09-29 (Architect)**:
+- **Merge**: fast-forward 006 to `main`. The README Status line reads "Features 001–006 merged" in the
+  merge-preparation commit.
+- **Connection gate: not in 006.** It goes to the review-findings fixpack (tasks 167677–167686). The ruling there:
+  match the type name, qualified or not.
+- **B08 (6): drop the hard 3-second assert and keep recording the time.** This also goes to the review-findings
+  fixpack.
